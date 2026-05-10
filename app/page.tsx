@@ -1,65 +1,703 @@
 import Image from "next/image";
+import { EcosystemExpansion } from "./ecosystem-widgets";
+
+type Stream = {
+  supplier: string;
+  region: string;
+  title: string;
+  viewers: string;
+  moq: string;
+  price: string;
+  verified: string;
+  image: string;
+  tags: string[];
+};
+
+type Product = {
+  name: string;
+  supplier: string;
+  price: string;
+  moq: string;
+  image: string;
+};
+
+const streams: Stream[] = [
+  {
+    supplier: "Bali Rattan Works",
+    region: "Gianyar, Bali",
+    title: "Resort lounge collection live sourcing",
+    viewers: "84 buyers",
+    moq: "MOQ 24",
+    price: "from $68/unit",
+    verified: "SVLK verified",
+    image:
+      "https://images.unsplash.com/photo-1616047006789-b7af5afb8c20?auto=format&fit=crop&w=1100&q=85",
+    tags: ["Outdoor grade", "Custom finish", "Villa projects"],
+  },
+  {
+    supplier: "Java Teak Atelier",
+    region: "Jepara, Central Java",
+    title: "Contract teak dining and bedroom sets",
+    viewers: "62 buyers",
+    moq: "MOQ 12",
+    price: "from $112/unit",
+    verified: "FSC source",
+    image:
+      "https://images.unsplash.com/photo-1594026112284-02bb6f3352fe?auto=format&fit=crop&w=1100&q=85",
+    tags: ["Hospitality spec", "Container quote", "Batch QC"],
+  },
+  {
+    supplier: "Lombok Stone Studio",
+    region: "Lombok",
+    title: "Stone basins and spa fixtures drop",
+    viewers: "47 buyers",
+    moq: "MOQ 18",
+    price: "from $86/unit",
+    verified: "Trade license",
+    image:
+      "https://images.unsplash.com/photo-1600607687920-4e2a09cf159d?auto=format&fit=crop&w=1100&q=85",
+    tags: ["Export packing", "Natural stone", "Suite ready"],
+  },
+];
+
+const products: Product[] = [
+  {
+    name: "Handwoven lounge chair",
+    supplier: "Bali Rattan Works",
+    price: "$68",
+    moq: "24 units",
+    image:
+      "https://images.unsplash.com/photo-1506439773649-6e0eb8cfb237?auto=format&fit=crop&w=800&q=85",
+  },
+  {
+    name: "Teak console table",
+    supplier: "Java Teak Atelier",
+    price: "$112",
+    moq: "16 units",
+    image:
+      "https://images.unsplash.com/photo-1532372320978-9d97acb7f8c9?auto=format&fit=crop&w=800&q=85",
+  },
+  {
+    name: "Stone vanity basin",
+    supplier: "Lombok Stone Studio",
+    price: "$86",
+    moq: "18 pieces",
+    image:
+      "https://images.unsplash.com/photo-1600566753190-17f0baa2a6c3?auto=format&fit=crop&w=800&q=85",
+  },
+  {
+    name: "Woven pendant lamp",
+    supplier: "Ubud Fiber House",
+    price: "$34",
+    moq: "40 units",
+    image:
+      "https://images.unsplash.com/photo-1507473885765-e6ed057f782c?auto=format&fit=crop&w=800&q=85",
+  },
+];
+
+const procurementSignals = [
+  ["RFQ heat", "142 active quotes"],
+  ["Avg reply", "17 minutes"],
+  ["Cost delta", "-12% vs brief"],
+  ["Verified", "2.1K suppliers"],
+];
+
+const chatFeed = [
+  ["Buyer", "Can you ship CIF Bali for 42 villas?"],
+  ["Supplier", "Bisa. Outdoor finish ready in 21 days."],
+  ["AI", "Translation: CIF Bali quote available with outdoor-grade finish."],
+  ["Buyer", "Add cushions and split MOQ by SKU."],
+];
 
 export default function Home() {
   return (
-    <div className="flex flex-col flex-1 items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex flex-1 w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the page.tsx file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
-        </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
+    <main className="min-h-screen overflow-hidden bg-[#f3ecdc] text-[#1e2419]">
+      <style>{`
+        @keyframes floatLift {
+          0%, 100% { transform: translate3d(0, 0, 0) rotate(-1deg); }
+          50% { transform: translate3d(0, -12px, 0) rotate(1deg); }
+        }
+
+        @keyframes drift {
+          0% { transform: translateX(-50%); }
+          100% { transform: translateX(0); }
+        }
+
+        @keyframes popIn {
+          0% { opacity: 0; transform: translateY(22px) scale(.96); }
+          100% { opacity: 1; transform: translateY(0) scale(1); }
+        }
+
+        @keyframes bidPulse {
+          0%, 100% { box-shadow: 0 0 0 0 rgba(111, 127, 79, .35); }
+          50% { box-shadow: 0 0 0 10px rgba(111, 127, 79, 0); }
+        }
+
+        @keyframes riseCard {
+          0% { transform: translateY(18px); opacity: 0; }
+          15%, 75% { opacity: 1; }
+          100% { transform: translateY(-78px); opacity: 0; }
+        }
+
+        .paper-glow {
+          background-image:
+            radial-gradient(circle at 18% 18%, rgba(111, 127, 79, .18), transparent 28%),
+            radial-gradient(circle at 82% 10%, rgba(181, 125, 72, .14), transparent 30%),
+            linear-gradient(135deg, rgba(255,255,255,.7), rgba(255,255,255,0));
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+          *, *::before, *::after {
+            animation-duration: .001ms !important;
+            animation-iteration-count: 1 !important;
+            scroll-behavior: auto !important;
+            transition-duration: .001ms !important;
+          }
+        }
+      `}</style>
+
+      <section className="relative min-h-screen px-4 pb-10 pt-5 sm:px-6 lg:px-8">
+        <div className="paper-glow pointer-events-none absolute inset-0" />
+        <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-[#748556]/70 to-transparent" />
+
+        <nav className="relative z-20 mx-auto flex max-w-7xl items-center justify-between gap-3 rounded-full border border-[#d6cbb6] bg-[#fffaf0]/78 px-3 py-3 shadow-sm backdrop-blur-xl sm:px-4">
+          <div className="flex items-center gap-3">
             <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
+              src="/buyamia-logo.svg"
+              alt="Buyamia logo"
+              width={40}
+              height={40}
+              className="size-10 rounded-full shadow-sm"
+              priority
             />
-            Deploy Now
-          </a>
+            <div>
+              <p className="text-sm font-semibold tracking-wide">Buyamia</p>
+              <p className="text-xs text-[#766e5e]">Live AI procurement</p>
+            </div>
+          </div>
+          <div className="hidden items-center gap-7 text-sm text-[#675f50] md:flex">
+            <a className="transition hover:text-[#1e2419]" href="#streams">
+              Streams
+            </a>
+            <a className="transition hover:text-[#1e2419]" href="#assistant">
+              AI sourcing
+            </a>
+            <a className="transition hover:text-[#1e2419]" href="#wholesale">
+              Wholesale
+            </a>
+          </div>
           <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
+            href="/live"
+            className="shrink-0 rounded-full bg-[#1e2419] px-4 py-2 text-sm font-semibold text-[#fffaf0] transition hover:bg-[#596540] focus:outline-none focus:ring-2 focus:ring-[#1e2419]/25"
           >
-            Documentation
+            Join live
           </a>
+        </nav>
+
+        <div className="relative z-10 mx-auto grid max-w-7xl gap-8 pt-10 lg:min-h-[calc(100vh-92px)] lg:grid-cols-[.88fr_1.12fr] lg:items-center">
+          <div className="[animation:popIn_.65s_ease-out_both]">
+            <div className="mb-5 inline-flex items-center gap-2 rounded-full border border-[#d6cbb6] bg-[#fffaf0]/75 px-3 py-1.5 text-xs font-semibold text-[#596540] shadow-sm">
+              <span className="size-2 rounded-full bg-[#6f7f4f] [animation:bidPulse_2s_ease-in-out_infinite]" />
+              Whatnot-style live sourcing for Indonesian procurement
+            </div>
+            <h1 className="max-w-4xl font-serif text-4xl leading-[1.04] tracking-normal sm:text-6xl lg:text-7xl">
+              Watch suppliers live. Let AI build the procurement case.
+            </h1>
+            <p className="mt-6 max-w-2xl text-base leading-8 text-[#655e50] sm:text-lg">
+              Buyamia transforms wholesale sourcing into an immersive live
+              marketplace where hospitality buyers discover Indonesian artisans,
+              compare MOQs, request quotes, and move faster with an AI sourcing
+              assistant beside every stream.
+            </p>
+            <div className="mt-8 flex flex-col gap-3 sm:flex-row">
+              <a
+                href="/live"
+                className="relative overflow-hidden rounded-full bg-[#6f7f4f] px-6 py-4 text-center text-sm font-bold text-white shadow-xl shadow-[#6f7f4f]/18 transition hover:bg-[#596540] focus:outline-none focus:ring-2 focus:ring-[#6f7f4f]/30"
+              >
+                <span className="relative z-10">Enter live sourcing floor</span>
+                <span className="absolute inset-y-0 left-0 w-1/2 bg-white/30 [animation:drift_2.6s_linear_infinite]" />
+              </a>
+              <a
+                href="#assistant"
+                className="rounded-full border border-[#cabda4] bg-[#fffaf0]/72 px-6 py-4 text-center text-sm font-bold text-[#1e2419] transition hover:bg-white focus:outline-none focus:ring-2 focus:ring-[#cabda4]/40"
+              >
+                Ask Buyamia AI
+              </a>
+            </div>
+
+            <div className="mt-10 grid max-w-xl grid-cols-2 gap-3 sm:grid-cols-4">
+              {procurementSignals.map(([value, label]) => (
+                <div
+                  key={label}
+                  className="rounded-3xl border border-[#d6cbb6] bg-[#fffaf0]/72 p-4 shadow-sm backdrop-blur"
+                >
+                  <p className="text-xl font-semibold">{value}</p>
+                  <p className="mt-1 text-xs leading-5 text-[#766e5e]">
+                    {label}
+                  </p>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <HeroLiveStage />
         </div>
-      </main>
+      </section>
+
+      <section
+        id="streams"
+        className="scroll-mt-6 px-4 py-10 sm:px-6 lg:px-8"
+      >
+        <div className="mx-auto max-w-7xl">
+          <SectionHeader
+            eyebrow="Live supplier streams"
+            title="A high-energy sourcing floor for premium B2B buyers."
+            note="Every stream carries MOQ, verification, wholesale pricing, and an instant RFQ path."
+          />
+
+          <div className="grid gap-4 lg:grid-cols-[1.1fr_.9fr]">
+            <article className="relative min-h-[540px] overflow-hidden rounded-[2rem] border border-[#d6cbb6] bg-[#fffaf0] shadow-xl shadow-[#8a7d61]/12 sm:min-h-[620px]">
+              <div
+                className="absolute inset-0 bg-cover bg-center"
+                style={{
+                  backgroundImage:
+                    "linear-gradient(to bottom, rgba(30,36,25,.05), rgba(30,36,25,.12) 42%, rgba(30,36,25,.82)), url(https://images.unsplash.com/photo-1600210492486-724fe5c67fb0?auto=format&fit=crop&w=1300&q=85)",
+                }}
+              />
+              <div className="relative z-10 flex min-h-[540px] flex-col justify-between p-4 sm:min-h-[620px] sm:p-6">
+                <div className="flex flex-wrap items-start justify-between gap-3">
+                  <div className="flex gap-2">
+                    <span className="rounded-full bg-[#b85438] px-3 py-1 text-xs font-black text-white">
+                      LIVE
+                    </span>
+                    <span className="rounded-full bg-[#fffaf0] px-3 py-1 text-xs font-bold text-[#1e2419]">
+                      126 buyers
+                    </span>
+                  </div>
+                  <span className="rounded-full bg-[#6f7f4f] px-3 py-1 text-xs font-bold text-white">
+                    Verified supplier
+                  </span>
+                </div>
+
+                <div className="grid gap-4 lg:grid-cols-[1fr_300px] lg:items-end">
+                  <div className="max-w-2xl">
+                    <p className="text-sm font-semibold text-[#f8edda]">
+                      Bali Rattan Works - Gianyar, Bali
+                    </p>
+                    <h2 className="mt-2 font-serif text-3xl leading-tight text-white sm:text-5xl">
+                      Resort lounge collection with live MOQ negotiation.
+                    </h2>
+                    <div className="mt-5 flex flex-wrap gap-2">
+                      {["MOQ 24 units", "from $68/unit", "21 day lead time"].map(
+                        (item) => (
+                          <span
+                            key={item}
+                            className="rounded-full bg-[#fffaf0]/90 px-3 py-1 text-xs font-bold text-[#1e2419]"
+                          >
+                            {item}
+                          </span>
+                        ),
+                      )}
+                    </div>
+                    <a
+                      href="/live"
+                      className="mt-6 inline-flex rounded-full bg-[#fffaf0] px-5 py-3 text-sm font-bold text-[#1e2419] shadow-xl shadow-black/10 transition hover:bg-white focus:outline-none focus:ring-2 focus:ring-[#fffaf0]/70"
+                    >
+                      Join this stream
+                    </a>
+                  </div>
+                  <LiveChatCard />
+                </div>
+              </div>
+            </article>
+
+            <div className="grid gap-4">
+              {streams.slice(1).map((stream, index) => (
+                <StreamCard key={stream.title} stream={stream} index={index} />
+              ))}
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section id="assistant" className="px-4 py-10 sm:px-6 lg:px-8">
+        <div className="mx-auto grid max-w-7xl gap-5 lg:grid-cols-[.88fr_1.12fr]">
+          <div className="rounded-[2rem] border border-[#d6cbb6] bg-[#fffaf0] p-6 shadow-sm sm:p-8">
+            <p className="text-sm font-semibold text-[#6f7f4f]">
+              AI sourcing assistant
+            </p>
+            <h2 className="mt-3 font-serif text-4xl leading-tight sm:text-5xl">
+              The copilot inside every supplier stream.
+            </h2>
+            <p className="mt-4 leading-8 text-[#655e50]">
+              Buyamia AI translates supplier conversations, extracts specs,
+              compares landed cost, checks MOQ strategy, and turns live product
+              interest into procurement-ready RFQs.
+            </p>
+            <div className="mt-7 grid gap-3">
+              {[
+                ["Live translation", "Bahasa Indonesia to English, Arabic, and Mandarin for global buyers."],
+                ["Quote builder", "Creates RFQs with incoterms, batch QC, lead time, and packaging notes."],
+                ["Risk scan", "Flags missing documents, capacity constraints, and supplier response patterns."],
+              ].map(([title, body]) => (
+                <div
+                  key={title}
+                  className="rounded-3xl border border-[#ded4c2] bg-[#f6efe2] p-4"
+                >
+                  <p className="font-semibold">{title}</p>
+                  <p className="mt-1 text-sm leading-6 text-[#766e5e]">
+                    {body}
+                  </p>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <div className="relative overflow-hidden rounded-[2rem] border border-[#d6cbb6] bg-[#e9dfcb] p-5 shadow-sm sm:p-8">
+            <div className="absolute -right-16 -top-16 size-48 rounded-full bg-[#6f7f4f]/15" />
+            <div className="relative rounded-[1.55rem] border border-[#d6cbb6] bg-[#fffaf0] p-5 shadow-lg shadow-[#8a7d61]/8">
+              <div className="mb-5 flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-semibold">Buyamia AI</p>
+                  <p className="text-xs text-[#766e5e]">
+                    Watching stream and building RFQ
+                  </p>
+                </div>
+                <span className="rounded-full bg-[#1e2419] px-3 py-1 text-xs font-bold text-white">
+                  ACTIVE
+                </span>
+              </div>
+
+              <div className="space-y-3">
+                {[
+                  [
+                    "Buyer",
+                    "Need 42 villa suites, outdoor finish, custom cushions, CIF Bali.",
+                  ],
+                  [
+                    "AI",
+                    "Recommended: split MOQ across chair, daybed, and side table. Estimated landed cost is 12% under target.",
+                  ],
+                  [
+                    "Supplier translated",
+                    "Production can start next Monday. Cushion fabric can match the resort palette.",
+                  ],
+                ].map(([label, message], index) => (
+                  <div
+                    key={label}
+                    className={`rounded-3xl p-4 text-sm leading-6 ${
+                      index === 0
+                        ? "ml-auto max-w-[86%] bg-[#6f7f4f] font-semibold text-white"
+                        : "max-w-[92%] bg-[#f3ecdc] text-[#655e50]"
+                    }`}
+                  >
+                    <span className="mb-1 block text-xs font-bold uppercase tracking-[.16em] opacity-70">
+                      {label}
+                    </span>
+                    {message}
+                  </div>
+                ))}
+              </div>
+
+              <div className="mt-5 grid grid-cols-3 gap-2">
+                {["Build RFQ", "Check MOQ", "Translate"].map((action) => (
+                  <button
+                    key={action}
+                    className="rounded-2xl border border-[#d6cbb6] bg-white/50 px-2 py-3 text-xs font-bold transition hover:bg-white"
+                  >
+                    {action}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div className="mt-5 grid gap-3 sm:grid-cols-3">
+              {[
+                ["96%", "spec fit"],
+                ["-12%", "cost delta"],
+                ["21d", "lead time"],
+              ].map(([value, label]) => (
+                <div
+                  key={label}
+                  className="rounded-3xl border border-[#d6cbb6] bg-[#fffaf0]/75 p-4"
+                >
+                  <p className="text-2xl font-semibold text-[#596540]">
+                    {value}
+                  </p>
+                  <p className="mt-1 text-xs text-[#766e5e]">{label}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section id="wholesale" className="px-4 py-10 sm:px-6 lg:px-8">
+        <div className="mx-auto max-w-7xl">
+          <SectionHeader
+            eyebrow="Wholesale pricing"
+            title="Quote-ready cards built for procurement speed."
+            note="Modern marketplace discovery with B2B controls: MOQ, supplier proof, and quote actions."
+          />
+
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            {products.map((product, index) => (
+              <article
+                key={product.name}
+                className="group overflow-hidden rounded-[1.7rem] border border-[#d6cbb6] bg-[#fffaf0] shadow-sm transition duration-500 hover:-translate-y-1 hover:shadow-xl hover:shadow-[#8a7d61]/12"
+                style={{ animation: `popIn .6s ease-out ${index * 0.08}s both` }}
+              >
+                <div
+                  className="relative h-52 bg-cover bg-center"
+                  style={{ backgroundImage: `url(${product.image})` }}
+                >
+                  <span className="absolute left-3 top-3 rounded-full bg-[#fffaf0]/92 px-3 py-1 text-xs font-bold">
+                    MOQ {product.moq}
+                  </span>
+                </div>
+                <div className="p-5">
+                  <p className="text-xs font-bold uppercase tracking-[.16em] text-[#8a826f]">
+                    verified wholesale
+                  </p>
+                  <h3 className="mt-3 text-lg font-semibold">{product.name}</h3>
+                  <p className="mt-1 text-sm text-[#766e5e]">
+                    {product.supplier}
+                  </p>
+                  <div className="mt-5 flex items-end justify-between rounded-3xl bg-[#f3ecdc] p-4">
+                    <div>
+                      <p className="text-xs text-[#766e5e]">from</p>
+                      <p className="text-2xl font-semibold">{product.price}</p>
+                    </div>
+                    <button className="rounded-full bg-[#1e2419] px-4 py-2 text-sm font-bold text-white transition hover:bg-[#596540] focus:outline-none focus:ring-2 focus:ring-[#1e2419]/25">
+                      RFQ
+                    </button>
+                  </div>
+                </div>
+              </article>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      <section className="px-4 pb-16 pt-10 sm:px-6 lg:px-8">
+        <div className="mx-auto grid max-w-7xl gap-4 lg:grid-cols-[1fr_.9fr]">
+          <div className="rounded-[2rem] border border-[#d6cbb6] bg-[#1e2419] p-6 text-[#fffaf0] shadow-xl shadow-[#8a7d61]/12 sm:p-8">
+            <p className="text-sm font-semibold text-[#cbd8a7]">
+              Supplier verification
+            </p>
+            <h2 className="mt-3 font-serif text-4xl leading-tight sm:text-5xl">
+              Trust signals that move buyers from watching to quoting.
+            </h2>
+            <p className="mt-4 max-w-2xl leading-8 text-[#ded8ca]">
+              Buyamia blends marketplace energy with procurement confidence:
+              factory checks, export readiness, hospitality references, and AI
+              risk summaries stay visible throughout the live experience.
+            </p>
+            <div className="mt-7 grid gap-3 sm:grid-cols-3">
+              {[
+                ["98", "factory audit"],
+                ["96", "export ready"],
+                ["94", "hotel references"],
+              ].map(([score, label]) => (
+                <div
+                  key={label}
+                  className="rounded-3xl border border-white/10 bg-white/[.06] p-4"
+                >
+                  <p className="text-3xl font-semibold text-[#cbd8a7]">
+                    {score}
+                  </p>
+                  <p className="mt-1 text-xs text-[#ded8ca]">{label}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <div className="relative min-h-[480px] overflow-hidden rounded-[2rem] border border-[#d6cbb6] bg-[#fffaf0] p-5 shadow-xl shadow-[#8a7d61]/10">
+            <div
+              className="absolute inset-0 bg-cover bg-center"
+              style={{
+                backgroundImage:
+                  "linear-gradient(to bottom, rgba(255,250,240,.06), rgba(255,250,240,.45), rgba(255,250,240,.96)), url(https://images.unsplash.com/photo-1600566752355-35792bedcfea?auto=format&fit=crop&w=1100&q=85)",
+              }}
+            />
+            <div className="relative z-10 flex min-h-[440px] flex-col justify-between">
+              <div className="flex justify-end">
+                <span className="rounded-full bg-[#6f7f4f] px-3 py-1 text-xs font-bold text-white">
+                  Live showcase
+                </span>
+              </div>
+              <div className="rounded-3xl border border-[#d6cbb6] bg-[#fffaf0]/88 p-5 shadow-lg backdrop-blur">
+                <p className="text-sm font-semibold text-[#6f7f4f]">
+                  Immersive sourcing room
+                </p>
+                <h3 className="mt-2 font-serif text-3xl leading-tight">
+                  Discover artisan furniture, then let AI turn interest into an
+                  RFQ.
+                </h3>
+                <div className="mt-5 grid grid-cols-3 gap-2">
+                  {["MOQ", "Specs", "Quote"].map((item, index) => (
+                    <span
+                      key={item}
+                      className="rounded-2xl bg-[#f3ecdc] px-3 py-3 text-center text-xs font-bold"
+                      style={{
+                        animation: `riseCard ${4 + index * 0.5}s ease-in-out ${index * 0.4}s infinite`,
+                      }}
+                    >
+                      {item}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <EcosystemExpansion />
+    </main>
+  );
+}
+
+function HeroLiveStage() {
+  return (
+    <div className="relative mx-auto w-full max-w-[620px] [animation:popIn_.8s_ease-out_.08s_both]">
+      <div className="absolute -left-2 top-16 z-20 hidden w-48 rounded-3xl border border-[#d6cbb6] bg-[#fffaf0]/92 p-4 shadow-xl shadow-[#8a7d61]/12 backdrop-blur-xl sm:block lg:-left-8">
+        <p className="text-xs font-semibold text-[#6f7f4f]">AI match score</p>
+        <p className="mt-2 text-3xl font-semibold">96%</p>
+        <p className="mt-1 text-xs leading-5 text-[#766e5e]">
+          Fits villa furniture brief, MOQ, and landed cost target.
+        </p>
+      </div>
+
+      <div className="overflow-hidden rounded-[2.2rem] border border-[#d6cbb6] bg-[#fffaf0] p-3 shadow-2xl shadow-[#8a7d61]/18">
+        <div
+          className="relative min-h-[540px] overflow-hidden rounded-[1.65rem] bg-cover bg-center sm:min-h-[650px]"
+          style={{
+            backgroundImage:
+              "linear-gradient(to bottom, rgba(30,36,25,.04), rgba(30,36,25,.15) 42%, rgba(30,36,25,.88)), url(https://images.unsplash.com/photo-1600210492486-724fe5c67fb0?auto=format&fit=crop&w=1200&q=85)",
+          }}
+        >
+          <div className="flex items-center justify-between p-4">
+            <span className="rounded-full bg-[#b85438] px-3 py-1 text-xs font-black text-white">
+              LIVE
+            </span>
+            <span className="rounded-full bg-[#fffaf0]/92 px-3 py-1 text-xs font-bold">
+              126 buyers sourcing
+            </span>
+          </div>
+
+          <div className="flex min-h-[465px] flex-col justify-end p-4 sm:min-h-[575px]">
+            <div className="mb-4 w-full rounded-3xl border border-white/20 bg-[#fffaf0]/92 p-4 shadow-lg backdrop-blur sm:w-fit">
+              <p className="text-xs text-[#766e5e]">Pinned supplier offer</p>
+              <p className="mt-1 text-lg font-semibold">
+                Rattan lounge set - MOQ 24 - $68/unit
+              </p>
+              <button className="mt-3 rounded-full bg-[#1e2419] px-4 py-2 text-xs font-bold text-white transition hover:bg-[#596540] focus:outline-none focus:ring-2 focus:ring-[#1e2419]/25">
+                Request quote
+              </button>
+            </div>
+            <LiveChatCard />
+          </div>
+        </div>
+      </div>
+
+      <div className="absolute -right-1 bottom-20 z-20 hidden flex-col gap-3 sm:flex lg:-right-8">
+        {["MOQ split", "Quote ready", "Verified"].map((item, index) => (
+          <div
+            key={item}
+            className="rounded-full border border-[#d6cbb6] bg-[#fffaf0]/92 px-3 py-2 text-xs font-bold text-[#3e4930] shadow-lg shadow-[#8a7d61]/12 backdrop-blur-xl"
+            style={{
+              animation: `floatLift ${3 + index * 0.35}s ease-in-out infinite`,
+            }}
+          >
+            {item}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function StreamCard({ stream, index }: { stream: Stream; index: number }) {
+  return (
+    <article
+      className="grid overflow-hidden rounded-[1.7rem] border border-[#d6cbb6] bg-[#fffaf0] shadow-sm transition duration-500 hover:-translate-y-1 hover:shadow-xl hover:shadow-[#8a7d61]/12 sm:grid-cols-[170px_1fr]"
+      style={{ animation: `popIn .6s ease-out ${index * 0.1}s both` }}
+    >
+      <div
+        className="min-h-48 bg-cover bg-center sm:min-h-full"
+        style={{ backgroundImage: `url(${stream.image})` }}
+      />
+      <div className="p-5">
+        <div className="mb-3 flex flex-wrap gap-2">
+          <span className="rounded-full bg-[#b85438] px-3 py-1 text-xs font-black text-white">
+            LIVE
+          </span>
+          <span className="rounded-full bg-[#6f7f4f] px-3 py-1 text-xs font-bold text-white">
+            {stream.verified}
+          </span>
+        </div>
+        <p className="text-xs uppercase tracking-[.16em] text-[#8a826f]">
+          {stream.supplier} - {stream.region}
+        </p>
+        <h3 className="mt-2 text-xl font-semibold">{stream.title}</h3>
+        <div className="mt-4 flex flex-wrap gap-2">
+          {[stream.viewers, stream.moq, stream.price].map((item) => (
+            <span
+              key={item}
+              className="rounded-full border border-[#d6cbb6] bg-[#f3ecdc] px-3 py-1 text-xs font-bold"
+            >
+              {item}
+            </span>
+          ))}
+        </div>
+        <button className="mt-5 rounded-full bg-[#1e2419] px-4 py-2 text-sm font-bold text-white transition hover:bg-[#596540] focus:outline-none focus:ring-2 focus:ring-[#1e2419]/25">
+          Join stream
+        </button>
+      </div>
+    </article>
+  );
+}
+
+function LiveChatCard() {
+  return (
+    <div className="rounded-3xl border border-white/25 bg-[#fffaf0]/92 p-3 shadow-xl shadow-[#1e2419]/15 backdrop-blur-xl">
+      <div className="mb-3 flex items-center justify-between">
+        <p className="text-xs font-bold text-[#1e2419]">Live procurement feed</p>
+        <span className="rounded-full bg-[#6f7f4f] px-2 py-1 text-[10px] font-bold text-white">
+          AI translated
+        </span>
+      </div>
+      <div className="space-y-2">
+        {chatFeed.map(([name, message]) => (
+          <div key={`${name}-${message}`} className="flex gap-2 text-xs">
+            <span className="shrink-0 font-bold text-[#596540]">{name}</span>
+            <span className="text-[#5f584b]">{message}</span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function SectionHeader({
+  eyebrow,
+  title,
+  note,
+}: {
+  eyebrow: string;
+  title: string;
+  note: string;
+}) {
+  return (
+    <div className="mb-6 flex flex-col justify-between gap-4 sm:flex-row sm:items-end">
+      <div>
+        <p className="text-sm font-semibold text-[#6f7f4f]">{eyebrow}</p>
+        <h2 className="mt-2 max-w-3xl font-serif text-4xl leading-tight sm:text-5xl">
+          {title}
+        </h2>
+      </div>
+      <p className="max-w-md text-sm leading-6 text-[#766e5e]">{note}</p>
     </div>
   );
 }
