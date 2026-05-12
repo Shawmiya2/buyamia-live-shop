@@ -1,5 +1,7 @@
 import Image from "next/image";
 import { EcosystemExpansion } from "./ecosystem-widgets";
+import { ProcurementOSSections } from "./procurement-os-sections";
+import { SellerPaymentConsole } from "./seller-payment-console";
 
 type Stream = {
   supplier: string;
@@ -102,11 +104,35 @@ const procurementSignals = [
   ["Verified", "2.1K suppliers"],
 ];
 
+const platformFlow = [
+  ["01", "Discover live", "Watch suppliers, chefs, hotels, and overstock streams."],
+  ["02", "Verify trust", "Read audit scores, documents, references, and reviews."],
+  ["03", "Automate RFQ", "Let AI structure specs, MOQ, landed cost, and risk."],
+  ["04", "Transact safely", "Use escrow, contracts, scheduling, and protected payment."],
+];
+
 const chatFeed = [
   ["Buyer", "Can you ship CIF Bali for 42 villas?"],
   ["Supplier", "Bisa. Outdoor finish ready in 21 days."],
   ["AI", "Translation: CIF Bali quote available with outdoor-grade finish."],
   ["Buyer", "Add cushions and split MOQ by SKU."],
+];
+
+const restaurantLives = [
+  {
+    title: "Chef tasting menu live",
+    venue: "Seminyak supper club",
+    audience: "1,284 watching",
+    image:
+      "https://images.unsplash.com/photo-1556910103-1c02745aae4d?auto=format&fit=crop&w=900&q=85",
+  },
+  {
+    title: "Dessert demonstration",
+    venue: "Ubud patisserie studio",
+    audience: "842 watching",
+    image:
+      "https://images.unsplash.com/photo-1551024506-0bccd828d307?auto=format&fit=crop&w=900&q=85",
+  },
 ];
 
 export default function Home() {
@@ -175,15 +201,24 @@ export default function Home() {
               <p className="text-xs text-[#766e5e]">Live AI procurement</p>
             </div>
           </div>
-          <div className="hidden items-center gap-7 text-sm text-[#675f50] md:flex">
-            <a className="transition hover:text-[#1e2419]" href="#streams">
-              Streams
+          <div className="hidden items-center gap-6 text-sm text-[#675f50] md:flex">
+            <a
+              className="transition hover:text-[#1e2419]"
+              href="#platform-flow"
+            >
+              Platform
+            </a>
+            <a
+              className="transition hover:text-[#1e2419]"
+              href="#seller-payment"
+            >
+              Sellers
             </a>
             <a className="transition hover:text-[#1e2419]" href="#assistant">
-              AI sourcing
+              AI
             </a>
             <a className="transition hover:text-[#1e2419]" href="#wholesale">
-              Wholesale
+              Market
             </a>
           </div>
           <a
@@ -200,16 +235,16 @@ export default function Home() {
               <span className="size-2 rounded-full bg-[#6f7f4f] [animation:bidPulse_2s_ease-in-out_infinite]" />
               Whatnot-style live sourcing for Indonesian procurement
             </div>
-            <h1 className="max-w-4xl font-serif text-4xl leading-[1.04] tracking-normal sm:text-6xl lg:text-7xl">
+            <h1 className="max-w-4xl font-serif text-3xl leading-[1.08] tracking-normal sm:text-5xl lg:text-6xl">
               Watch suppliers live. Let AI build the procurement case.
             </h1>
             <p className="mt-6 max-w-2xl text-base leading-8 text-[#655e50] sm:text-lg">
-              Buyamia transforms wholesale sourcing into an immersive live
-              marketplace where hospitality buyers discover Indonesian artisans,
-              compare MOQs, request quotes, and move faster with an AI sourcing
-              assistant beside every stream.
+              Buyamia transforms wholesale sourcing into an AI procurement
+              operating system where hospitality buyers watch suppliers live,
+              automate RFQs, validate trust, protect payments, and move faster
+              with an AI sourcing assistant beside every stream.
             </p>
-            <div className="mt-8 flex flex-col gap-3 sm:flex-row">
+            <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:items-center">
               <a
                 href="/live"
                 className="relative overflow-hidden rounded-full bg-[#6f7f4f] px-6 py-4 text-center text-sm font-bold text-white shadow-xl shadow-[#6f7f4f]/18 transition hover:bg-[#596540] focus:outline-none focus:ring-2 focus:ring-[#6f7f4f]/30"
@@ -218,8 +253,14 @@ export default function Home() {
                 <span className="absolute inset-y-0 left-0 w-1/2 bg-white/30 [animation:drift_2.6s_linear_infinite]" />
               </a>
               <a
-                href="#assistant"
+                href="#seller-payment"
                 className="rounded-full border border-[#cabda4] bg-[#fffaf0]/72 px-6 py-4 text-center text-sm font-bold text-[#1e2419] transition hover:bg-white focus:outline-none focus:ring-2 focus:ring-[#cabda4]/40"
+              >
+                Book seller live
+              </a>
+              <a
+                href="#assistant"
+                className="px-2 py-3 text-center text-sm font-bold text-[#596540] transition hover:text-[#1e2419] sm:text-left"
               >
                 Ask Buyamia AI
               </a>
@@ -243,6 +284,14 @@ export default function Home() {
           <HeroLiveStage />
         </div>
       </section>
+
+      <PlatformFlow />
+
+      <RestaurantLiveExperience />
+
+      <SellerPaymentConsole />
+
+      <ProcurementOSSections />
 
       <section
         id="streams"
@@ -284,7 +333,7 @@ export default function Home() {
                     <p className="text-sm font-semibold text-[#f8edda]">
                       Bali Rattan Works - Gianyar, Bali
                     </p>
-                    <h2 className="mt-2 font-serif text-3xl leading-tight text-white sm:text-5xl">
+                    <h2 className="mt-2 font-serif text-2xl leading-tight text-white sm:text-4xl">
                       Resort lounge collection with live MOQ negotiation.
                     </h2>
                     <div className="mt-5 flex flex-wrap gap-2">
@@ -326,7 +375,7 @@ export default function Home() {
             <p className="text-sm font-semibold text-[#6f7f4f]">
               AI sourcing assistant
             </p>
-            <h2 className="mt-3 font-serif text-4xl leading-tight sm:text-5xl">
+            <h2 className="mt-3 font-serif text-3xl leading-tight sm:text-4xl">
               The copilot inside every supplier stream.
             </h2>
             <p className="mt-4 leading-8 text-[#655e50]">
@@ -485,7 +534,7 @@ export default function Home() {
             <p className="text-sm font-semibold text-[#cbd8a7]">
               Supplier verification
             </p>
-            <h2 className="mt-3 font-serif text-4xl leading-tight sm:text-5xl">
+            <h2 className="mt-3 font-serif text-3xl leading-tight sm:text-4xl">
               Trust signals that move buyers from watching to quoting.
             </h2>
             <p className="mt-4 max-w-2xl leading-8 text-[#ded8ca]">
@@ -503,7 +552,7 @@ export default function Home() {
                   key={label}
                   className="rounded-3xl border border-white/10 bg-white/[.06] p-4"
                 >
-                  <p className="text-3xl font-semibold text-[#cbd8a7]">
+                  <p className="text-2xl font-semibold text-[#cbd8a7]">
                     {score}
                   </p>
                   <p className="mt-1 text-xs text-[#ded8ca]">{label}</p>
@@ -530,7 +579,7 @@ export default function Home() {
                 <p className="text-sm font-semibold text-[#6f7f4f]">
                   Immersive sourcing room
                 </p>
-                <h3 className="mt-2 font-serif text-3xl leading-tight">
+                <h3 className="mt-2 font-serif text-2xl leading-tight">
                   Discover artisan furniture, then let AI turn interest into an
                   RFQ.
                 </h3>
@@ -558,12 +607,162 @@ export default function Home() {
   );
 }
 
+function PlatformFlow() {
+  return (
+    <section
+      id="platform-flow"
+      className="scroll-mt-6 px-4 pb-8 pt-2 sm:px-6 lg:px-8"
+    >
+      <div className="mx-auto max-w-7xl rounded-[2rem] border border-[#d6cbb6] bg-[#fffaf0]/72 p-4 shadow-sm backdrop-blur-xl sm:p-5">
+        <div className="grid gap-3 md:grid-cols-4">
+          {platformFlow.map(([step, title, body]) => (
+            <div
+              key={step}
+              className="rounded-[1.35rem] border border-[#ded4c2] bg-[#f6efe2]/80 p-4"
+            >
+              <p className="text-xs font-bold uppercase tracking-[.16em] text-[#6f7f4f]">
+                {step}
+              </p>
+              <h2 className="mt-3 text-base font-semibold">{title}</h2>
+              <p className="mt-2 text-sm leading-6 text-[#675f50]">{body}</p>
+            </div>
+          ))}
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function RestaurantLiveExperience() {
+  return (
+    <section id="restaurant-live" className="px-4 py-10 sm:px-6 lg:px-8">
+      <div className="mx-auto grid max-w-7xl gap-5 lg:grid-cols-[.95fr_1.05fr] lg:items-stretch">
+        <div className="rounded-[2rem] border border-[#d6cbb6] bg-[#1e2419] p-6 text-[#fffaf0] shadow-xl shadow-[#8a7d61]/12 sm:p-8">
+          <div className="mb-5 inline-flex items-center gap-2 rounded-full bg-[#fffaf0]/10 px-3 py-1.5 text-xs font-bold text-[#cbd8a7]">
+            <span className="size-2 rounded-full bg-[#b85438] [animation:bidPulse_2s_ease-in-out_infinite]" />
+            Restaurant and experience lives
+          </div>
+          <h2 className="font-serif text-3xl leading-tight sm:text-4xl">
+            Live cooking, chef streams, tastings, and restaurant discovery.
+          </h2>
+          <p className="mt-5 max-w-2xl text-sm leading-7 text-[#ded8ca]">
+            Buyamia extends beyond procurement into AI-native live experiences:
+            watch chefs cook, discover restaurant showcases, order live with
+            Grab or Gojek, reserve a table, and book tasting experiences in the
+            same premium commerce flow.
+          </p>
+          <div className="mt-7 grid gap-3 sm:grid-cols-2">
+            {[
+              "Live cooking",
+              "Chef livestreams",
+              "Dessert demonstrations",
+              "Live restaurant discovery",
+              "Reserve table",
+              "Book tasting experiences",
+            ].map((item) => (
+              <div
+                key={item}
+                className="rounded-2xl border border-white/10 bg-white/[.06] px-4 py-3 text-sm font-semibold"
+              >
+                {item}
+              </div>
+            ))}
+          </div>
+          <div className="mt-7 flex flex-col gap-3 sm:flex-row">
+            <a
+              href="#restaurant-live"
+              className="rounded-full bg-[#fffaf0] px-5 py-3 text-center text-sm font-bold text-[#1e2419] transition hover:bg-white focus:outline-none focus:ring-2 focus:ring-[#fffaf0]/70"
+            >
+              Order now
+            </a>
+            <a
+              href="#restaurant-live"
+              className="rounded-full border border-[#fffaf0]/20 bg-[#fffaf0]/10 px-5 py-3 text-center text-sm font-bold text-[#fffaf0] transition hover:bg-[#fffaf0]/16 focus:outline-none focus:ring-2 focus:ring-[#fffaf0]/50"
+            >
+              Book table
+            </a>
+          </div>
+        </div>
+
+        <div className="grid gap-4 sm:grid-cols-2">
+          {restaurantLives.map((live, index) => (
+            <article
+              key={live.title}
+              className="group relative min-h-[420px] overflow-hidden rounded-[2rem] border border-[#d6cbb6] bg-[#fffaf0] shadow-xl shadow-[#8a7d61]/10"
+            >
+              <div
+                className="absolute inset-0 bg-cover bg-center transition duration-700 group-hover:scale-[1.03]"
+                style={{
+                  backgroundImage: `linear-gradient(to bottom, rgba(31,37,26,.06), rgba(31,37,26,.18) 42%, rgba(31,37,26,.84)), url(${live.image})`,
+                }}
+              />
+              <div className="relative z-10 flex min-h-[420px] flex-col justify-between p-4">
+                <div className="flex flex-wrap items-start justify-between gap-2">
+                  <span className="rounded-full bg-[#b85438] px-3 py-1 text-xs font-black text-white shadow-lg">
+                    LIVE
+                  </span>
+                  <span className="rounded-full bg-[#fffaf0]/88 px-3 py-1 text-xs font-bold text-[#1e2419] shadow-lg backdrop-blur">
+                    {live.audience}
+                  </span>
+                </div>
+
+                <div>
+                  <div className="mb-4 flex flex-wrap gap-2">
+                    {(index === 0
+                      ? ["Order with Grab", "Reserve tasting"]
+                      : ["Order with Gojek", "Dessert drop"]
+                    ).map((badge) => (
+                      <span
+                        key={badge}
+                        className="rounded-full bg-[#fffaf0]/90 px-3 py-1 text-xs font-bold text-[#1e2419]"
+                      >
+                        {badge}
+                      </span>
+                    ))}
+                  </div>
+                  <p className="text-sm font-semibold text-[#f8edda]">
+                    {live.venue}
+                  </p>
+                  <h3 className="mt-2 font-serif text-2xl leading-tight text-white">
+                    {live.title}
+                  </h3>
+                  <div className="mt-5 grid gap-2">
+                    <button className="rounded-full bg-[#fffaf0] px-4 py-3 text-sm font-bold text-[#1e2419] transition hover:bg-white">
+                      Order now
+                    </button>
+                    <button className="rounded-full bg-[#6f7f4f] px-4 py-3 text-sm font-bold text-white transition hover:bg-[#596540]">
+                      Book table
+                    </button>
+                  </div>
+                </div>
+              </div>
+              <div className="pointer-events-none absolute right-4 top-20 z-20 flex flex-col gap-2">
+                {["♥", "★", "+"].map((reaction, reactionIndex) => (
+                  <span
+                    key={`${live.title}-${reaction}`}
+                    className="grid size-8 place-items-center rounded-full bg-[#fffaf0]/70 text-xs font-black text-[#596540] shadow-xl backdrop-blur"
+                    style={{
+                      animation: `floatLift ${3 + reactionIndex * 0.4}s ease-in-out infinite`,
+                    }}
+                  >
+                    {reaction}
+                  </span>
+                ))}
+              </div>
+            </article>
+          ))}
+        </div>
+      </div>
+    </section>
+  );
+}
+
 function HeroLiveStage() {
   return (
     <div className="relative mx-auto w-full max-w-[620px] [animation:popIn_.8s_ease-out_.08s_both]">
       <div className="absolute -left-2 top-16 z-20 hidden w-48 rounded-3xl border border-[#d6cbb6] bg-[#fffaf0]/92 p-4 shadow-xl shadow-[#8a7d61]/12 backdrop-blur-xl sm:block lg:-left-8">
         <p className="text-xs font-semibold text-[#6f7f4f]">AI match score</p>
-        <p className="mt-2 text-3xl font-semibold">96%</p>
+        <p className="mt-2 text-2xl font-semibold">96%</p>
         <p className="mt-1 text-xs leading-5 text-[#766e5e]">
           Fits villa furniture brief, MOQ, and landed cost target.
         </p>
@@ -693,7 +892,7 @@ function SectionHeader({
     <div className="mb-6 flex flex-col justify-between gap-4 sm:flex-row sm:items-end">
       <div>
         <p className="text-sm font-semibold text-[#6f7f4f]">{eyebrow}</p>
-        <h2 className="mt-2 max-w-3xl font-serif text-4xl leading-tight sm:text-5xl">
+        <h2 className="mt-2 max-w-3xl font-serif text-3xl leading-tight sm:text-4xl">
           {title}
         </h2>
       </div>

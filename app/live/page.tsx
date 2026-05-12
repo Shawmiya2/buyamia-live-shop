@@ -1,6 +1,7 @@
 import Link from "next/link";
 import Image from "next/image";
 import { CheckoutControls, LiveHeroActions } from "./live-room-controls";
+import { EngagementDiscountPanel } from "./engagement-discount";
 
 type Product = {
   name: string;
@@ -289,7 +290,7 @@ export default function LivePage() {
                 <p className="mb-4 text-sm font-semibold text-[#e8ddc8]">
                   Live from Bali
                 </p>
-                <h1 className="max-w-3xl font-serif text-3xl leading-[1.04] text-[#fffaf0] sm:text-5xl lg:text-6xl">
+                <h1 className="max-w-3xl font-serif text-2xl leading-[1.08] text-[#fffaf0] sm:text-4xl lg:text-5xl">
                   Resort rattan collection, sourced live from Bali.
                 </h1>
                 <p className="mt-5 max-w-2xl text-sm leading-7 text-[#eee5d4]">
@@ -311,13 +312,15 @@ export default function LivePage() {
         </div>
       </section>
 
+      <EngagementDiscountPanel />
+
       <section id="ai" className="px-5 py-16 sm:px-7 lg:px-8 lg:py-20">
         <div className="mx-auto max-w-7xl">
           <div className="max-w-3xl">
             <p className="text-sm font-semibold text-[#6f7f4f]">
               Progressive procurement intelligence
             </p>
-            <h2 className="mt-3 font-serif text-3xl leading-tight sm:text-5xl">
+            <h2 className="mt-3 font-serif text-2xl leading-tight sm:text-4xl">
               The buying layer appears only when it helps.
             </h2>
           </div>
@@ -356,7 +359,7 @@ export default function LivePage() {
               <p className="text-sm font-semibold text-[#6f7f4f]">
                 Wholesale access
               </p>
-              <h2 className="mt-2 font-serif text-3xl leading-tight sm:text-4xl">
+              <h2 className="mt-2 font-serif text-2xl leading-tight sm:text-3xl">
                 Pinned products from the live room.
               </h2>
             </div>
@@ -418,7 +421,7 @@ export default function LivePage() {
             <p className="text-sm font-semibold text-[#6f7f4f]">
               Sourcing coins and VIP rewards
             </p>
-            <h2 className="mt-3 font-serif text-3xl leading-tight sm:text-5xl">
+            <h2 className="mt-3 font-serif text-2xl leading-tight sm:text-4xl">
               A live commerce reward system for serious buyers.
             </h2>
             <p className="mt-5 max-w-xl text-sm leading-7 text-[#675f50]">
@@ -447,7 +450,7 @@ export default function LivePage() {
               <p className="text-sm font-semibold text-[#6f7f4f]">
                 Upcoming live streams
               </p>
-              <h2 className="mt-2 font-serif text-3xl leading-tight sm:text-4xl">
+              <h2 className="mt-2 font-serif text-2xl leading-tight sm:text-3xl">
                 Minimal sourcing rooms, scheduled with intent.
               </h2>
             </div>
@@ -569,7 +572,7 @@ function LiveAnalyticsStrip() {
           <p className="text-sm font-semibold text-[#6f7f4f]">
             Live product stack
           </p>
-          <h2 className="mt-2 font-serif text-3xl leading-tight">
+          <h2 className="mt-2 font-serif text-2xl leading-tight">
             Pinned products, comments, checkout, and RFQ stay in one room.
           </h2>
           <div className="mt-5 grid gap-3">
@@ -636,7 +639,7 @@ function InstantCheckoutModal() {
           <p className="text-sm font-semibold text-[#6f7f4f]">
             Instant live procurement
           </p>
-          <h2 className="mt-3 font-serif text-3xl leading-tight sm:text-5xl">
+          <h2 className="mt-3 font-serif text-2xl leading-tight sm:text-4xl">
             A premium checkout flow for buyers ready to move.
           </h2>
           <p className="mt-5 max-w-xl text-sm leading-7 text-[#675f50]">

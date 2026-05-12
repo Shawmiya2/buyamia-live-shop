@@ -26,7 +26,7 @@ const accountTypes = [
 ];
 
 const sellerTools = [
-  ["Stream duration", "30 min default", "Live timer, reminders, replay recap"],
+  ["Paid stream setup", "30 min live package", "QR payment unlocks live controls"],
   ["Delivery methods", "Instant, scheduled, standard", "Gojek and Grab placeholders"],
   ["Free delivery", "After 3 products", "Threshold rules per campaign"],
   ["Vouchers", "VIP and referral coupons", "Limited redemptions per stream"],
@@ -85,7 +85,7 @@ export function EcosystemExpansion() {
             <p className="text-sm font-semibold text-[#6f7f4f]">
               User types
             </p>
-            <h2 className="mt-3 font-serif text-3xl leading-tight sm:text-5xl">
+            <h2 className="mt-3 font-serif text-2xl leading-tight sm:text-4xl">
               One onboarding flow, four commerce modes.
             </h2>
             <p className="mt-4 max-w-xl text-sm leading-7 text-[#675f50]">
@@ -141,7 +141,7 @@ export function EcosystemExpansion() {
               <p className="text-sm font-semibold text-[#6f7f4f]">
                 Seller studio
               </p>
-              <h2 className="mt-2 font-serif text-3xl leading-tight sm:text-5xl">
+              <h2 className="mt-2 font-serif text-2xl leading-tight sm:text-4xl">
                 Live selling tools with procurement-grade trust.
               </h2>
             </div>
@@ -254,7 +254,7 @@ export function EcosystemExpansion() {
             <p className="text-sm font-semibold text-[#6f7f4f]">
               How AI can help buyers and sellers
             </p>
-            <h2 className="mt-3 font-serif text-3xl leading-tight sm:text-5xl">
+            <h2 className="mt-3 font-serif text-2xl leading-tight sm:text-4xl">
               The copilot becomes the operating system.
             </h2>
             <div className="mt-6 grid gap-3 sm:grid-cols-2">
@@ -340,7 +340,7 @@ export function EcosystemExpansion() {
             <p className="text-sm font-semibold text-[#6f7f4f]">
               Payments and logistics
             </p>
-            <h2 className="mt-3 font-serif text-3xl leading-tight">
+            <h2 className="mt-3 font-serif text-2xl leading-tight">
               Checkout adapts to local delivery and global procurement.
             </h2>
             <div className="mt-5 flex flex-wrap gap-2">
@@ -392,7 +392,7 @@ export function EcosystemExpansion() {
             <p className="text-sm font-semibold text-[#cbd8a7]">
               Rewards engine
             </p>
-            <h2 className="mt-3 font-serif text-3xl leading-tight">
+            <h2 className="mt-3 font-serif text-2xl leading-tight">
               Coins, stars, VIP tiers, vouchers, and referral loops.
             </h2>
             <div className="mt-5 grid gap-3 sm:grid-cols-2">
@@ -400,7 +400,7 @@ export function EcosystemExpansion() {
                 ["8,420", "sourcing coins"],
                 ["VIP Gold", "early MOQ splits"],
                 ["3 vouchers", "loyalty rewards"],
-                ["2.4x", "repeat buyer bonus"],
+                ["2.4x", "engagement point multiplier"],
               ].map(([value, label]) => (
                 <div
                   key={label}
@@ -434,7 +434,7 @@ export function EcosystemExpansion() {
               <p className="text-sm font-semibold text-[#6f7f4f]">
                 Seller analytics
               </p>
-              <h2 className="mt-2 font-serif text-3xl leading-tight sm:text-5xl">
+              <h2 className="mt-2 font-serif text-2xl leading-tight sm:text-4xl">
                 Engagement, audience, and emotional peaks.
               </h2>
             </div>
@@ -496,19 +496,19 @@ export function EcosystemExpansion() {
       </section>
 
       <section id="future-commerce" className="px-4 py-10 sm:px-6 lg:px-8">
-        <div className="mx-auto grid max-w-7xl gap-5 lg:grid-cols-2">
-          <div className="rounded-[2rem] border border-[#d6cbb6] bg-[#e9dfcb] p-5 shadow-sm">
+        <div className="mx-auto max-w-7xl">
+          <div className="rounded-[2rem] border border-[#d6cbb6] bg-[#e9dfcb] p-5 shadow-sm sm:p-6">
             <p className="text-sm font-semibold text-[#6f7f4f]">
               Fashion and beauty AR
             </p>
-            <h2 className="mt-3 font-serif text-3xl leading-tight">
+            <h2 className="mt-3 max-w-3xl font-serif text-2xl leading-tight sm:text-4xl">
               Try product live with AI filter.
             </h2>
-            <p className="mt-3 text-sm leading-7 text-[#675f50]">
+            <p className="mt-3 max-w-2xl text-sm leading-7 text-[#675f50]">
               Conceptual support for clothing, jewelry, makeup, and head
               accessories without changing the current commerce flow.
             </p>
-            <div className="mt-5 grid gap-3 sm:grid-cols-2">
+            <div className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
               {arCategories.map((item) => (
                 <div
                   key={item}
@@ -520,49 +520,6 @@ export function EcosystemExpansion() {
                   </p>
                 </div>
               ))}
-            </div>
-          </div>
-
-          <div className="overflow-hidden rounded-[2rem] border border-[#d6cbb6] bg-[#fffaf0] shadow-xl shadow-[#8a7d61]/8">
-            <div
-              className="h-56 bg-cover bg-center"
-              style={{
-                backgroundImage:
-                  "linear-gradient(to bottom, rgba(31,37,26,.08), rgba(31,37,26,.5)), url(https://images.unsplash.com/photo-1556910103-1c02745aae4d?auto=format&fit=crop&w=1100&q=85)",
-              }}
-            />
-            <div className="p-5">
-              <p className="text-sm font-semibold text-[#6f7f4f]">
-                Restaurant and experience lives
-              </p>
-              <h2 className="mt-2 font-serif text-3xl leading-tight">
-                Chef livestreams, dessert demos, tastings, and table bookings.
-              </h2>
-              <div className="mt-5 grid gap-2 sm:grid-cols-3">
-                {["Order with Grab", "Book table", "Reserve tasting"].map(
-                  (action) => (
-                    <button
-                      key={action}
-                      type="button"
-                      className="rounded-full bg-[#1f251a] px-4 py-3 text-sm font-bold text-[#fffaf0] transition hover:bg-[#596540]"
-                    >
-                      {action}
-                    </button>
-                  ),
-                )}
-              </div>
-              <div className="mt-4 flex flex-wrap gap-2">
-                {["Chef live", "Dessert demo", "Live cooking", "Experience booking"].map(
-                  (item) => (
-                    <span
-                      key={item}
-                      className="rounded-full bg-[#f3ecdc] px-3 py-1.5 text-xs font-bold text-[#675f50]"
-                    >
-                      {item}
-                    </span>
-                  ),
-                )}
-              </div>
             </div>
           </div>
         </div>
