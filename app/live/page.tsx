@@ -51,7 +51,7 @@ const products: Product[] = [
 
 const chat = [
   ["Maya", "Can you split MOQ across daybed and lounge chairs?"],
-  ["Supplier", "Bisa. Mixed container MOQ is 36 units."],
+  ["Supplier", "Yes. Mixed container MOQ is 36 units."],
   ["Buyamia AI", "Translated and added to RFQ draft."],
   ["Villa Group", "Request CIF Bali with cushion options."],
 ];

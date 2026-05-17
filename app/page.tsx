@@ -1,5 +1,6 @@
 import Image from "next/image";
 import { EcosystemExpansion } from "./ecosystem-widgets";
+import { HotelLiveAccess } from "./hotel-live-access";
 import { ProcurementOSSections } from "./procurement-os-sections";
 import { SellerPaymentConsole } from "./seller-payment-console";
 
@@ -113,7 +114,7 @@ const platformFlow = [
 
 const chatFeed = [
   ["Buyer", "Can you ship CIF Bali for 42 villas?"],
-  ["Supplier", "Bisa. Outdoor finish ready in 21 days."],
+  ["Supplier", "Yes. Outdoor finish ready in 21 days."],
   ["AI", "Translation: CIF Bali quote available with outdoor-grade finish."],
   ["Buyer", "Add cushions and split MOQ by SKU."],
 ];
@@ -220,13 +221,33 @@ export default function Home() {
             <a className="transition hover:text-[#1e2419]" href="#wholesale">
               Market
             </a>
+            <a
+              className="transition hover:text-[#1e2419]"
+              href="#hotel-live-access"
+            >
+              Hotel Live
+            </a>
+            <a
+              className="transition hover:text-[#1e2419]"
+              href="#verified-reviews"
+            >
+              Reviews
+            </a>
           </div>
-          <a
-            href="/live"
-            className="shrink-0 rounded-full bg-[#1e2419] px-4 py-2 text-sm font-semibold text-[#fffaf0] transition hover:bg-[#596540] focus:outline-none focus:ring-2 focus:ring-[#1e2419]/25"
-          >
-            Join live
-          </a>
+          <div className="flex items-center gap-2">
+            <a
+              href="#hotel-auth"
+              className="hidden shrink-0 rounded-full border border-[#cabda4] bg-[#fffaf0]/72 px-4 py-2 text-sm font-semibold text-[#1e2419] transition hover:bg-white focus:outline-none focus:ring-2 focus:ring-[#cabda4]/40 sm:inline-flex"
+            >
+              Sign in
+            </a>
+            <a
+              href="/live"
+              className="shrink-0 rounded-full bg-[#1e2419] px-4 py-2 text-sm font-semibold text-[#fffaf0] transition hover:bg-[#596540] focus:outline-none focus:ring-2 focus:ring-[#1e2419]/25"
+            >
+              Join live
+            </a>
+          </div>
         </nav>
 
         <div className="relative z-10 mx-auto grid max-w-7xl gap-8 pt-10 lg:min-h-[calc(100vh-92px)] lg:grid-cols-[.88fr_1.12fr] lg:items-center">
@@ -288,6 +309,8 @@ export default function Home() {
       <PlatformFlow />
 
       <RestaurantLiveExperience />
+
+      <HotelLiveAccess />
 
       <SellerPaymentConsole />
 
