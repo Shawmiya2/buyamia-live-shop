@@ -138,52 +138,10 @@ const restaurantLives = [
 
 export default function Home() {
   return (
-    <main className="min-h-screen overflow-hidden bg-[#f3ecdc] text-[#1e2419]">
-      <style>{`
-        @keyframes floatLift {
-          0%, 100% { transform: translate3d(0, 0, 0) rotate(-1deg); }
-          50% { transform: translate3d(0, -12px, 0) rotate(1deg); }
-        }
+    <main className="buyamia-dashboard-shell min-h-screen overflow-hidden bg-[#f3ecdc] text-[#1e2419]">
+      <DashboardExperience />
 
-        @keyframes drift {
-          0% { transform: translateX(-50%); }
-          100% { transform: translateX(0); }
-        }
-
-        @keyframes popIn {
-          0% { opacity: 0; transform: translateY(22px) scale(.96); }
-          100% { opacity: 1; transform: translateY(0) scale(1); }
-        }
-
-        @keyframes bidPulse {
-          0%, 100% { box-shadow: 0 0 0 0 rgba(111, 127, 79, .35); }
-          50% { box-shadow: 0 0 0 10px rgba(111, 127, 79, 0); }
-        }
-
-        @keyframes riseCard {
-          0% { transform: translateY(18px); opacity: 0; }
-          15%, 75% { opacity: 1; }
-          100% { transform: translateY(-78px); opacity: 0; }
-        }
-
-        .paper-glow {
-          background-image:
-            radial-gradient(circle at 18% 18%, rgba(111, 127, 79, .18), transparent 28%),
-            radial-gradient(circle at 82% 10%, rgba(181, 125, 72, .14), transparent 30%),
-            linear-gradient(135deg, rgba(255,255,255,.7), rgba(255,255,255,0));
-        }
-
-        @media (prefers-reduced-motion: reduce) {
-          *, *::before, *::after {
-            animation-duration: .001ms !important;
-            animation-iteration-count: 1 !important;
-            scroll-behavior: auto !important;
-            transition-duration: .001ms !important;
-          }
-        }
-      `}</style>
-
-      <section className="relative min-h-screen px-4 pb-10 pt-5 sm:px-6 lg:px-8">
+      <section className="hidden">
         <div className="paper-glow pointer-events-none absolute inset-0" />
         <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-[#748556]/70 to-transparent" />
 
@@ -627,6 +585,370 @@ export default function Home() {
 
       <EcosystemExpansion />
     </main>
+  );
+}
+
+const dashboardWorkspaces = [
+  ["Overview", "All activity", "12"],
+  ["B2B Buyer", "Procurement view", "8"],
+  ["Seller Studio", "Stream and sell", "3"],
+  ["B2C Buyer", "Instant checkout", "24"],
+  ["Experience", "Hotel and restaurant", "5"],
+  ["Admin", "Platform ops", "2"],
+];
+
+const dashboardStreams = [
+  ["Bali Rattan Works", "126 buyers", "LIVE"],
+  ["Java Teak Atelier", "62 buyers", "LIVE"],
+  ["Lombok Stone Studio", "47 buyers", "LIVE"],
+  ["Ubud Fiber House", "Starts 14:30", "NEXT"],
+];
+
+const studioActions = [
+  "Auto RFQ",
+  "Analytics",
+  "Live recap",
+  "Translate",
+  "Escrow",
+  "Export docs",
+  "Trust scan",
+  "Refresh feed",
+];
+
+const topSellers = [
+  ["Bali Rattan Works", "Platinum - 98% thumbs", "4.9"],
+  ["Java Teak Atelier", "Gold - 37% repeat", "4.8"],
+  ["Ubud Fiber House", "Silver - 29% repeat", "4.7"],
+];
+
+function DashboardExperience() {
+  return (
+    <section className="dashboard-surface">
+      <header className="dashboard-topbar">
+        <a href="#dashboard" className="dashboard-brand" aria-label="Buyamia dashboard">
+          <Image
+            src="/buyamia-logo.svg"
+            alt="Buyamia logo"
+            width={38}
+            height={38}
+            className="size-[38px] rounded-xl bg-[#1f2418]"
+            priority
+          />
+          <span>
+            <span className="block font-serif text-[17px] font-semibold leading-tight">
+              Buyamia
+            </span>
+            <span className="block text-[11px] font-medium text-[#7a8350]">
+              Live AI procurement
+            </span>
+          </span>
+        </a>
+
+        <nav className="dashboard-nav" aria-label="Dashboard navigation">
+          {[
+            ["Dashboard", "#dashboard"],
+            ["Sourcing floor", "#streams"],
+            ["RFQs", "#assistant"],
+            ["Sellers", "#seller-payment"],
+            ["Analytics", "#reviews-analytics"],
+          ].map(([label, href], index) => (
+            <a
+              key={label}
+              href={href}
+              className={`dashboard-nav-pill ${index === 0 ? "active" : ""}`}
+            >
+              {label}
+            </a>
+          ))}
+        </nav>
+
+        <div className="dashboard-actions">
+          <a href="/live" className="dashboard-live-pill">
+            <span className="dashboard-live-dot" />
+            Live now
+          </a>
+          <button className="dashboard-icon-btn" type="button" aria-label="Search">
+            <span aria-hidden="true">S</span>
+          </button>
+          <button className="dashboard-icon-btn" type="button" aria-label="Notifications">
+            <span aria-hidden="true">!</span>
+          </button>
+          <span className="dashboard-user-chip">
+            <span className="dashboard-avatar">AM</span>
+            <span className="hidden sm:inline">Account</span>
+          </span>
+        </div>
+      </header>
+
+      <div id="dashboard" className="dashboard-grid">
+        <aside className="dashboard-column">
+          <DashboardPanel eyebrow="workspaces" title="Dashboards">
+            <div className="grid gap-2">
+              {dashboardWorkspaces.map(([name, detail, count], index) => (
+                <a
+                  key={name}
+                  href={index === 0 ? "#dashboard" : "#procurement-os"}
+                  className={`dashboard-role ${index === 0 ? "active" : ""}`}
+                >
+                  <span className="dashboard-role-icon">{name.slice(0, 1)}</span>
+                  <span className="min-w-0 flex-1">
+                    <span className="block text-sm font-semibold">{name}</span>
+                    <span className="block text-[11px] text-[#6b6855]">{detail}</span>
+                  </span>
+                  <span className="text-xs font-semibold">{count}</span>
+                </a>
+              ))}
+            </div>
+          </DashboardPanel>
+
+          <DashboardPanel eyebrow="today" title="Your snapshot">
+            <div className="grid grid-cols-2 gap-2">
+              {procurementSignals.map(([label, value], index) => (
+                <div
+                  key={label}
+                  className={`dashboard-mini-stat ${index === 0 ? "accent" : ""}`}
+                >
+                  <span>{label}</span>
+                  <strong>{value}</strong>
+                  <small>{index === 0 ? "+18 today" : "live signal"}</small>
+                </div>
+              ))}
+            </div>
+          </DashboardPanel>
+
+          <DashboardPanel eyebrow="live now" title="Active streams">
+            <div className="grid gap-2">
+              {dashboardStreams.map(([name, detail, status]) => (
+                <a key={name} href="/live" className="dashboard-stream-item">
+                  <span className="dashboard-stream-thumb" />
+                  <span className="min-w-0 flex-1">
+                    <span className="block truncate text-sm font-semibold">{name}</span>
+                    <span className="text-xs text-[#6b6855]">
+                      <span className="mr-1 font-black text-[#c75a3a]">{status}</span>
+                      {detail}
+                    </span>
+                  </span>
+                </a>
+              ))}
+            </div>
+          </DashboardPanel>
+        </aside>
+
+        <section className="dashboard-center">
+          <div className="dashboard-hero">
+            <div className="dashboard-hero-eyebrow">
+              <span className="dashboard-live-dot" />
+              Live sourcing intelligence
+            </div>
+            <h1>12 suppliers live now. Let AI build the procurement case.</h1>
+            <p>
+              Watch verified streams, capture buyer intent, and turn live
+              conversations into procurement-ready RFQs across Indonesia,
+              Vietnam, and Thailand.
+            </p>
+            <div className="dashboard-hero-stats">
+              {[
+                ["12", "live streams"],
+                ["847", "buyers watching"],
+                ["96%", "avg AI match"],
+                ["$1.2M", "RFQs in flight"],
+              ].map(([value, label]) => (
+                <span key={label}>
+                  <strong>{value}</strong>
+                  <small>{label}</small>
+                </span>
+              ))}
+            </div>
+          </div>
+
+          <form className="dashboard-ai-bar">
+            <span className="dashboard-ai-icon">AI</span>
+            <label className="min-w-0 flex-1">
+              <span>Ask Buyamia AI</span>
+              <input
+                type="text"
+                placeholder="Find rattan suppliers under $80/unit with MOQ <= 24..."
+              />
+            </label>
+            <button type="submit" aria-label="Send AI query">
+              Send
+            </button>
+          </form>
+
+          <div className="dashboard-metrics">
+            {[
+              ["RFQ heat", "142", "active quotes"],
+              ["Avg reply", "17m", "-4m vs week"],
+              ["Cost delta", "-12%", "vs initial brief"],
+              ["Verified", "2.1K", "audited suppliers"],
+            ].map(([label, value, sub], index) => (
+              <div key={label} className={`dashboard-metric ${index === 0 ? "accent" : ""}`}>
+                <span>{label}</span>
+                <strong>{value}</strong>
+                <small>{sub}</small>
+              </div>
+            ))}
+          </div>
+
+          <div className="dashboard-section-head">
+            <div>
+              <p>Live supplier streams</p>
+              <h2>A high-energy sourcing floor for premium B2B buyers.</h2>
+            </div>
+            <div className="dashboard-chips">
+              {["All", "Furniture", "Stone", "Textile"].map((chip, index) => (
+                <button key={chip} type="button" className={index === 0 ? "active" : ""}>
+                  {chip}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div className="dashboard-stream-grid">
+            <article className="dashboard-stream-card featured">
+              <div
+                className="dashboard-stream-media"
+                style={{
+                  backgroundImage:
+                    "linear-gradient(to bottom, rgba(31,36,24,.06), rgba(31,36,24,.82)), url(https://images.unsplash.com/photo-1600210492486-724fe5c67fb0?auto=format&fit=crop&w=1200&q=85)",
+                }}
+              >
+                <div className="flex flex-wrap justify-between gap-2">
+                  <span className="dashboard-badge live">LIVE</span>
+                  <span className="dashboard-badge">126 buyers</span>
+                </div>
+                <div className="dashboard-match-card">
+                  <span>AI match score</span>
+                  <strong>96%</strong>
+                  <small>Fits villa furniture brief, MOQ, and landed cost target.</small>
+                </div>
+              </div>
+              <div className="dashboard-stream-body">
+                <p>Bali Rattan Works - Gianyar, Bali</p>
+                <h3>Resort lounge collection with live MOQ negotiation.</h3>
+                <div className="dashboard-tags">
+                  {["MOQ 24 units", "from $68/unit", "21 day lead time"].map((tag) => (
+                    <span key={tag}>{tag}</span>
+                  ))}
+                </div>
+                <LiveChatCard />
+                <div className="dashboard-card-actions">
+                  <a href="/live">Join stream</a>
+                  <a href="#assistant">Build RFQ</a>
+                </div>
+              </div>
+            </article>
+
+            <div className="grid gap-3">
+              {streams.slice(1).map((stream) => (
+                <article key={stream.title} className="dashboard-stream-card compact">
+                  <div
+                    className="dashboard-stream-media"
+                    style={{ backgroundImage: `url(${stream.image})` }}
+                  >
+                    <span className="dashboard-badge live">LIVE</span>
+                    <span className="dashboard-badge">{stream.viewers}</span>
+                  </div>
+                  <div className="dashboard-stream-body">
+                    <p>{stream.supplier} - {stream.region}</p>
+                    <h3>{stream.title}</h3>
+                    <div className="dashboard-tags">
+                      {[stream.moq, stream.price, stream.verified].map((tag) => (
+                        <span key={tag}>{tag}</span>
+                      ))}
+                    </div>
+                    <a className="dashboard-compact-link" href="/live">
+                      Join stream
+                    </a>
+                  </div>
+                </article>
+              ))}
+            </div>
+          </div>
+        </section>
+
+        <aside className="dashboard-column">
+          <div className="dashboard-copilot">
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <p>AI sourcing assistant</p>
+                <h2>Buyamia AI</h2>
+              </div>
+              <span>ACTIVE</span>
+            </div>
+            <div className="dashboard-copilot-msg">
+              <strong>Buyer</strong>
+              Need 42 villa suites, outdoor finish, custom cushions, CIF Bali.
+            </div>
+            <div className="dashboard-copilot-msg ai">
+              <strong>AI</strong>
+              Recommended: split MOQ across chair, daybed, and side table.
+              Estimated landed cost is 12% under target.
+            </div>
+            <div className="dashboard-copilot-actions">
+              {["Build RFQ", "Check MOQ", "Translate"].map((action) => (
+                <button key={action} type="button">{action}</button>
+              ))}
+            </div>
+          </div>
+
+          <DashboardPanel eyebrow="studio" title="Actions & outputs">
+            <div className="dashboard-studio-grid">
+              {studioActions.map((action, index) => (
+                <a
+                  key={action}
+                  href="#assistant"
+                  className={index === 1 || index === 7 ? "dark" : ""}
+                >
+                  <span>{action}</span>
+                  <strong>&gt;</strong>
+                </a>
+              ))}
+            </div>
+          </DashboardPanel>
+
+          <DashboardPanel eyebrow="today" title="Top sellers" dark>
+            <div className="grid gap-2">
+              {topSellers.map(([name, meta, score], index) => (
+                <div key={name} className="dashboard-leader-row">
+                  <span>{index + 1}</span>
+                  <span className="min-w-0 flex-1">
+                    <strong>{name}</strong>
+                    <small>{meta}</small>
+                  </span>
+                  <b>{score}</b>
+                </div>
+              ))}
+            </div>
+          </DashboardPanel>
+        </aside>
+      </div>
+
+      <p className="dashboard-footer-note">
+        Buyamia AI may make mistakes. Verify supplier claims, MOQs, and landed
+        costs before contracting.
+      </p>
+    </section>
+  );
+}
+
+function DashboardPanel({
+  eyebrow,
+  title,
+  children,
+  dark = false,
+}: {
+  eyebrow: string;
+  title: string;
+  children: React.ReactNode;
+  dark?: boolean;
+}) {
+  return (
+    <div className={`dashboard-panel ${dark ? "dark" : ""}`}>
+      <p className="dashboard-panel-eyebrow">{eyebrow}</p>
+      <h2 className="dashboard-panel-title">{title}</h2>
+      {children}
+    </div>
   );
 }
 
