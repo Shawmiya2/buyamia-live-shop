@@ -1,5 +1,6 @@
 import Link from "next/link";
 import Image from "next/image";
+import { BusinessLiveSuite } from "../business-live-suite";
 import { CheckoutControls, LiveHeroActions } from "./live-room-controls";
 import { EngagementDiscountPanel } from "./engagement-discount";
 
@@ -313,6 +314,8 @@ export default function LivePage() {
       </section>
 
       <EngagementDiscountPanel />
+
+      <BusinessLiveSuite />
 
       <section id="ai" className="px-5 py-16 sm:px-7 lg:px-8 lg:py-20">
         <div className="mx-auto max-w-7xl">

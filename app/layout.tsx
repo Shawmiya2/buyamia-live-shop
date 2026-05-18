@@ -14,18 +14,18 @@ const geistMono = Geist_Mono({
 
 export const metadata: Metadata = {
   title: {
-    default: "Buyamia — AI Native Live Commerce",
+    default: "Buyamia - AI Procurement and Hospitality OS",
     template: "%s | Buyamia",
   },
   description:
-    "Buyamia is an AI-native live commerce and procurement platform connecting premium hospitality buyers with verified Indonesian suppliers.",
+    "Buyamia is an AI-native dashboard system for premium hospitality commerce, live sourcing, verified reviews, protected payments, and procurement intelligence.",
   icons: {
     icon: "/favicon.ico",
   },
   openGraph: {
-    title: "Buyamia — AI Native Live Commerce",
+    title: "Buyamia - AI Procurement and Hospitality OS",
     description:
-      "AI-powered live sourcing, supplier showcases, RFQs, and procurement intelligence for premium B2B buyers.",
+      "AI-powered dashboards for live sourcing, supplier showcases, RFQs, hospitality bookings, trusted reviews, and procurement intelligence.",
     siteName: "Buyamia",
     type: "website",
   },
