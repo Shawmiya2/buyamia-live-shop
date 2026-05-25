@@ -6,6 +6,7 @@ type DashboardKind =
   | "hotel"
   | "restaurant"
   | "supplier"
+  | "services"
   | "traveler"
   | "procurement";
 
@@ -536,6 +537,171 @@ const dashboards: Dashboard[] = [
     quickActions: ["Generate quote", "Open sourcing stream", "Update escrow", "Launch overstock live"],
   },
   {
+    kind: "services",
+    name: "Services",
+    href: "/services-dashboard",
+    eyebrow: "Service provider studio",
+    headline: "Generic service providers can launch verified lives without fitting Hotel or Restaurant.",
+    summary:
+      "Service partners manage live setup, document verification placeholders, replay windows, paid promotion options, and provider visibility from a simple service-first workspace.",
+    command: "Ask Buyamia AI to prepare a service live setup checklist",
+    heroImage:
+      "https://images.unsplash.com/photo-1521791136064-7986c2920216?auto=format&fit=crop&w=1500&q=88",
+    trustScore: "89",
+    healthLabel: "Verification in progress",
+    metrics: [
+      { label: "Service lives", value: "9", delta: "3 ready to publish", tone: "live" },
+      { label: "Verification", value: "14", delta: "Docs pending review" },
+      { label: "Replay windows", value: "5d", delta: "Default availability", tone: "warm" },
+      { label: "Pinned slots", value: "6", delta: "Sponsored and featured", tone: "dark" },
+    ],
+    priority: [
+      {
+        title: "Airport transfer live setup",
+        detail: "Provider selected vehicle walkthrough, pricing Q&A, and safety checklist.",
+        status: "Setup",
+        tone: "live",
+      },
+      {
+        title: "Verification queue",
+        detail: "Business license mock upload and insurance proof placeholder need review.",
+        status: "Docs",
+        tone: "warm",
+      },
+      {
+        title: "Replay storage limit",
+        detail: "Three replays expire within 3 days unless the provider extends availability.",
+        status: "3 days",
+        tone: "risk",
+      },
+    ],
+    widgets: [
+      {
+        title: "Live setup",
+        detail: "Choose service type, title, availability, live format, and review checklist.",
+        status: "CTA",
+      },
+      {
+        title: "Verification",
+        detail: "Visual document handoff only. Documents are reviewed before validation.",
+        status: "Mock",
+      },
+      {
+        title: "Payments placeholder",
+        detail: "Organize or publish lives through a visible payment option without real checkout.",
+        status: "UI only",
+      },
+      {
+        title: "Replay expiration",
+        detail: "Default 5-day replay availability keeps storage cost controlled.",
+        status: "5 days",
+      },
+      {
+        title: "Pinned lives",
+        detail: "Sponsored, nearby, most watched, or Buyamia featured placement reasons.",
+        status: "Pins",
+      },
+      {
+        title: "Provider profile",
+        detail: "Viewer follows, upcoming lives, available replays, and subscription state.",
+        status: "Follow",
+      },
+    ],
+    tabs: [
+      {
+        label: "Setup",
+        items: [
+          {
+            title: "Set up a live for my service",
+            detail: "Provider form asks what service they offer and which live format they need.",
+            status: "Start",
+            tone: "live",
+          },
+          {
+            title: "Service type",
+            detail: "Spa therapist, private driver, guide, wellness expert, concierge, or custom service.",
+            status: "Choose",
+          },
+          {
+            title: "Publish option",
+            detail: "Payment placeholder is shown before scheduling or promoting the live.",
+            status: "Mock pay",
+          },
+        ],
+      },
+      {
+        label: "Verification",
+        items: [
+          {
+            title: "Document handoff",
+            detail: "Mock upload zones for ID, license, insurance, certificates, or portfolio proof.",
+            status: "Visual",
+          },
+          {
+            title: "Review before validation",
+            detail: "Clear notice states documents are checked before the live is approved.",
+            status: "Required",
+          },
+          {
+            title: "Trust badge",
+            detail: "Badge remains pending until verification review is complete.",
+            status: "Pending",
+            tone: "warm",
+          },
+        ],
+      },
+      {
+        label: "Replays",
+        items: [
+          {
+            title: "Replay available for 5 days",
+            detail: "Standard retention label is visible on each service replay.",
+            status: "5 days",
+          },
+          {
+            title: "Extend replay availability",
+            detail: "Paid extension option is represented as UI only.",
+            status: "Extend",
+          },
+          {
+            title: "Storage optimized",
+            detail: "Expired replays are marked to avoid uncontrolled cloud storage cost.",
+            status: "Optimized",
+          },
+        ],
+      },
+    ],
+    activity: [
+      {
+        title: "Provider live draft",
+        detail: "Private airport transfer service created a draft live walkthrough.",
+        status: "Draft",
+      },
+      {
+        title: "Mock documents received",
+        detail: "Insurance and license placeholders are waiting for verification review.",
+        status: "Review",
+      },
+      {
+        title: "Pinned placement",
+        detail: "Nearby discovery pin reserved for a verified spa consultation replay.",
+        status: "Pinned",
+      },
+    ],
+    analytics: [
+      { label: "Setup completion", value: "72%", width: 72 },
+      { label: "Verification readiness", value: "64%", width: 64 },
+      { label: "Replay retention", value: "5d", width: 50 },
+      { label: "Viewer follows", value: "318", width: 78 },
+    ],
+    quickActions: [
+      "Set up a live for my service",
+      "Review verification",
+      "Extend replay availability",
+      "Request pinned placement",
+    ],
+  },
+  {
     kind: "traveler",
     name: "Traveler",
     href: "/traveler-dashboard",
@@ -853,12 +1019,13 @@ const dashboards: Dashboard[] = [
 ];
 
 const navItems = [
-  { label: "Home", href: "/", kind: "overview" },
-  { label: "Hotel", href: "/hotel-dashboard", kind: "hotel" },
-  { label: "Restaurant", href: "/restaurant-dashboard", kind: "restaurant" },
-  { label: "Supplier", href: "/supplier-dashboard", kind: "supplier" },
-  { label: "Traveler", href: "/traveler-dashboard", kind: "traveler" },
-  { label: "AI Procurement", href: "/ai-procurement-dashboard", kind: "procurement" },
+  { label: "Public discovery", href: "/", kind: "overview" },
+  { label: "Main dashboard", href: "/ai-procurement-dashboard", kind: "procurement" },
+  { label: "Hotel dashboard", href: "/hotel-dashboard", kind: "hotel" },
+  { label: "Restaurant dashboard", href: "/restaurant-dashboard", kind: "restaurant" },
+  { label: "Supplier dashboard", href: "/supplier-dashboard", kind: "supplier" },
+  { label: "Services dashboard", href: "/services-dashboard", kind: "services" },
+  { label: "Viewer account", href: "/traveler-dashboard", kind: "traveler" },
 ] satisfies { label: string; href: string; kind: DashboardKind }[];
 
 const platformModules: WorkItem[] = [
@@ -896,40 +1063,112 @@ const platformModules: WorkItem[] = [
 ];
 
 const publicCategories = [
+  "All",
+  "Live now",
+  "Replays",
+  "Pinned",
   "Rooms",
   "Hotels",
+  "Restaurants",
+  "Services",
   "Spa",
   "Food & Brunch",
   "Facilities",
-  "Beach Side",
+  "Nearby",
   "Experiences",
-  "Offers",
 ];
 
 const liveSessions = [
   {
     title: "Ocean suite walkthrough",
-    category: "Rooms",
+    category: "Hotels - Rooms",
     status: "Live",
+    pinReason: "Featured by Buyamia",
+    replayLabel: "Replay available for 5 days",
+    expiry: "Expires in 5 days",
+    provider: "Canggu boutique resort",
     tone: "live" as Tone,
     image:
       "https://images.unsplash.com/photo-1566073771259-6a8506099945?auto=format&fit=crop&w=900&q=86",
   },
   {
     title: "Spa treatment room preview",
-    category: "Spa",
+    category: "Services - Spa",
     status: "Upcoming",
+    pinReason: "Nearby",
+    replayLabel: "Upcoming live",
+    expiry: "Replay starts after validation",
+    provider: "Uluwatu wellness spa",
     tone: "warm" as Tone,
     image:
       "https://images.unsplash.com/photo-1540555700478-4be289fbecef?auto=format&fit=crop&w=900&q=86",
   },
   {
     title: "Beach brunch tasting",
-    category: "Food & Brunch",
+    category: "Restaurants - Food & Brunch",
     status: "Replay",
+    pinReason: "Most watched",
+    replayLabel: "Replay available for 5 days",
+    expiry: "Expires in 3 days",
+    provider: "Seminyak supper club",
     tone: "default" as Tone,
     image:
       "https://images.unsplash.com/photo-1551218808-94e220e084d2?auto=format&fit=crop&w=900&q=86",
+  },
+  {
+    title: "Private driver arrival service",
+    category: "Services - Nearby",
+    status: "Pinned",
+    pinReason: "Sponsored / paid pin",
+    replayLabel: "Replay available for 5 days",
+    expiry: "Expires in 2 days",
+    provider: "Island Arrival Concierge",
+    tone: "dark" as Tone,
+    image:
+      "https://images.unsplash.com/photo-1518684079-3c830dcef090?auto=format&fit=crop&w=900&q=86",
+  },
+];
+
+const followedProviders = [
+  {
+    name: "Canggu boutique resort",
+    category: "Hotel partner",
+    status: "Following",
+    nextLive: "Ocean suite Q&A tomorrow",
+    replays: "4 available replays",
+  },
+  {
+    name: "Seminyak supper club",
+    category: "Restaurant",
+    status: "Follow",
+    nextLive: "Chef brunch live Friday",
+    replays: "2 available replays",
+  },
+  {
+    name: "Island Arrival Concierge",
+    category: "Service provider",
+    status: "Following",
+    nextLive: "Airport pickup walkthrough",
+    replays: "1 replay expires in 2 days",
+  },
+];
+
+const replayPolicies: WorkItem[] = [
+  {
+    title: "Replay available for 5 days",
+    detail: "Default replay window keeps public discovery useful while controlling storage.",
+    status: "5 days",
+  },
+  {
+    title: "Extend replay availability",
+    detail: "Paid extension is represented as a placeholder option, not a real payment flow.",
+    status: "Paid option",
+    tone: "warm",
+  },
+  {
+    title: "Storage optimized",
+    detail: "Expired replays are flagged for cleanup instead of accumulating cloud cost.",
+    status: "Optimized",
   },
 ];
 
@@ -941,14 +1180,30 @@ const howItWorks = [
 
 const connectedWorkflows: WorkItem[] = [
   {
+    title: "Main dashboard",
+    detail: "Platform overview for live performance, workflow routing, and partner health.",
+    status: "Open",
+  },
+  {
     title: "Hotel dashboard",
-    detail: "Room lives, booking status, guest proof, and service readiness.",
+    detail: "Client view and supplier / hotel partner view are separated.",
+    status: "Open",
+  },
+  {
+    title: "Restaurant dashboard",
+    detail: "Chef lives, reservations, live orders, and diner trust.",
     status: "Open",
   },
   {
     title: "Supplier dashboard",
     detail: "Verified sourcing, quote packs, buyer intent, and shipments.",
     status: "Open",
+  },
+  {
+    title: "Services dashboard",
+    detail: "Generic service providers set up lives, verification, pins, and replay windows.",
+    status: "New",
+    tone: "live",
   },
   {
     title: "Sourcing and procurement",
@@ -1003,6 +1258,15 @@ function Sidebar({ activeDashboard }: { activeDashboard: DashboardKind }) {
         </div>
       </Link>
 
+      <div className="mt-5 rounded-2xl border border-[#d6cbb6] bg-[#f6efe2] p-3">
+        <p className="text-[11px] font-bold uppercase tracking-[.16em] text-[#6f7f4f]">
+          Left side: back-end
+        </p>
+        <p className="mt-1 text-xs leading-5 text-[#766e5e]">
+          Main, hotel, restaurant, supplier, and services tools.
+        </p>
+      </div>
+
       <nav className="mt-5 flex gap-2 overflow-x-auto pb-1 lg:block lg:space-y-1.5 lg:overflow-visible lg:pb-0">
         {navItems.map((item) => (
           <Link
@@ -1041,11 +1305,11 @@ function Sidebar({ activeDashboard }: { activeDashboard: DashboardKind }) {
 
       <div className="mt-3 hidden rounded-2xl bg-[#1e2419] p-4 text-[#fffaf0] lg:block">
         <p className="text-xs font-bold uppercase tracking-[.16em] text-[#cbd8a7]">
-          Next live
+          Right side: public-facing
         </p>
-        <p className="mt-3 text-sm font-semibold">Rattan lounge collection</p>
+        <p className="mt-3 text-sm font-semibold">Browse, watch, details, follow</p>
         <p className="mt-1 text-xs leading-5 text-[#ded8ca]">
-          Supplier showcase starts at 15:30 with AI RFQ capture.
+          Public live streams keep categories, pins, replay labels, and viewer subscriptions visible.
         </p>
         <Link
           href="/live"
@@ -1114,6 +1378,8 @@ function OverviewDashboard() {
       <PublicHero />
       <BrowseCategories />
       <LiveNow />
+      <PinnedLives />
+      <ViewerSubscriptions />
       <HowItWorks />
       <ConnectedPlatform />
     </section>
@@ -1179,7 +1445,7 @@ function BrowseCategories() {
           <a
             key={category}
             href="#live-now"
-            className="rounded-2xl border border-[#d6cbb6] bg-[#fffaf0] p-5 text-lg font-semibold shadow-sm transition hover:-translate-y-0.5 hover:bg-white"
+            className="rounded-full border border-[#d6cbb6] bg-[#fffaf0] px-4 py-3 text-center text-sm font-bold shadow-sm transition hover:-translate-y-0.5 hover:bg-white"
           >
             {category}
           </a>
@@ -1201,7 +1467,20 @@ function LiveNow() {
           View all streams -&gt;
         </Link>
       </div>
-      <div className="grid gap-5 xl:grid-cols-3">
+      <div className="mb-5 flex gap-2 overflow-x-auto pb-1">
+        {["All", "Hotels", "Restaurants", "Services", "Nearby", "Live now", "Replays", "Pinned"].map(
+          (filter) => (
+            <a
+              key={filter}
+              href="#live-now"
+              className="min-w-fit rounded-full bg-[#fffaf0] px-3.5 py-2 text-xs font-bold text-[#596540] shadow-sm transition hover:bg-white"
+            >
+              {filter}
+            </a>
+          ),
+        )}
+      </div>
+      <div className="grid gap-5 xl:grid-cols-4">
         {liveSessions.map((session) => (
           <article
             key={session.title}
@@ -1222,6 +1501,14 @@ function LiveNow() {
                 {session.category}
               </p>
               <h3 className="mt-2 text-xl font-semibold">{session.title}</h3>
+              <p className="mt-1 text-sm text-[#675f50]">{session.provider}</p>
+              <div className="mt-4 flex flex-wrap gap-2">
+                <StatusChip label={session.pinReason} tone={session.tone} compact />
+                <StatusChip label={session.expiry} compact />
+              </div>
+              <p className="mt-3 text-xs font-bold text-[#6f7f4f]">
+                {session.replayLabel}
+              </p>
               <div className="mt-5 flex flex-col gap-2 sm:flex-row">
                 <Link
                   href="/live"
@@ -1235,10 +1522,92 @@ function LiveNow() {
                 >
                   View details
                 </Link>
+                <button className="rounded-full border border-[#cabda4] bg-white px-4 py-3 text-center text-sm font-bold text-[#1e2419] transition hover:bg-[#f3ecdc]">
+                  Follow
+                </button>
               </div>
             </div>
           </article>
         ))}
+      </div>
+    </section>
+  );
+}
+
+function PinnedLives() {
+  return (
+    <section className="py-8">
+      <div className="mb-6 flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
+        <div>
+          <p className="text-sm font-semibold text-[#6f7f4f]">Pinned discovery</p>
+          <h2 className="font-serif text-3xl leading-tight">Why a live is featured</h2>
+        </div>
+        <p className="max-w-md text-sm leading-6 text-[#675f50]">
+          Pins are labeled so viewers understand whether a stream is sponsored,
+          nearby, most watched, or featured by Buyamia.
+        </p>
+      </div>
+      <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+        {["Sponsored / paid pin", "Nearby", "Most watched", "Featured by Buyamia"].map(
+          (reason) => (
+            <article
+              key={reason}
+              className="rounded-2xl border border-[#d6cbb6] bg-[#fffaf0] p-4 shadow-sm"
+            >
+              <StatusChip label="Pinned" tone="live" compact />
+              <h3 className="mt-4 text-lg font-semibold">{reason}</h3>
+              <p className="mt-2 text-sm leading-6 text-[#675f50]">
+                Mock placement reason shown on public live thumbnails and details.
+              </p>
+            </article>
+          ),
+        )}
+      </div>
+    </section>
+  );
+}
+
+function ViewerSubscriptions() {
+  return (
+    <section className="py-8">
+      <div className="rounded-3xl border border-[#d6cbb6] bg-[#e9dfcb] p-5 shadow-sm sm:p-6">
+        <div className="mb-5 flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
+          <div>
+            <p className="text-sm font-semibold text-[#6f7f4f]">Viewer account</p>
+            <h2 className="font-serif text-3xl leading-tight">Your subscriptions</h2>
+          </div>
+          <StatusChip label="Mock viewer state" />
+        </div>
+        <div className="grid gap-3 lg:grid-cols-3">
+          {followedProviders.map((provider) => (
+            <article
+              key={provider.name}
+              className="rounded-2xl border border-[#d6cbb6] bg-[#fffaf0] p-4"
+            >
+              <p className="text-xs font-bold uppercase tracking-[.16em] text-[#6f7f4f]">
+                {provider.category}
+              </p>
+              <h3 className="mt-2 text-lg font-semibold">{provider.name}</h3>
+              <p className="mt-2 text-sm leading-6 text-[#675f50]">
+                {provider.nextLive}
+              </p>
+              <p className="mt-1 text-sm font-semibold text-[#596540]">
+                {provider.replays}
+              </p>
+              <div className="mt-4 grid gap-2 sm:grid-cols-3 lg:grid-cols-1">
+                <button className="rounded-full bg-[#1e2419] px-4 py-2.5 text-sm font-bold text-[#fffaf0]">
+                  {provider.status}
+                </button>
+                <button className="rounded-full border border-[#cabda4] bg-[#f3ecdc] px-4 py-2.5 text-sm font-bold">
+                  View replays
+                </button>
+                <button className="rounded-full border border-[#cabda4] bg-white px-4 py-2.5 text-sm font-bold">
+                  Upcoming lives
+                </button>
+              </div>
+            </article>
+          ))}
+        </div>
       </div>
     </section>
   );
@@ -1298,9 +1667,9 @@ function ConnectedPlatform() {
           title="Platform shortcuts"
           actions={[
             "Open hotel dashboard",
+            "Open services dashboard",
             "Open supplier dashboard",
-            "Review sourcing",
-            "Create RFQ",
+            "Review replay expiration",
           ]}
         />
       </div>
@@ -1355,6 +1724,9 @@ function DashboardDetail({ dashboard }: { dashboard: Dashboard }) {
 
       <MetricGrid metrics={dashboard.metrics} />
 
+      {dashboard.kind === "hotel" && <HotelAudienceSplit />}
+      {dashboard.kind === "services" && <ServicesProviderSetup />}
+
       <div className="mt-5 grid gap-5 2xl:grid-cols-[1.12fr_.88fr]">
         <DashboardWorkbench dashboard={dashboard} />
         <div className="grid gap-5">
@@ -1371,6 +1743,144 @@ function DashboardDetail({ dashboard }: { dashboard: Dashboard }) {
           items={dashboard.activity}
           dark
         />
+      </div>
+
+      <ReplayExpirationManager />
+    </section>
+  );
+}
+
+function HotelAudienceSplit() {
+  const views: WorkItem[] = [
+    {
+      title: "Client view",
+      detail: "Browse rooms, watch live walkthroughs, compare amenities, follow the hotel, and view available replays.",
+      status: "Guest path",
+      tone: "live",
+    },
+    {
+      title: "Supplier / hotel partner view",
+      detail: "Manage room lives, verification, booking signals, replay expiration, and paid promotion placeholders.",
+      status: "Partner path",
+      tone: "dark",
+    },
+  ];
+
+  return (
+    <section className="mt-5 rounded-3xl border border-[#d6cbb6] bg-[#fffaf0] p-5 shadow-sm">
+      <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
+        <div>
+          <p className="text-[11px] font-bold uppercase tracking-[.16em] text-[#6f7f4f]">
+            Hotel role clarity
+          </p>
+          <h2 className="mt-1 text-xl font-semibold">Choose the right hotel path</h2>
+        </div>
+        <StatusChip label="Client vs partner" />
+      </div>
+      <div className="grid gap-3 md:grid-cols-2">
+        {views.map((view) => (
+          <article key={view.title} className="rounded-2xl bg-[#f3ecdc] p-4">
+            <div className="flex items-start justify-between gap-3">
+              <h3 className="text-lg font-semibold">{view.title}</h3>
+              <StatusChip label={view.status} tone={view.tone} compact />
+            </div>
+            <p className="mt-3 text-sm leading-6 text-[#675f50]">{view.detail}</p>
+          </article>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+function ServicesProviderSetup() {
+  return (
+    <section className="mt-5 grid gap-5 xl:grid-cols-[1.05fr_.95fr]">
+      <div className="rounded-3xl border border-[#d6cbb6] bg-[#fffaf0] p-5 shadow-sm">
+        <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+          <div>
+            <p className="text-[11px] font-bold uppercase tracking-[.16em] text-[#6f7f4f]">
+              For service providers
+            </p>
+            <h2 className="mt-1 text-2xl font-semibold">Set up a live for my service</h2>
+          </div>
+          <StatusChip label="UI mock" tone="warm" />
+        </div>
+        <div className="grid gap-3">
+          <label className="rounded-2xl bg-[#f3ecdc] p-4">
+            <span className="text-sm font-bold text-[#596540]">What service do you offer?</span>
+            <input
+              aria-label="Service offered"
+              placeholder="Example: private transfer, spa treatment, guide, concierge"
+              className="mt-3 w-full rounded-2xl border border-[#d6cbb6] bg-[#fffaf0] px-4 py-3 text-sm outline-none"
+            />
+          </label>
+          <div className="grid gap-3 sm:grid-cols-2">
+            {["Identity or license", "Insurance or certificate"].map((item) => (
+              <div
+                key={item}
+                className="rounded-2xl border border-dashed border-[#cabda4] bg-[#f6efe2] p-4"
+              >
+                <p className="font-semibold">{item}</p>
+                <p className="mt-2 text-sm leading-6 text-[#675f50]">
+                  Visual document transfer placeholder. Do not upload sensitive originals.
+                </p>
+              </div>
+            ))}
+          </div>
+          <p className="rounded-2xl bg-[#edf2dd] p-4 text-sm font-semibold leading-6 text-[#44512f]">
+            Documents will be verified before validation. This screen does not store real documents.
+          </p>
+          <button className="w-full rounded-full bg-[#1e2419] px-5 py-3 text-sm font-bold text-[#fffaf0] transition hover:bg-[#596540]">
+            Set up a live for my service
+          </button>
+        </div>
+      </div>
+
+      <div className="rounded-3xl border border-[#1e2419] bg-[#1e2419] p-5 text-[#fffaf0] shadow-xl shadow-[#8a7d61]/12">
+        <p className="text-[11px] font-bold uppercase tracking-[.16em] text-[#cbd8a7]">
+          Payment placeholder
+        </p>
+        <h2 className="mt-2 text-2xl font-semibold">Organize or publish lives</h2>
+        <p className="mt-3 text-sm leading-7 text-[#ded8ca]">
+          Providers see a payment option for scheduling, publishing, or extending
+          visibility. This is only interface copy until a real payment system is integrated.
+        </p>
+        <div className="mt-5 grid gap-3">
+          {["Publish live slot", "Sponsor pinned placement", "Extend replay availability"].map(
+            (option) => (
+              <div
+                key={option}
+                className="flex items-center justify-between gap-3 rounded-2xl bg-white/[.07] p-4"
+              >
+                <span className="text-sm font-semibold">{option}</span>
+                <span className="rounded-full bg-[#fffaf0]/12 px-3 py-1 text-xs font-bold text-[#cbd8a7]">
+                  Mock pay
+                </span>
+              </div>
+            ),
+          )}
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function ReplayExpirationManager() {
+  return (
+    <section className="mt-5 rounded-3xl border border-[#d6cbb6] bg-[#fffaf0] p-5 shadow-sm">
+      <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
+        <div>
+          <p className="text-[11px] font-bold uppercase tracking-[.16em] text-[#6f7f4f]">
+            Replay expiration
+          </p>
+          <h2 className="mt-1 text-xl font-semibold">Storage-aware replay policy</h2>
+        </div>
+        <StatusChip label="Storage optimized" />
+      </div>
+      <div className="grid gap-3 md:grid-cols-3">
+        {replayPolicies.map((policy) => (
+          <MiniItem key={policy.title} item={policy} />
+        ))}
       </div>
     </section>
   );
