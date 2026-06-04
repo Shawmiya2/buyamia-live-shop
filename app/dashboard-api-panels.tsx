@@ -8,6 +8,7 @@ import type {
   LiveEvent,
   Provider,
 } from "@/lib/backend/types";
+import { readDemoSession } from "@/lib/demo-session";
 
 type DashboardApiPanelsProps = {
   dashboardType: DashboardType;
@@ -26,6 +27,7 @@ type ApiState =
 
 type AnalyticsApiResponse = {
   dashboardType: DashboardType;
+  auth?: DashboardResponse["auth"];
   analyticsSummary: AnalyticsSummary;
 };
 
@@ -41,10 +43,23 @@ export function DashboardApiPanels({
     async function loadDashboardData() {
       try {
         setState({ status: "loading" });
+        const demoSession = readDemoSession();
+        const headers = demoSession
+          ? {
+              "x-demo-profile-type": demoSession.profileType,
+              "x-demo-user-id": demoSession.userId,
+            }
+          : undefined;
 
         const [dashboardResponse, analyticsResponse] = await Promise.all([
-          fetch(`/api/dashboard/${dashboardType}`, { cache: "no-store" }),
-          fetch(`/api/analytics/${dashboardType}`, { cache: "no-store" }),
+          fetch(`/api/dashboard/${dashboardType}`, {
+            cache: "no-store",
+            headers,
+          }),
+          fetch(`/api/analytics/${dashboardType}`, {
+            cache: "no-store",
+            headers,
+          }),
         ]);
 
         if (!dashboardResponse.ok || !analyticsResponse.ok) {
@@ -132,7 +147,7 @@ export function DashboardApiPanels({
         <DataCard
           label="verificationStatus"
           value={formatStatus(state.dashboard.verificationStatus)}
-          detail={`Role: ${formatStatus(state.dashboard.role)}`}
+          detail={`Role: ${formatStatus(state.dashboard.role)} - auth: ${state.dashboard.auth?.authMode ?? "demo"}`}
         />
         <DataCard
           label="liveStats"

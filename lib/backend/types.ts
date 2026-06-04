@@ -48,6 +48,16 @@ export type MockUser = {
   providerId?: string;
 };
 
+export type DemoSession = {
+  userId: string;
+  name: string;
+  email: string;
+  profileType: ProfileType;
+  dashboardUrl: string;
+  verificationStatus: VerificationStatus;
+  onboardingStatus: OnboardingStatus;
+};
+
 export type Provider = {
   id: string;
   ownerUserId: string;
@@ -136,12 +146,21 @@ export type AnalyticsSummary =
 export type DashboardResponse = {
   dashboardType: DashboardType;
   role: ProfileType;
+  auth?: {
+    authMode: "demo";
+    accessChecked: true;
+    allowedRoles: ProfileType[];
+    currentRole: ProfileType | null;
+    currentUserId: string | null;
+    accessGranted: boolean;
+  };
   verificationStatus: VerificationStatus;
   liveStats: LiveStats;
   replayStats: ReplayStats;
   pinnedLives: LiveEvent[];
   subscriptions?: {
     followedProviders?: Provider[];
+    replayFeed?: LiveEvent[];
     followerCount?: number;
   };
   analyticsSummary: AnalyticsSummary;
@@ -150,6 +169,8 @@ export type DashboardResponse = {
 
 export type AccountCreationResponse = {
   userId: string;
+  name: string;
+  email: string;
   profileType: ProfileType;
   dashboardUrl: string;
   verificationStatus: VerificationStatus;

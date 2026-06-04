@@ -7,8 +7,10 @@ import type {
   Subscription,
   VerificationDocumentMetadata,
 } from "./types";
-
-export const defaultReplayAvailabilityDays = 5;
+import {
+  createMockReplayWindow,
+  defaultReplayAvailabilityDays,
+} from "./replay-policy";
 
 export const roleDashboardMap: Record<ProfileType, string> = {
   main_admin: "/dashboard/main",
@@ -28,6 +30,8 @@ export const dashboardRoleMap: Record<DashboardType, ProfileType> = {
   viewer: "viewer",
 };
 
+// In-memory demo data only. These arrays intentionally model the future service
+// boundary without providing production authentication, persistence, or payments.
 const now = new Date("2026-06-04T12:00:00.000Z");
 
 function daysFromNow(days: number) {
@@ -138,16 +142,11 @@ export const lives: LiveEvent[] = [
     pinReason: "featured_by_buyamia",
     pinExpiresAt: daysFromNow(2),
     priorityScore: 96,
-    replay: {
+    replay: createMockReplayWindow({
       availableFrom: daysFromNow(-1),
-      expiresAt: daysFromNow(4),
-      daysRemaining: 4,
-      status: "active",
-      extensionAvailable: true,
-      extensionDays: 5,
-      planLabel: "Replay boost extension",
-      priceLabel: "Mock paid extension",
-    },
+      now,
+      availabilityDays: defaultReplayAvailabilityDays,
+    }),
   },
   {
     id: "live_restaurant_tasting",
@@ -164,16 +163,11 @@ export const lives: LiveEvent[] = [
     pinReason: "most_watched",
     pinExpiresAt: daysFromNow(1),
     priorityScore: 92,
-    replay: {
+    replay: createMockReplayWindow({
       availableFrom: daysFromNow(-3),
-      expiresAt: daysFromNow(2),
-      daysRemaining: 2,
-      status: "expiring_soon",
-      extensionAvailable: true,
-      extensionDays: 5,
-      planLabel: "Replay boost extension",
-      priceLabel: "Mock paid extension",
-    },
+      now,
+      availabilityDays: defaultReplayAvailabilityDays,
+    }),
   },
   {
     id: "live_supplier_factory",
@@ -190,16 +184,12 @@ export const lives: LiveEvent[] = [
     pinReason: "sponsored",
     pinExpiresAt: daysFromNow(3),
     priorityScore: 98,
-    replay: {
+    replay: createMockReplayWindow({
       availableFrom: daysFromNow(-2),
-      expiresAt: daysFromNow(3),
-      daysRemaining: 3,
-      status: "active",
-      extensionAvailable: true,
-      extensionDays: 5,
+      now,
+      availabilityDays: defaultReplayAvailabilityDays,
       planLabel: "Supplier replay extension",
-      priceLabel: "Mock paid extension",
-    },
+    }),
   },
   {
     id: "live_service_arrival",
@@ -216,16 +206,30 @@ export const lives: LiveEvent[] = [
     pinReason: "nearby",
     pinExpiresAt: daysFromNow(1),
     priorityScore: 74,
-    replay: {
+    replay: createMockReplayWindow({
       availableFrom: daysFromNow(-6),
-      expiresAt: daysFromNow(-1),
-      daysRemaining: 0,
-      status: "expired",
-      extensionAvailable: true,
-      extensionDays: 5,
+      now,
+      availabilityDays: defaultReplayAvailabilityDays,
       planLabel: "Service replay extension",
-      priceLabel: "Mock paid extension",
-    },
+    }),
+  },
+];
+
+export const viewerLiveHistory = [
+  {
+    viewerUserId: "user_viewer_mock",
+    liveId: "live_hotel_ocean_suite",
+    watchedAt: daysFromNow(-1),
+  },
+  {
+    viewerUserId: "user_viewer_mock",
+    liveId: "live_supplier_factory",
+    watchedAt: daysFromNow(-2),
+  },
+  {
+    viewerUserId: "user_viewer_mock",
+    liveId: "live_restaurant_tasting",
+    watchedAt: daysFromNow(-5),
   },
 ];
 

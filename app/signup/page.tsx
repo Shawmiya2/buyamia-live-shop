@@ -1,11 +1,19 @@
 "use client";
 
 import Link from "next/link";
-import { FormEvent, useMemo, useState } from "react";
+import { FormEvent, useEffect, useMemo, useState } from "react";
 import type {
   AccountCreationResponse,
+  DemoSession,
   ProfileType,
 } from "@/lib/backend/types";
+import {
+  clearDemoSession,
+  createDemoSession,
+  createDemoSessionForRole,
+  readDemoSession,
+  saveDemoSession,
+} from "@/lib/demo-session";
 
 const roles: {
   label: string;
@@ -45,6 +53,15 @@ const roles: {
   },
 ];
 
+const demoRoles: { label: string; profileType: ProfileType }[] = [
+  { label: "Main admin", profileType: "main_admin" },
+  { label: "Hotel", profileType: "hotel" },
+  { label: "Restaurant", profileType: "restaurant" },
+  { label: "Supplier", profileType: "supplier" },
+  { label: "Service provider", profileType: "service_provider" },
+  { label: "Viewer", profileType: "viewer" },
+];
+
 export default function SignupPage() {
   const [profileType, setProfileType] = useState<ProfileType>("hotel");
   const [name, setName] = useState("");
@@ -53,11 +70,27 @@ export default function SignupPage() {
   const [error, setError] = useState("");
   const [createdAccount, setCreatedAccount] =
     useState<AccountCreationResponse | null>(null);
+  const [demoSession, setDemoSession] = useState<DemoSession | null>(null);
 
   const selectedRole = useMemo(
     () => roles.find((role) => role.profileType === profileType) ?? roles[0],
     [profileType],
   );
+
+  useEffect(() => {
+    setDemoSession(readDemoSession());
+  }, []);
+
+  function handleDemoRoleSwitch(nextProfileType: ProfileType) {
+    const nextSession = createDemoSessionForRole(nextProfileType);
+    saveDemoSession(nextSession);
+    setDemoSession(nextSession);
+  }
+
+  function handleDemoReset() {
+    clearDemoSession();
+    setDemoSession(null);
+  }
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -82,6 +115,9 @@ export default function SignupPage() {
       }
 
       const payload = (await response.json()) as AccountCreationResponse;
+      const nextSession = createDemoSession(payload);
+      saveDemoSession(nextSession);
+      setDemoSession(nextSession);
       setCreatedAccount(payload);
     } catch (requestError) {
       setError(
@@ -251,6 +287,82 @@ export default function SignupPage() {
               {isSubmitting ? "Creating account..." : "Create account"}
             </button>
           </form>
+        </section>
+
+        <section className="mb-8 rounded-2xl border-2 border-dashed border-[#8c3f2b] bg-[#fff3ed] p-5 text-[#1e2419]">
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+            <div>
+              <p className="text-xs font-black uppercase tracking-[.18em] text-[#8c3f2b]">
+                Demo only
+              </p>
+              <h2 className="mt-2 text-xl font-bold">Local role switcher</h2>
+              <p className="mt-2 max-w-2xl text-sm leading-6 text-[#675f50]">
+                This panel writes a local browser demo session for role guard
+                testing. It is not authentication and does not save anything to a
+                database.
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={handleDemoReset}
+              className="inline-flex rounded-full border border-[#8c3f2b] px-4 py-2 text-sm font-bold text-[#8c3f2b] transition hover:bg-[#ffe4d9]"
+            >
+              Clear demo session
+            </button>
+          </div>
+
+          <div className="mt-5 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+            {demoRoles.map((role) => {
+              const isActive = demoSession?.profileType === role.profileType;
+
+              return (
+                <button
+                  key={role.profileType}
+                  type="button"
+                  onClick={() => handleDemoRoleSwitch(role.profileType)}
+                  className={`rounded-2xl border p-4 text-left text-sm font-bold transition ${
+                    isActive
+                      ? "border-[#1e2419] bg-[#1e2419] text-[#fffaf0]"
+                      : "border-[#d9b2a3] bg-[#fffaf0] text-[#1e2419] hover:bg-[#ffe4d9]"
+                  }`}
+                >
+                  {role.label}
+                  <span
+                    className={`mt-2 block text-xs font-semibold ${
+                      isActive ? "text-[#cbd8a7]" : "text-[#8c3f2b]"
+                    }`}
+                  >
+                    {isActive ? "Current demo session" : "Switch demo role"}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+
+          <div className="mt-5 rounded-2xl border border-[#d9b2a3] bg-[#fffaf0] p-4">
+            {demoSession ? (
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                  <p className="text-sm font-bold">
+                    Active role: {formatStatus(demoSession.profileType)}
+                  </p>
+                  <p className="mt-1 text-sm text-[#675f50]">
+                    Dashboard: {demoSession.dashboardUrl}
+                  </p>
+                </div>
+                <Link
+                  href={demoSession.dashboardUrl}
+                  className="inline-flex rounded-full bg-[#1e2419] px-5 py-3 text-sm font-bold text-[#fffaf0] transition hover:bg-[#333b2b]"
+                >
+                  Go to correct dashboard
+                </Link>
+              </div>
+            ) : (
+              <p className="text-sm font-semibold text-[#675f50]">
+                No demo session is set in this browser.
+              </p>
+            )}
+          </div>
         </section>
       </div>
     </main>

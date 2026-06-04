@@ -1,5 +1,6 @@
 import Image from "next/image";
 import Link from "next/link";
+import { DashboardAccessGate } from "./dashboard-access-gate";
 import { DashboardApiPanels } from "./dashboard-api-panels";
 import type { DashboardType } from "@/lib/backend/types";
 
@@ -1232,7 +1233,11 @@ export function DashboardPlatform({
         <div className="min-h-0 min-w-0 overflow-y-auto">
           <Topbar activeDashboard={selectedDashboard?.name ?? "Discover"} />
           {selectedDashboard ? (
-            <DashboardDetail dashboard={selectedDashboard} />
+            <DashboardAccessGate
+              dashboardType={getDashboardApiType(selectedDashboard.kind)}
+            >
+              <DashboardDetail dashboard={selectedDashboard} />
+            </DashboardAccessGate>
           ) : (
             <OverviewDashboard />
           )}

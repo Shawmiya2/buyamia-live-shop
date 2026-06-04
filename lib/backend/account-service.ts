@@ -1,21 +1,16 @@
-import { roleDashboardMap, users } from "./mock-data";
+import { users } from "./mock-data";
+import {
+  getDashboardForRole,
+  isValidProfileType,
+} from "./role-guard";
 import type { AccountCreationResponse, MockUser, ProfileType } from "./types";
 
-export const profileTypes: ProfileType[] = [
-  "main_admin",
-  "hotel",
-  "restaurant",
-  "supplier",
-  "service_provider",
-  "viewer",
-];
-
 export function isProfileType(value: unknown): value is ProfileType {
-  return typeof value === "string" && profileTypes.includes(value as ProfileType);
+  return isValidProfileType(value);
 }
 
 export function getDashboardUrl(profileType: ProfileType) {
-  return roleDashboardMap[profileType];
+  return getDashboardForRole(profileType);
 }
 
 export function createMockAccount(input: {
@@ -53,6 +48,8 @@ export function createMockAccount(input: {
 
   return {
     userId: user.id,
+    name: user.displayName,
+    email: user.email,
     profileType: user.profileType,
     dashboardUrl: getDashboardUrl(user.profileType),
     verificationStatus: user.verificationStatus,

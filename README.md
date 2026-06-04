@@ -23,6 +23,10 @@ npm run build
 
 ## Notes
 
-This is currently a front-end product prototype. Backend services for auth, persistence, payments, livestreaming, realtime chat, AI agents, and logistics integrations still need to be added.
+This is currently a product prototype with a mock backend foundation. Dashboard
+role guards, demo session handling, in-memory mock persistence, replay policy,
+pinned live logic, and subscription data are present for local testing, but they
+are not production auth, database, payment, or verification systems.
 
 The live commerce strategy document is available at `docs/live-commerce-strategy.md`.
+Backend mock boundaries are documented in `docs/backend-notes.md`.

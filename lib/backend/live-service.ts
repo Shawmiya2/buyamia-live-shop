@@ -1,5 +1,6 @@
 import { lives } from "./mock-data";
-import type { LiveEvent, PinReason, ReplayStatus } from "./types";
+import { calculateReplayStatus, datePlusDays } from "./replay-policy";
+import type { LiveEvent, PinReason } from "./types";
 
 const pinReasons: PinReason[] = [
   "sponsored",
@@ -8,26 +9,7 @@ const pinReasons: PinReason[] = [
   "featured_by_buyamia",
 ];
 
-function datePlusDays(date: Date, days: number) {
-  const next = new Date(date);
-  next.setUTCDate(next.getUTCDate() + days);
-  return next;
-}
-
-export function calculateReplayStatus(expiresAt: string, now = new Date()) {
-  const expires = new Date(expiresAt);
-  const diffMs = expires.getTime() - now.getTime();
-  const daysRemaining = Math.max(0, Math.ceil(diffMs / 86_400_000));
-  let status: ReplayStatus = "active";
-
-  if (daysRemaining <= 0) {
-    status = "expired";
-  } else if (daysRemaining <= 2) {
-    status = "expiring_soon";
-  }
-
-  return { daysRemaining, status };
-}
+export { calculateReplayStatus };
 
 export function hydrateReplayStatus(live: LiveEvent, now = new Date()): LiveEvent {
   return {
@@ -55,8 +37,11 @@ export function getLiveById(id: string) {
 
 export function sortPinnedLives(input: LiveEvent[]) {
   return [...input].sort((a, b) => {
-    if (a.isPinned !== b.isPinned) {
-      return Number(b.isPinned) - Number(a.isPinned);
+    const aPinned = isPinActive(a);
+    const bPinned = isPinActive(b);
+
+    if (aPinned !== bPinned) {
+      return Number(bPinned) - Number(aPinned);
     }
 
     return b.priorityScore - a.priorityScore;
@@ -67,9 +52,21 @@ export function getPinnedLives(providerId?: string) {
   return sortPinnedLives(
     getLives().filter((live) => {
       const providerMatches = providerId ? live.providerId === providerId : true;
-      return live.isPinned && providerMatches;
+      return isPinActive(live) && providerMatches;
     }),
   );
+}
+
+function isPinActive(live: LiveEvent) {
+  if (!live.isPinned) {
+    return false;
+  }
+
+  if (!live.pinExpiresAt) {
+    return true;
+  }
+
+  return new Date(live.pinExpiresAt).getTime() > Date.now();
 }
 
 export function extendReplayAvailability(input: {

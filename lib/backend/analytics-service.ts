@@ -1,4 +1,4 @@
-import { dashboardRoleMap, providers, users } from "./mock-data";
+import { dashboardRoleMap, providers, users, viewerLiveHistory } from "./mock-data";
 import { getLives } from "./live-service";
 import {
   getFollowedProviders,
@@ -52,7 +52,9 @@ export function getViewerAnalyticsSummary(
     upcomingLives: followedLives.filter((live) => live.status === "scheduled")
       .length,
     availableReplays: getViewerReplayFeed(viewerUserId).length,
-    watchedLives: 18,
+    watchedLives: viewerLiveHistory.filter(
+      (item) => item.viewerUserId === viewerUserId,
+    ).length,
   };
 }
 

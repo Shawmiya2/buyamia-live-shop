@@ -4,8 +4,10 @@ import { getLives, getPinnedLives } from "./live-service";
 import {
   getFollowedProviders,
   getProviderFollowers,
+  getViewerReplayFeed,
 } from "./subscription-service";
 import type { DashboardResponse, DashboardType } from "./types";
+import type { DemoAccessContext } from "./demo-request";
 
 export const dashboardTypes: DashboardType[] = [
   "main",
@@ -61,6 +63,7 @@ function getNextActions(dashboardType: DashboardType) {
 
 export function getDashboardData(
   dashboardType: DashboardType,
+  accessContext?: DemoAccessContext,
 ): DashboardResponse {
   const role = dashboardRoleMap[dashboardType];
   const provider = providers.find((item) => item.profileType === role);
@@ -89,6 +92,7 @@ export function getDashboardData(
   const response: DashboardResponse = {
     dashboardType,
     role,
+    auth: accessContext,
     verificationStatus:
       provider?.verificationStatus ?? user?.verificationStatus ?? "not_started",
     liveStats: {
@@ -106,6 +110,7 @@ export function getDashboardData(
   if (dashboardType === "viewer") {
     response.subscriptions = {
       followedProviders: getFollowedProviders("user_viewer_mock"),
+      replayFeed: getViewerReplayFeed("user_viewer_mock"),
     };
   }
 
