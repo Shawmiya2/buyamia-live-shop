@@ -20,6 +20,7 @@ export function getDashboardUrl(profileType: ProfileType) {
 
 export function createMockAccount(input: {
   profileType: unknown;
+  name?: unknown;
   displayName?: unknown;
   email?: unknown;
 }): AccountCreationResponse {
@@ -33,6 +34,8 @@ export function createMockAccount(input: {
     displayName:
       typeof input.displayName === "string" && input.displayName.trim()
         ? input.displayName.trim()
+        : typeof input.name === "string" && input.name.trim()
+          ? input.name.trim()
         : "New Buyamia User",
     email:
       typeof input.email === "string" && input.email.trim()

@@ -63,7 +63,7 @@ const dashboards: Dashboard[] = [
   {
     kind: "hotel",
     name: "Hotel",
-    href: "/hotel-dashboard",
+    href: "/dashboard/hotel",
     eyebrow: "Hotel command center",
     headline: "Live rooms, bookings, guest trust, and room revenue in one cockpit.",
     summary:
@@ -222,7 +222,7 @@ const dashboards: Dashboard[] = [
   {
     kind: "restaurant",
     name: "Restaurant",
-    href: "/restaurant-dashboard",
+    href: "/dashboard/restaurant",
     eyebrow: "Restaurant operations",
     headline: "Chef streams, reservations, live orders, and diner trust.",
     summary:
@@ -382,7 +382,7 @@ const dashboards: Dashboard[] = [
   {
     kind: "supplier",
     name: "Supplier",
-    href: "/supplier-dashboard",
+    href: "/dashboard/supplier",
     eyebrow: "Supplier studio",
     headline: "Sourcing streams, RFQs, buyer intent, escrow, and shipments.",
     summary:
@@ -541,7 +541,7 @@ const dashboards: Dashboard[] = [
   {
     kind: "services",
     name: "Services",
-    href: "/services-dashboard",
+    href: "/dashboard/services",
     eyebrow: "Service provider studio",
     headline: "Generic service providers can launch verified lives without fitting Hotel or Restaurant.",
     summary:
@@ -706,7 +706,7 @@ const dashboards: Dashboard[] = [
   {
     kind: "traveler",
     name: "Traveler",
-    href: "/traveler-dashboard",
+    href: "/dashboard/viewer",
     eyebrow: "Traveler concierge",
     headline: "Booked stays, watched lives, wishlists, and trusted trip status.",
     summary:
@@ -863,7 +863,7 @@ const dashboards: Dashboard[] = [
   {
     kind: "procurement",
     name: "AI Procurement",
-    href: "/ai-procurement-dashboard",
+    href: "/dashboard/main",
     eyebrow: "AI procurement OS",
     headline: "Sourcing intelligence, RFQ automation, negotiation, and risk.",
     summary:
@@ -1022,12 +1022,12 @@ const dashboards: Dashboard[] = [
 
 const navItems = [
   { label: "Public discovery", href: "/", kind: "overview" },
-  { label: "Main dashboard", href: "/ai-procurement-dashboard", kind: "procurement" },
-  { label: "Hotel dashboard", href: "/hotel-dashboard", kind: "hotel" },
-  { label: "Restaurant dashboard", href: "/restaurant-dashboard", kind: "restaurant" },
-  { label: "Supplier dashboard", href: "/supplier-dashboard", kind: "supplier" },
-  { label: "Services dashboard", href: "/services-dashboard", kind: "services" },
-  { label: "Viewer account", href: "/traveler-dashboard", kind: "traveler" },
+  { label: "Main dashboard", href: "/dashboard/main", kind: "procurement" },
+  { label: "Hotel dashboard", href: "/dashboard/hotel", kind: "hotel" },
+  { label: "Restaurant dashboard", href: "/dashboard/restaurant", kind: "restaurant" },
+  { label: "Supplier dashboard", href: "/dashboard/supplier", kind: "supplier" },
+  { label: "Services dashboard", href: "/dashboard/services", kind: "services" },
+  { label: "Viewer account", href: "/dashboard/viewer", kind: "traveler" },
 ] satisfies { label: string; href: string; kind: DashboardKind }[];
 
 const platformModules: WorkItem[] = [
@@ -1362,12 +1362,12 @@ function Topbar({ activeDashboard }: { activeDashboard: string }) {
           >
             Explore live streams
           </Link>
-          <a
-            href="#connected-platform"
+          <Link
+            href="/signup"
             className="rounded-full bg-[#6f7f4f] px-4 py-2 text-sm font-bold text-white transition hover:bg-[#596540]"
           >
-            {isPublicHome ? "Become a partner" : "Create workflow"}
-          </a>
+            {isPublicHome ? "Create account" : "Create account"}
+          </Link>
         </div>
       </div>
     </header>
@@ -1418,10 +1418,10 @@ function PublicHero() {
               Explore live streams
             </Link>
             <a
-              href="#connected-platform"
+              href="/signup"
               className="rounded-full border border-white/20 bg-white/[.08] px-6 py-3 text-center text-sm font-bold text-[#fffaf0] backdrop-blur-xl transition hover:bg-white/[.14]"
             >
-              Become a partner
+              Create account
             </a>
           </div>
         </div>
@@ -1847,6 +1847,37 @@ function ServicesProviderSetup() {
           <p className="rounded-2xl bg-[#edf2dd] p-4 text-sm font-semibold leading-6 text-[#44512f]">
             Documents will be verified before validation. This screen does not store real documents.
           </p>
+          <div className="grid gap-3 sm:grid-cols-2">
+            <label className="rounded-2xl bg-[#f3ecdc] p-4">
+              <span className="text-sm font-bold text-[#596540]">
+                Replay expiration
+              </span>
+              <select
+                aria-label="Replay expiration"
+                className="mt-3 w-full rounded-2xl border border-[#d6cbb6] bg-[#fffaf0] px-4 py-3 text-sm font-semibold outline-none"
+                defaultValue="5"
+              >
+                <option value="3">Replay available for 3 days</option>
+                <option value="5">Replay available for 5 days</option>
+                <option value="7">Replay available for 7 days</option>
+              </select>
+            </label>
+            <label className="rounded-2xl bg-[#f3ecdc] p-4">
+              <span className="text-sm font-bold text-[#596540]">
+                Pinned live option
+              </span>
+              <select
+                aria-label="Pinned live option"
+                className="mt-3 w-full rounded-2xl border border-[#d6cbb6] bg-[#fffaf0] px-4 py-3 text-sm font-semibold outline-none"
+                defaultValue="featured_by_buyamia"
+              >
+                <option value="sponsored">Sponsored</option>
+                <option value="nearby">Nearby</option>
+                <option value="most_watched">Most watched</option>
+                <option value="featured_by_buyamia">Featured by Buyamia</option>
+              </select>
+            </label>
+          </div>
           <button className="w-full rounded-full bg-[#1e2419] px-5 py-3 text-sm font-bold text-[#fffaf0] transition hover:bg-[#596540]">
             Set up a live for my service
           </button>

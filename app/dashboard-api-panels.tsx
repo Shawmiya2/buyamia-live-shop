@@ -251,6 +251,16 @@ function PinnedLivesPanel({ lives }: { lives: LiveEvent[] }) {
                 <span>{formatNumber(live.replayViews)} replay views</span>
                 <span>{live.conversionIntent}% intent</span>
               </div>
+              <div className="mt-3 flex flex-wrap gap-2">
+                <span className="rounded-full bg-[#edf2dd] px-3 py-1 text-xs font-black text-[#596540]">
+                  Replay available for {live.replay.extensionDays} days
+                </span>
+                <span className="rounded-full bg-[#f3ecdc] px-3 py-1 text-xs font-black text-[#596540]">
+                  {live.replay.daysRemaining > 0
+                    ? `Expires in ${live.replay.daysRemaining} days`
+                    : "Replay expired"}
+                </span>
+              </div>
             </article>
           ))
         ) : (

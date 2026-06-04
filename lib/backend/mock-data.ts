@@ -16,7 +16,7 @@ export const roleDashboardMap: Record<ProfileType, string> = {
   restaurant: "/dashboard/restaurant",
   supplier: "/dashboard/supplier",
   service_provider: "/dashboard/services",
-  viewer: "/account/viewer",
+  viewer: "/dashboard/viewer",
 };
 
 export const dashboardRoleMap: Record<DashboardType, ProfileType> = {
