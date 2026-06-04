@@ -1,5 +1,7 @@
 import Image from "next/image";
 import Link from "next/link";
+import { DashboardApiPanels } from "./dashboard-api-panels";
+import type { DashboardType } from "@/lib/backend/types";
 
 type DashboardKind =
   | "overview"
@@ -1711,6 +1713,8 @@ function RoleSwitcher() {
 }
 
 function DashboardDetail({ dashboard }: { dashboard: Dashboard }) {
+  const dashboardType = getDashboardApiType(dashboard.kind);
+
   return (
     <section className="px-4 py-5 sm:px-6 lg:px-8">
       <div className="grid gap-5 xl:grid-cols-[1.08fr_.92fr]">
@@ -1723,6 +1727,7 @@ function DashboardDetail({ dashboard }: { dashboard: Dashboard }) {
       </div>
 
       <MetricGrid metrics={dashboard.metrics} />
+      <DashboardApiPanels dashboardType={dashboardType} title={dashboard.name} />
 
       {dashboard.kind === "hotel" && <HotelAudienceSplit />}
       {dashboard.kind === "services" && <ServicesProviderSetup />}
@@ -1748,6 +1753,18 @@ function DashboardDetail({ dashboard }: { dashboard: Dashboard }) {
       <ReplayExpirationManager />
     </section>
   );
+}
+
+function getDashboardApiType(kind: Dashboard["kind"]): DashboardType {
+  if (kind === "procurement") {
+    return "main";
+  }
+
+  if (kind === "traveler") {
+    return "viewer";
+  }
+
+  return kind;
 }
 
 function HotelAudienceSplit() {
