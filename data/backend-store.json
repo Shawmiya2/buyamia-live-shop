@@ -1,0 +1,417 @@
+{
+  "users": [
+    {
+      "id": "user_admin_mock",
+      "displayName": "Buyamia Ops",
+      "email": "ops@example.test",
+      "profileType": "main_admin",
+      "verificationStatus": "verified",
+      "onboardingStatus": "complete"
+    },
+    {
+      "id": "user_hotel_mock",
+      "displayName": "Sanur Hotel Partner",
+      "email": "hotel@example.test",
+      "profileType": "hotel",
+      "verificationStatus": "verified",
+      "onboardingStatus": "complete",
+      "providerId": "provider_hotel_sanur"
+    },
+    {
+      "id": "user_restaurant_mock",
+      "displayName": "Seminyak Table",
+      "email": "restaurant@example.test",
+      "profileType": "restaurant",
+      "verificationStatus": "pending",
+      "onboardingStatus": "in_progress",
+      "providerId": "provider_restaurant_seminyak"
+    },
+    {
+      "id": "user_supplier_mock",
+      "displayName": "Bali Rattan Works",
+      "email": "supplier@example.test",
+      "profileType": "supplier",
+      "verificationStatus": "verified",
+      "onboardingStatus": "complete",
+      "providerId": "provider_supplier_rattan"
+    },
+    {
+      "id": "user_services_mock",
+      "displayName": "Private Arrival Service",
+      "email": "service@example.test",
+      "profileType": "service_provider",
+      "verificationStatus": "needs_more_info",
+      "onboardingStatus": "in_progress",
+      "providerId": "provider_service_arrival"
+    },
+    {
+      "id": "user_viewer_mock",
+      "displayName": "Mock Viewer",
+      "email": "viewer@example.test",
+      "profileType": "viewer",
+      "verificationStatus": "not_started",
+      "onboardingStatus": "complete"
+    },
+    {
+      "id": "user_demo_1781501816302_7",
+      "displayName": "test",
+      "email": "test@gmail.com",
+      "profileType": "service_provider",
+      "verificationStatus": "pending",
+      "onboardingStatus": "in_progress",
+      "providerId": "provider_demo_service_provider_1781501816302"
+    },
+    {
+      "id": "user_demo_1781501904075_8",
+      "displayName": "test",
+      "email": "test@gmail.com",
+      "profileType": "viewer",
+      "verificationStatus": "verified",
+      "onboardingStatus": "in_progress"
+    },
+    {
+      "id": "user_demo_1781502025844_9",
+      "displayName": "Demo Viewer",
+      "email": "viewer@test.com",
+      "profileType": "viewer",
+      "verificationStatus": "not_started",
+      "onboardingStatus": "in_progress"
+    }
+  ],
+  "providers": [
+    {
+      "id": "provider_hotel_sanur",
+      "ownerUserId": "user_hotel_mock",
+      "name": "Sanur Wellness Hotel",
+      "profileType": "hotel",
+      "verificationStatus": "verified"
+    },
+    {
+      "id": "provider_restaurant_seminyak",
+      "ownerUserId": "user_restaurant_mock",
+      "name": "Seminyak Chef Table",
+      "profileType": "restaurant",
+      "verificationStatus": "pending"
+    },
+    {
+      "id": "provider_supplier_rattan",
+      "ownerUserId": "user_supplier_mock",
+      "name": "Bali Rattan Works",
+      "profileType": "supplier",
+      "verificationStatus": "verified"
+    },
+    {
+      "id": "provider_service_arrival",
+      "ownerUserId": "user_services_mock",
+      "name": "Private Arrival Service",
+      "profileType": "service_provider",
+      "verificationStatus": "needs_more_info"
+    },
+    {
+      "id": "provider_demo_service_provider_1781501816302",
+      "ownerUserId": "user_demo_1781501816302_7",
+      "name": "test",
+      "profileType": "service_provider",
+      "verificationStatus": "pending"
+    }
+  ],
+  "lives": [
+    {
+      "id": "live_hotel_ocean_suite",
+      "providerId": "provider_hotel_sanur",
+      "providerName": "Sanur Wellness Hotel",
+      "providerRole": "hotel",
+      "title": "Ocean suite sunset walkthrough",
+      "status": "live",
+      "startsAt": "2026-06-04T12:00:00.000Z",
+      "viewerCount": 1820,
+      "replayViews": 12400,
+      "conversionIntent": 19,
+      "isPinned": true,
+      "pinReason": "featured_by_buyamia",
+      "pinExpiresAt": "2026-06-06T12:00:00.000Z",
+      "priorityScore": 96,
+      "replay": {
+        "availableFrom": "2026-06-03T12:00:00.000Z",
+        "expiresAt": "2026-06-08T12:00:00.000Z",
+        "daysRemaining": 4,
+        "status": "active",
+        "extensionAvailable": true,
+        "extensionDays": 5,
+        "planLabel": "Replay boost extension",
+        "priceLabel": "Mock paid extension"
+      }
+    },
+    {
+      "id": "live_restaurant_tasting",
+      "providerId": "provider_restaurant_seminyak",
+      "providerName": "Seminyak Chef Table",
+      "providerRole": "restaurant",
+      "title": "Chef tasting and table availability",
+      "status": "live",
+      "startsAt": "2026-06-04T12:00:00.000Z",
+      "viewerCount": 2460,
+      "replayViews": 9800,
+      "conversionIntent": 24,
+      "isPinned": true,
+      "pinReason": "most_watched",
+      "pinExpiresAt": "2026-06-05T12:00:00.000Z",
+      "priorityScore": 92,
+      "replay": {
+        "availableFrom": "2026-06-01T12:00:00.000Z",
+        "expiresAt": "2026-06-06T12:00:00.000Z",
+        "daysRemaining": 2,
+        "status": "expiring_soon",
+        "extensionAvailable": true,
+        "extensionDays": 5,
+        "planLabel": "Replay boost extension",
+        "priceLabel": "Mock paid extension"
+      }
+    },
+    {
+      "id": "live_supplier_factory",
+      "providerId": "provider_supplier_rattan",
+      "providerName": "Bali Rattan Works",
+      "providerRole": "supplier",
+      "title": "Factory audit and rattan lounge set RFQ",
+      "status": "replay",
+      "startsAt": "2026-06-02T12:00:00.000Z",
+      "viewerCount": 830,
+      "replayViews": 15800,
+      "conversionIntent": 31,
+      "isPinned": true,
+      "pinReason": "sponsored",
+      "pinExpiresAt": "2026-06-07T12:00:00.000Z",
+      "priorityScore": 100,
+      "replay": {
+        "availableFrom": "2026-06-02T12:00:00.000Z",
+        "expiresAt": "2026-06-07T12:00:00.000Z",
+        "daysRemaining": 3,
+        "status": "active",
+        "extensionAvailable": true,
+        "extensionDays": 5,
+        "planLabel": "Supplier replay extension",
+        "priceLabel": "Mock paid extension"
+      }
+    },
+    {
+      "id": "live_service_arrival",
+      "providerId": "provider_service_arrival",
+      "providerName": "Private Arrival Service",
+      "providerRole": "service_provider",
+      "title": "Airport transfer arrival walkthrough",
+      "status": "scheduled",
+      "startsAt": "2026-06-05T12:00:00.000Z",
+      "viewerCount": 210,
+      "replayViews": 1200,
+      "conversionIntent": 12,
+      "isPinned": true,
+      "pinReason": "nearby",
+      "pinExpiresAt": "2026-06-05T12:00:00.000Z",
+      "priorityScore": 74,
+      "replay": {
+        "availableFrom": "2026-05-29T12:00:00.000Z",
+        "expiresAt": "2026-06-03T12:00:00.000Z",
+        "daysRemaining": 0,
+        "status": "expired",
+        "extensionAvailable": true,
+        "extensionDays": 5,
+        "planLabel": "Service replay extension",
+        "priceLabel": "Mock paid extension"
+      }
+    }
+  ],
+  "subscriptions": [
+    {
+      "viewerUserId": "user_viewer_mock",
+      "providerId": "provider_hotel_sanur",
+      "followedAt": "2026-05-23T12:00:00.000Z"
+    },
+    {
+      "viewerUserId": "user_viewer_mock",
+      "providerId": "provider_supplier_rattan",
+      "followedAt": "2026-05-27T12:00:00.000Z"
+    }
+  ],
+  "verificationDocuments": {
+    "user_restaurant_mock": [
+      {
+        "documentType": "business_registration_mock",
+        "uploadedAt": "2026-06-02T12:00:00.000Z",
+        "status": "pending",
+        "reviewNote": "Mock metadata only. Awaiting operations review."
+      }
+    ],
+    "user_services_mock": [
+      {
+        "documentType": "service_license_mock",
+        "uploadedAt": "2026-05-31T12:00:00.000Z",
+        "status": "needs_more_info",
+        "reviewNote": "Mock metadata only. Address confirmation label is incomplete."
+      }
+    ]
+  },
+  "serviceLiveSetupRequests": [
+    {
+      "id": "service_request_1781501851083",
+      "providerId": "provider_demo_service_provider_1781501816302",
+      "ownerUserId": "user_demo_1781501816302_7",
+      "serviceName": "test",
+      "serviceCategory": "test",
+      "shortDescription": "test",
+      "documentVerificationPlaceholder": "Document metadata received",
+      "paymentPlaceholder": "Payment placeholder: not connected",
+      "preferredLiveDate": "2026-06-15",
+      "status": "pending_verification",
+      "createdAt": "2026-06-15T05:37:31.083Z"
+    },
+    {
+      "id": "service_request_arrival_demo",
+      "providerId": "provider_service_arrival",
+      "ownerUserId": "user_services_mock",
+      "serviceName": "Private arrival transfer",
+      "serviceCategory": "Airport transfer",
+      "shortDescription": "Vehicle walkthrough, driver introduction, and arrival timing Q&A.",
+      "documentVerificationPlaceholder": "Document metadata received",
+      "paymentPlaceholder": "Payment placeholder: not connected",
+      "preferredLiveDate": "2026-06-08",
+      "status": "pending_verification",
+      "createdAt": "2026-06-04T12:00:00.000Z"
+    }
+  ],
+  "analyticsEvents": [
+    {
+      "id": "analytics_watch_1",
+      "type": "watched_live",
+      "userId": "user_viewer_mock",
+      "liveId": "live_hotel_ocean_suite",
+      "createdAt": "2026-06-03T12:00:00.000Z"
+    },
+    {
+      "id": "analytics_watch_2",
+      "type": "watched_live",
+      "userId": "user_viewer_mock",
+      "liveId": "live_supplier_factory",
+      "createdAt": "2026-06-02T12:00:00.000Z"
+    },
+    {
+      "id": "analytics_watch_3",
+      "type": "watched_live",
+      "userId": "user_viewer_mock",
+      "liveId": "live_restaurant_tasting",
+      "createdAt": "2026-05-30T12:00:00.000Z"
+    },
+    {
+      "type": "account_created",
+      "userId": "user_demo_1781501816302_7",
+      "providerId": "provider_demo_service_provider_1781501816302",
+      "metadata": {
+        "profileType": "service_provider"
+      },
+      "id": "event_1781501816302_a0035def06daf",
+      "createdAt": "2026-06-15T05:36:56.302Z"
+    },
+    {
+      "type": "service_live_requested",
+      "userId": "user_demo_1781501816302_7",
+      "providerId": "provider_demo_service_provider_1781501816302",
+      "metadata": {
+        "status": "pending_verification"
+      },
+      "id": "event_1781501851083_6e85cea7b31c18",
+      "createdAt": "2026-06-15T05:37:31.083Z"
+    },
+    {
+      "type": "account_created",
+      "userId": "user_demo_1781501904075_8",
+      "metadata": {
+        "profileType": "viewer"
+      },
+      "id": "event_1781501904075_855988bd24aca",
+      "createdAt": "2026-06-15T05:38:24.075Z"
+    },
+    {
+      "type": "followed_provider",
+      "userId": "user_demo_1781501904075_8",
+      "providerId": "provider_hotel_sanur",
+      "id": "event_1781501919726_8efb0e4cf41cf8",
+      "createdAt": "2026-06-15T05:38:39.726Z"
+    },
+    {
+      "type": "unfollowed_provider",
+      "userId": "user_demo_1781501904075_8",
+      "providerId": "provider_hotel_sanur",
+      "id": "event_1781501925983_5ef9d8a8c7df8",
+      "createdAt": "2026-06-15T05:38:45.983Z"
+    },
+    {
+      "type": "followed_provider",
+      "userId": "user_demo_1781501904075_8",
+      "providerId": "provider_service_arrival",
+      "id": "event_1781501927124_a7abd8ef52cc38",
+      "createdAt": "2026-06-15T05:38:47.124Z"
+    },
+    {
+      "type": "unfollowed_provider",
+      "userId": "user_demo_1781501904075_8",
+      "providerId": "provider_service_arrival",
+      "id": "event_1781501928181_121cffd69d062",
+      "createdAt": "2026-06-15T05:38:48.181Z"
+    },
+    {
+      "type": "verification_updated",
+      "userId": "user_demo_1781501904075_8",
+      "metadata": {
+        "status": "pending"
+      },
+      "id": "event_1781501955600_cfa3a47de83b28",
+      "createdAt": "2026-06-15T05:39:15.600Z"
+    },
+    {
+      "type": "verification_updated",
+      "userId": "user_demo_1781501904075_8",
+      "metadata": {
+        "status": "verified"
+      },
+      "id": "event_1781501957324_b86c4329099f78",
+      "createdAt": "2026-06-15T05:39:17.324Z"
+    },
+    {
+      "type": "verification_updated",
+      "userId": "user_demo_1781501904075_8",
+      "metadata": {
+        "status": "needs_more_info"
+      },
+      "id": "event_1781501958494_bcd061963f7a1",
+      "createdAt": "2026-06-15T05:39:18.494Z"
+    },
+    {
+      "type": "verification_updated",
+      "userId": "user_demo_1781501904075_8",
+      "metadata": {
+        "status": "verified"
+      },
+      "id": "event_1781501959575_e24bedcdef9a",
+      "createdAt": "2026-06-15T05:39:19.575Z"
+    },
+    {
+      "type": "live_pinned",
+      "providerId": "provider_supplier_rattan",
+      "liveId": "live_supplier_factory",
+      "metadata": {
+        "pinReason": "sponsored"
+      },
+      "id": "event_1781501963452_d21f05e6853b18",
+      "createdAt": "2026-06-15T05:39:23.452Z"
+    },
+    {
+      "type": "account_created",
+      "userId": "user_demo_1781502025844_9",
+      "metadata": {
+        "profileType": "viewer"
+      },
+      "id": "event_1781502025844_01e7c821dd4098",
+      "createdAt": "2026-06-15T05:40:25.844Z"
+    }
+  ]
+}

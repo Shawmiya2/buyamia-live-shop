@@ -1,7 +1,9 @@
 import { jsonError, jsonOk } from "@/lib/backend/api-response";
 import {
+  getAvailableProvidersForViewer,
   getFollowedProviders,
   getViewerReplayFeed,
+  getViewerUpcomingLives,
 } from "@/lib/backend/subscription-service";
 
 export async function GET(request: Request) {
@@ -13,6 +15,8 @@ export async function GET(request: Request) {
       viewerUserId,
       followedProviders: getFollowedProviders(viewerUserId),
       replayFeed: getViewerReplayFeed(viewerUserId),
+      upcomingLives: getViewerUpcomingLives(viewerUserId),
+      availableProviders: getAvailableProvidersForViewer(viewerUserId),
     });
   } catch (error) {
     return jsonError(error);

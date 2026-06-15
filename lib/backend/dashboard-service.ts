@@ -1,11 +1,15 @@
-import { dashboardRoleMap, providers, users } from "./mock-data";
+import { dashboardRoleMap } from "./mock-data";
 import { getAnalyticsSummary } from "./analytics-service";
 import { getLives, getPinnedLives } from "./live-service";
+import { getServiceLiveSetupRequests } from "./service-request-service";
 import {
+  getAvailableProvidersForViewer,
   getFollowedProviders,
   getProviderFollowers,
   getViewerReplayFeed,
+  getViewerUpcomingLives,
 } from "./subscription-service";
+import { readBackendStore } from "./store";
 import type { DashboardResponse, DashboardType } from "./types";
 import type { DemoAccessContext } from "./demo-request";
 
@@ -65,11 +69,22 @@ export function getDashboardData(
   dashboardType: DashboardType,
   accessContext?: DemoAccessContext,
 ): DashboardResponse {
+  const store = readBackendStore();
   const role = dashboardRoleMap[dashboardType];
-  const provider = providers.find((item) => item.profileType === role);
+  const requestedUser = accessContext?.currentUserId
+    ? store.users.find((item) => item.id === accessContext.currentUserId)
+    : undefined;
+  const providerFromSession = requestedUser?.providerId
+    ? store.providers.find((item) => item.id === requestedUser.providerId)
+    : undefined;
+  const provider =
+    dashboardType === "main" || dashboardType === "viewer"
+      ? undefined
+      : providerFromSession ??
+        store.providers.find((item) => item.profileType === role);
   const user = provider
-    ? users.find((item) => item.id === provider.ownerUserId)
-    : users.find((item) => item.profileType === role);
+    ? store.users.find((item) => item.id === provider.ownerUserId)
+    : requestedUser ?? store.users.find((item) => item.profileType === role);
   const allLives = getLives();
   const scopedLives =
     dashboardType === "main" || dashboardType === "viewer"
@@ -93,6 +108,8 @@ export function getDashboardData(
     dashboardType,
     role,
     auth: accessContext,
+    currentUserId: user?.id,
+    providerId: provider?.id,
     verificationStatus:
       provider?.verificationStatus ?? user?.verificationStatus ?? "not_started",
     liveStats: {
@@ -102,15 +119,19 @@ export function getDashboardData(
         .length,
     },
     replayStats,
+    liveCatalog: scopedLives,
     pinnedLives,
-    analyticsSummary: getAnalyticsSummary(dashboardType),
+    analyticsSummary: getAnalyticsSummary(dashboardType, user?.id),
     nextActions: getNextActions(dashboardType),
   };
 
   if (dashboardType === "viewer") {
+    const viewerUserId = user?.id ?? "user_viewer_mock";
     response.subscriptions = {
-      followedProviders: getFollowedProviders("user_viewer_mock"),
-      replayFeed: getViewerReplayFeed("user_viewer_mock"),
+      followedProviders: getFollowedProviders(viewerUserId),
+      replayFeed: getViewerReplayFeed(viewerUserId),
+      upcomingLives: getViewerUpcomingLives(viewerUserId),
+      availableProviders: getAvailableProvidersForViewer(viewerUserId),
     };
   }
 
@@ -119,6 +140,10 @@ export function getDashboardData(
       ...(response.subscriptions ?? {}),
       followerCount: getProviderFollowers(provider.id).length,
     };
+  }
+
+  if (dashboardType === "services") {
+    response.serviceLiveSetupRequests = getServiceLiveSetupRequests(provider?.id);
   }
 
   return response;

@@ -38,6 +38,11 @@ export type VerificationDocumentMetadata = {
   reviewNote: string;
 };
 
+export type ServiceLiveSetupStatus =
+  | "draft"
+  | "pending_verification"
+  | "ready_to_schedule";
+
 export type MockUser = {
   id: string;
   displayName: string;
@@ -101,6 +106,30 @@ export type Subscription = {
   followedAt: string;
 };
 
+export type ServiceLiveSetupRequest = {
+  id: string;
+  providerId: string;
+  ownerUserId: string;
+  serviceName: string;
+  serviceCategory: string;
+  shortDescription: string;
+  documentVerificationPlaceholder: string;
+  paymentPlaceholder: string;
+  preferredLiveDate: string;
+  status: ServiceLiveSetupStatus;
+  createdAt: string;
+};
+
+export type DemoAnalyticsEvent = {
+  id: string;
+  type: "account_created" | "followed_provider" | "unfollowed_provider" | "replay_extended" | "live_pinned" | "live_unpinned" | "verification_updated" | "service_live_requested" | "watched_live";
+  userId?: string;
+  providerId?: string;
+  liveId?: string;
+  createdAt: string;
+  metadata?: Record<string, string | number | boolean>;
+};
+
 export type LiveStats = {
   totalLives: number;
   activeLives: number;
@@ -154,15 +183,21 @@ export type DashboardResponse = {
     currentUserId: string | null;
     accessGranted: boolean;
   };
+  currentUserId?: string;
+  providerId?: string;
   verificationStatus: VerificationStatus;
   liveStats: LiveStats;
   replayStats: ReplayStats;
+  liveCatalog?: LiveEvent[];
   pinnedLives: LiveEvent[];
   subscriptions?: {
     followedProviders?: Provider[];
     replayFeed?: LiveEvent[];
+    upcomingLives?: LiveEvent[];
+    availableProviders?: Provider[];
     followerCount?: number;
   };
+  serviceLiveSetupRequests?: ServiceLiveSetupRequest[];
   analyticsSummary: AnalyticsSummary;
   nextActions: string[];
 };

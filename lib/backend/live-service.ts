@@ -1,5 +1,5 @@
-import { lives } from "./mock-data";
 import { calculateReplayStatus, datePlusDays } from "./replay-policy";
+import { createAnalyticsEvent, readBackendStore, updateBackendStore } from "./store";
 import type { LiveEvent, PinReason } from "./types";
 
 const pinReasons: PinReason[] = [
@@ -22,11 +22,13 @@ export function hydrateReplayStatus(live: LiveEvent, now = new Date()): LiveEven
 }
 
 export function getLives() {
-  return sortPinnedLives(lives.map((live) => hydrateReplayStatus(live)));
+  return sortPinnedLives(
+    readBackendStore().lives.map((live) => hydrateReplayStatus(live)),
+  );
 }
 
 export function getLiveById(id: string) {
-  const live = lives.find((item) => item.id === id);
+  const live = readBackendStore().lives.find((item) => item.id === id);
 
   if (!live) {
     throw new Error("Live not found.");
@@ -75,32 +77,44 @@ export function extendReplayAvailability(input: {
   planLabel?: unknown;
   priceLabel?: unknown;
 }) {
-  const live = lives.find((item) => item.id === input.liveId);
+  return updateBackendStore((store) => {
+    const live = store.lives.find((item) => item.id === input.liveId);
 
-  if (!live) {
-    throw new Error("Live not found.");
-  }
+    if (!live) {
+      throw new Error("Live not found.");
+    }
 
-  const extensionDays =
-    typeof input.extensionDays === "number" && input.extensionDays > 0
-      ? Math.ceil(input.extensionDays)
-      : live.replay.extensionDays;
-  const currentExpiresAt = new Date(live.replay.expiresAt);
-  const baseDate =
-    currentExpiresAt.getTime() > Date.now() ? currentExpiresAt : new Date();
-  const nextExpiresAt = datePlusDays(baseDate, extensionDays).toISOString();
+    const extensionDays =
+      typeof input.extensionDays === "number" && input.extensionDays > 0
+        ? Math.ceil(input.extensionDays)
+        : live.replay.extensionDays;
+    const currentExpiresAt = new Date(live.replay.expiresAt);
+    const baseDate =
+      currentExpiresAt.getTime() > Date.now() ? currentExpiresAt : new Date();
+    const nextExpiresAt = datePlusDays(baseDate, extensionDays).toISOString();
 
-  live.replay.expiresAt = nextExpiresAt;
-  live.replay.planLabel =
-    typeof input.planLabel === "string" && input.planLabel.trim()
-      ? input.planLabel.trim()
-      : live.replay.planLabel;
-  live.replay.priceLabel =
-    typeof input.priceLabel === "string" && input.priceLabel.trim()
-      ? input.priceLabel.trim()
-      : live.replay.priceLabel;
+    live.replay.expiresAt = nextExpiresAt;
+    live.replay.extensionDays = extensionDays;
+    live.replay.planLabel =
+      typeof input.planLabel === "string" && input.planLabel.trim()
+        ? input.planLabel.trim()
+        : "Extended demo replay";
+    live.replay.priceLabel =
+      typeof input.priceLabel === "string" && input.priceLabel.trim()
+        ? input.priceLabel.trim()
+        : "Payment placeholder: not connected";
 
-  return hydrateReplayStatus(live);
+    store.analyticsEvents.push(
+      createAnalyticsEvent({
+        type: "replay_extended",
+        providerId: live.providerId,
+        liveId: live.id,
+        metadata: { extensionDays },
+      }),
+    );
+
+    return hydrateReplayStatus(live);
+  });
 }
 
 export function updateLivePin(input: {
@@ -110,41 +124,56 @@ export function updateLivePin(input: {
   pinExpiresAt?: unknown;
   priorityScore?: unknown;
 }) {
-  const live = lives.find((item) => item.id === input.liveId);
+  return updateBackendStore((store) => {
+    const live = store.lives.find((item) => item.id === input.liveId);
 
-  if (!live) {
-    throw new Error("Live not found.");
-  }
-
-  if (typeof input.isPinned !== "boolean") {
-    throw new Error("isPinned must be a boolean.");
-  }
-
-  live.isPinned = input.isPinned;
-
-  if (input.pinReason !== undefined) {
-    if (
-      typeof input.pinReason !== "string" ||
-      !pinReasons.includes(input.pinReason as PinReason)
-    ) {
-      throw new Error("Invalid pin reason.");
+    if (!live) {
+      throw new Error("Live not found.");
     }
 
-    live.pinReason = input.pinReason as PinReason;
-  }
+    if (typeof input.isPinned !== "boolean") {
+      throw new Error("isPinned must be a boolean.");
+    }
 
-  if (typeof input.pinExpiresAt === "string" && input.pinExpiresAt.trim()) {
-    live.pinExpiresAt = new Date(input.pinExpiresAt).toISOString();
-  }
+    live.isPinned = input.isPinned;
 
-  if (typeof input.priorityScore === "number") {
-    live.priorityScore = input.priorityScore;
-  }
+    if (input.pinReason !== undefined) {
+      if (
+        typeof input.pinReason !== "string" ||
+        !pinReasons.includes(input.pinReason as PinReason)
+      ) {
+        throw new Error("Invalid pin reason.");
+      }
 
-  if (!live.isPinned) {
-    live.pinReason = undefined;
-    live.pinExpiresAt = undefined;
-  }
+      live.pinReason = input.pinReason as PinReason;
+    }
 
-  return hydrateReplayStatus(live);
+    if (typeof input.pinExpiresAt === "string" && input.pinExpiresAt.trim()) {
+      live.pinExpiresAt = new Date(input.pinExpiresAt).toISOString();
+    } else if (live.isPinned && !live.pinExpiresAt) {
+      live.pinExpiresAt = datePlusDays(new Date(), 5).toISOString();
+    }
+
+    if (typeof input.priorityScore === "number") {
+      live.priorityScore = input.priorityScore;
+    } else if (live.isPinned) {
+      live.priorityScore = Math.max(live.priorityScore, 100);
+    }
+
+    if (!live.isPinned) {
+      live.pinReason = undefined;
+      live.pinExpiresAt = undefined;
+    }
+
+    store.analyticsEvents.push(
+      createAnalyticsEvent({
+        type: live.isPinned ? "live_pinned" : "live_unpinned",
+        providerId: live.providerId,
+        liveId: live.id,
+        metadata: live.pinReason ? { pinReason: live.pinReason } : undefined,
+      }),
+    );
+
+    return hydrateReplayStatus(live);
+  });
 }
