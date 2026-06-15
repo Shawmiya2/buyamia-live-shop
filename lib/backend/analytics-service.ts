@@ -1,10 +1,11 @@
-import { dashboardRoleMap, providers, users, viewerLiveHistory } from "./mock-data";
+import { dashboardRoleMap } from "./mock-data";
 import { getLives } from "./live-service";
 import {
   getFollowedProviders,
   getProviderFollowers,
   getViewerReplayFeed,
 } from "./subscription-service";
+import { readBackendStore } from "./store";
 import type {
   DashboardType,
   MainAnalyticsSummary,
@@ -15,8 +16,9 @@ import type {
 export function getProviderAnalyticsSummary(
   dashboardType: Exclude<DashboardType, "main" | "viewer">,
 ): ProviderAnalyticsSummary {
+  const store = readBackendStore();
   const role = dashboardRoleMap[dashboardType];
-  const provider = providers.find((item) => item.profileType === role);
+  const provider = store.providers.find((item) => item.profileType === role);
   const providerLives = getLives().filter(
     (live) => provider && live.providerId === provider.id,
   );
@@ -42,6 +44,7 @@ export function getProviderAnalyticsSummary(
 export function getViewerAnalyticsSummary(
   viewerUserId = "user_viewer_mock",
 ): ViewerAnalyticsSummary {
+  const store = readBackendStore();
   const followedProviders = getFollowedProviders(viewerUserId);
   const followedLives = getLives().filter((live) =>
     followedProviders.some((provider) => provider.id === live.providerId),
@@ -52,21 +55,22 @@ export function getViewerAnalyticsSummary(
     upcomingLives: followedLives.filter((live) => live.status === "scheduled")
       .length,
     availableReplays: getViewerReplayFeed(viewerUserId).length,
-    watchedLives: viewerLiveHistory.filter(
-      (item) => item.viewerUserId === viewerUserId,
+    watchedLives: store.analyticsEvents.filter(
+      (item) => item.type === "watched_live" && item.userId === viewerUserId,
     ).length,
   };
 }
 
 export function getMainAnalyticsSummary(): MainAnalyticsSummary {
+  const store = readBackendStore();
   const allLives = getLives();
 
   return {
-    totalUsers: users.length,
-    totalProviders: providers.length,
+    totalUsers: store.users.length,
+    totalProviders: store.providers.length,
     activeLives: allLives.filter((live) => live.status === "live").length,
     pinnedLives: allLives.filter((live) => live.isPinned).length,
-    pendingVerifications: users.filter(
+    pendingVerifications: store.users.filter(
       (user) =>
         user.verificationStatus === "pending" ||
         user.verificationStatus === "needs_more_info",
@@ -77,13 +81,13 @@ export function getMainAnalyticsSummary(): MainAnalyticsSummary {
   };
 }
 
-export function getAnalyticsSummary(dashboardType: DashboardType) {
+export function getAnalyticsSummary(dashboardType: DashboardType, userId?: string | null) {
   if (dashboardType === "main") {
     return getMainAnalyticsSummary();
   }
 
   if (dashboardType === "viewer") {
-    return getViewerAnalyticsSummary();
+    return getViewerAnalyticsSummary(userId ?? "user_viewer_mock");
   }
 
   return getProviderAnalyticsSummary(dashboardType);

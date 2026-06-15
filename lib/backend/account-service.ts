@@ -1,8 +1,8 @@
-import { users } from "./mock-data";
 import {
   getDashboardForRole,
   isValidProfileType,
 } from "./role-guard";
+import { createAnalyticsEvent, updateBackendStore } from "./store";
 import type { AccountCreationResponse, MockUser, ProfileType } from "./types";
 
 export function isProfileType(value: unknown): value is ProfileType {
@@ -23,28 +23,58 @@ export function createMockAccount(input: {
     throw new Error("Invalid profile type.");
   }
 
-  const index = users.length + 1;
-  const user: MockUser = {
-    id: `user_mock_${index}`,
-    displayName:
+  const profileType = input.profileType;
+  const user = updateBackendStore((store) => {
+    const index = store.users.length + 1;
+    const cleanName =
       typeof input.displayName === "string" && input.displayName.trim()
         ? input.displayName.trim()
         : typeof input.name === "string" && input.name.trim()
           ? input.name.trim()
-        : "New Buyamia User",
-    email:
-      typeof input.email === "string" && input.email.trim()
-        ? input.email.trim()
-        : `mock-user-${index}@example.test`,
-    profileType: input.profileType,
-    verificationStatus:
-      input.profileType === "viewer" || input.profileType === "main_admin"
-        ? "not_started"
-        : "pending",
-    onboardingStatus: "in_progress",
-  };
+          : "New Buyamia User";
+    const userId = `user_demo_${Date.now()}_${index}`;
+    const nextUser: MockUser = {
+      id: userId,
+      displayName: cleanName,
+      email:
+        typeof input.email === "string" && input.email.trim()
+          ? input.email.trim()
+          : `mock-user-${index}@example.test`,
+      profileType,
+      verificationStatus:
+        profileType === "viewer" || profileType === "main_admin"
+          ? "not_started"
+          : "pending",
+      onboardingStatus: "in_progress",
+    };
 
-  users.push(user);
+    if (
+      profileType !== "viewer" &&
+      profileType !== "main_admin"
+    ) {
+      const providerId = `provider_demo_${profileType}_${Date.now()}`;
+      nextUser.providerId = providerId;
+      store.providers.push({
+        id: providerId,
+        ownerUserId: userId,
+        name: cleanName,
+        profileType,
+        verificationStatus: nextUser.verificationStatus,
+      });
+    }
+
+    store.users.push(nextUser);
+    store.analyticsEvents.push(
+      createAnalyticsEvent({
+        type: "account_created",
+        userId,
+        providerId: nextUser.providerId,
+        metadata: { profileType },
+      }),
+    );
+
+    return nextUser;
+  });
 
   return {
     userId: user.id,

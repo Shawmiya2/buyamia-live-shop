@@ -30,7 +30,10 @@ export async function GET(
     return jsonOk({
       dashboardType,
       auth: accessContext,
-      analyticsSummary: getAnalyticsSummary(dashboardType),
+      analyticsSummary: getAnalyticsSummary(
+        dashboardType,
+        accessContext.currentUserId,
+      ),
     });
   } catch (error) {
     return jsonError(error);

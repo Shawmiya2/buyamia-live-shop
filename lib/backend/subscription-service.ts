@@ -1,78 +1,123 @@
-import { providers, subscriptions } from "./mock-data";
 import { getLives, sortPinnedLives } from "./live-service";
+import { createAnalyticsEvent, readBackendStore, updateBackendStore } from "./store";
 import type { Subscription } from "./types";
 
-export function followProvider(input: { viewerUserId: unknown; providerId: unknown }) {
-  if (typeof input.viewerUserId !== "string" || !input.viewerUserId.trim()) {
+export function followProvider(input: {
+  viewerUserId?: unknown;
+  viewerId?: unknown;
+  providerId: unknown;
+}) {
+  const viewerUserId =
+    typeof input.viewerUserId === "string" && input.viewerUserId.trim()
+      ? input.viewerUserId
+      : typeof (input as { viewerId?: unknown }).viewerId === "string" &&
+          (input as { viewerId?: string }).viewerId?.trim()
+        ? (input as { viewerId: string }).viewerId
+        : "";
+
+  if (!viewerUserId) {
     throw new Error("viewerUserId is required.");
   }
 
   if (typeof input.providerId !== "string" || !input.providerId.trim()) {
     throw new Error("providerId is required.");
   }
+  const providerId = input.providerId.trim();
 
-  const provider = providers.find((item) => item.id === input.providerId);
+  return updateBackendStore((store) => {
+    const provider = store.providers.find((item) => item.id === providerId);
 
-  if (!provider) {
-    throw new Error("Provider not found.");
-  }
+    if (!provider) {
+      throw new Error("Provider not found.");
+    }
 
-  const existing = subscriptions.find(
-    (item) =>
-      item.viewerUserId === input.viewerUserId &&
-      item.providerId === input.providerId,
-  );
+    const existing = store.subscriptions.find(
+      (item) =>
+        item.viewerUserId === viewerUserId &&
+        item.providerId === providerId,
+    );
 
-  if (existing) {
-    return existing;
-  }
+    if (existing) {
+      return existing;
+    }
 
-  const subscription: Subscription = {
-    viewerUserId: input.viewerUserId,
-    providerId: input.providerId,
-    followedAt: new Date().toISOString(),
-  };
+    const subscription: Subscription = {
+      viewerUserId,
+      providerId,
+      followedAt: new Date().toISOString(),
+    };
 
-  subscriptions.push(subscription);
+    store.subscriptions.push(subscription);
+    store.analyticsEvents.push(
+      createAnalyticsEvent({
+        type: "followed_provider",
+        userId: viewerUserId,
+        providerId,
+      }),
+    );
 
-  return subscription;
+    return subscription;
+  });
 }
 
 export function unfollowProvider(input: {
-  viewerUserId: unknown;
+  viewerUserId?: unknown;
+  viewerId?: unknown;
   providerId: unknown;
 }) {
-  if (typeof input.viewerUserId !== "string" || !input.viewerUserId.trim()) {
+  const viewerUserId =
+    typeof input.viewerUserId === "string" && input.viewerUserId.trim()
+      ? input.viewerUserId
+      : typeof (input as { viewerId?: unknown }).viewerId === "string" &&
+          (input as { viewerId?: string }).viewerId?.trim()
+        ? (input as { viewerId: string }).viewerId
+        : "";
+
+  if (!viewerUserId) {
     throw new Error("viewerUserId is required.");
   }
 
   if (typeof input.providerId !== "string" || !input.providerId.trim()) {
     throw new Error("providerId is required.");
   }
+  const providerId = input.providerId.trim();
 
-  const index = subscriptions.findIndex(
-    (item) =>
-      item.viewerUserId === input.viewerUserId &&
-      item.providerId === input.providerId,
-  );
+  return updateBackendStore((store) => {
+    const index = store.subscriptions.findIndex(
+      (item) =>
+        item.viewerUserId === viewerUserId &&
+        item.providerId === providerId,
+    );
 
-  if (index >= 0) {
-    subscriptions.splice(index, 1);
-  }
+    if (index >= 0) {
+      store.subscriptions.splice(index, 1);
+    }
 
-  return { viewerUserId: input.viewerUserId, providerId: input.providerId };
+    store.analyticsEvents.push(
+      createAnalyticsEvent({
+        type: "unfollowed_provider",
+        userId: viewerUserId,
+        providerId,
+      }),
+    );
+
+    return { viewerUserId, providerId };
+  });
 }
 
 export function getFollowedProviders(viewerUserId: string) {
-  const followedProviderIds = subscriptions
+  const store = readBackendStore();
+  const followedProviderIds = store.subscriptions
     .filter((item) => item.viewerUserId === viewerUserId)
     .map((item) => item.providerId);
 
-  return providers.filter((provider) => followedProviderIds.includes(provider.id));
+  return store.providers.filter((provider) => followedProviderIds.includes(provider.id));
 }
 
 export function getProviderFollowers(providerId: string) {
-  return subscriptions.filter((item) => item.providerId === providerId);
+  return readBackendStore().subscriptions.filter(
+    (item) => item.providerId === providerId,
+  );
 }
 
 export function getViewerReplayFeed(viewerUserId: string) {
@@ -86,6 +131,31 @@ export function getViewerReplayFeed(viewerUserId: string) {
         followedProviderIds.includes(live.providerId) &&
         live.status === "replay" &&
         live.replay.status !== "expired",
+    ),
+  );
+}
+
+export function getAvailableProvidersForViewer(viewerUserId: string) {
+  const store = readBackendStore();
+  const followedIds = new Set(
+    store.subscriptions
+      .filter((item) => item.viewerUserId === viewerUserId)
+      .map((item) => item.providerId),
+  );
+
+  return store.providers.filter((provider) => !followedIds.has(provider.id));
+}
+
+export function getViewerUpcomingLives(viewerUserId: string) {
+  const followedProviderIds = getFollowedProviders(viewerUserId).map(
+    (provider) => provider.id,
+  );
+
+  return sortPinnedLives(
+    getLives().filter(
+      (live) =>
+        followedProviderIds.includes(live.providerId) &&
+        live.status === "scheduled",
     ),
   );
 }

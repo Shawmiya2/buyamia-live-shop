@@ -1,4 +1,4 @@
-import { providers, users, verificationDocuments } from "./mock-data";
+import { createAnalyticsEvent, readBackendStore, updateBackendStore } from "./store";
 import type { VerificationDocumentMetadata, VerificationStatus } from "./types";
 
 export const verificationStatuses: VerificationStatus[] = [
@@ -17,7 +17,8 @@ export function isVerificationStatus(value: unknown): value is VerificationStatu
 }
 
 export function getVerificationStatus(userId: string) {
-  const user = users.find((item) => item.id === userId);
+  const store = readBackendStore();
+  const user = store.users.find((item) => item.id === userId);
 
   if (!user) {
     throw new Error("User not found.");
@@ -27,7 +28,7 @@ export function getVerificationStatus(userId: string) {
     userId: user.id,
     profileType: user.profileType,
     verificationStatus: user.verificationStatus,
-    documents: verificationDocuments[user.id] ?? [],
+    documents: store.verificationDocuments[user.id] ?? [],
   };
 }
 
@@ -44,29 +45,32 @@ export function submitVerificationMetadata(input: {
     throw new Error("documentType is required.");
   }
 
-  const user = users.find((item) => item.id === input.userId);
+  const userId = input.userId.trim();
+  const documentType = input.documentType.trim();
+  updateBackendStore((store) => {
+    const user = store.users.find((item) => item.id === userId);
 
-  if (!user) {
-    throw new Error("User not found.");
-  }
+    if (!user) {
+      throw new Error("User not found.");
+    }
 
-  const metadata: VerificationDocumentMetadata = {
-    documentType: input.documentType.trim(),
-    uploadedAt: new Date().toISOString(),
-    status: "pending",
-    reviewNote:
-      typeof input.reviewNote === "string" && input.reviewNote.trim()
-        ? input.reviewNote.trim()
-        : "Mock metadata submitted. No real document file stored.",
-  };
+    const metadata: VerificationDocumentMetadata = {
+      documentType,
+      uploadedAt: new Date().toISOString(),
+      status: "pending",
+      reviewNote:
+        typeof input.reviewNote === "string" && input.reviewNote.trim()
+          ? input.reviewNote.trim()
+          : "Mock metadata submitted. No real document file stored.",
+    };
 
-  verificationDocuments[user.id] = [
-    ...(verificationDocuments[user.id] ?? []),
-    metadata,
-  ];
-  updateVerificationStatus(user.id, "pending");
+    store.verificationDocuments[user.id] = [
+      ...(store.verificationDocuments[user.id] ?? []),
+      metadata,
+    ];
+  });
 
-  return getVerificationStatus(user.id);
+  return updateVerificationStatus(userId, "pending");
 }
 
 export function updateVerificationStatus(
@@ -77,21 +81,37 @@ export function updateVerificationStatus(
     throw new Error("Invalid verification status.");
   }
 
-  const user = users.find((item) => item.id === userId);
+  return updateBackendStore((store) => {
+    const user = store.users.find((item) => item.id === userId);
 
-  if (!user) {
-    throw new Error("User not found.");
-  }
-
-  user.verificationStatus = status;
-
-  if (user.providerId) {
-    const provider = providers.find((item) => item.id === user.providerId);
-
-    if (provider) {
-      provider.verificationStatus = status;
+    if (!user) {
+      throw new Error("User not found.");
     }
-  }
 
-  return getVerificationStatus(user.id);
+    user.verificationStatus = status;
+
+    if (user.providerId) {
+      const provider = store.providers.find((item) => item.id === user.providerId);
+
+      if (provider) {
+        provider.verificationStatus = status;
+      }
+    }
+
+    store.analyticsEvents.push(
+      createAnalyticsEvent({
+        type: "verification_updated",
+        userId: user.id,
+        providerId: user.providerId,
+        metadata: { status },
+      }),
+    );
+
+    return {
+      userId: user.id,
+      profileType: user.profileType,
+      verificationStatus: user.verificationStatus,
+      documents: store.verificationDocuments[user.id] ?? [],
+    };
+  });
 }
