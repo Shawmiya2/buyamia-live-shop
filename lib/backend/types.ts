@@ -63,6 +63,17 @@ export type DemoSession = {
   onboardingStatus: OnboardingStatus;
 };
 
+export type SafeUser = {
+  id: string;
+  name: string;
+  email: string;
+  role: ProfileType;
+  verificationStatus: VerificationStatus;
+  onboardingStatus: OnboardingStatus;
+  dashboardUrl: string;
+  providerId?: string;
+};
+
 export type Provider = {
   id: string;
   ownerUserId: string;
@@ -204,9 +215,11 @@ export type DashboardResponse = {
 
 export type AccountCreationResponse = {
   userId: string;
+  user?: SafeUser;
   name: string;
   email: string;
   profileType: ProfileType;
+  role?: ProfileType;
   dashboardUrl: string;
   verificationStatus: VerificationStatus;
   onboardingStatus: OnboardingStatus;

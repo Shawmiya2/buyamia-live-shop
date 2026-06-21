@@ -1,4 +1,5 @@
 import { jsonError, jsonOk } from "@/lib/backend/api-response";
+import { requireRole } from "@/lib/backend/auth-context";
 import {
   getAvailableProvidersForViewer,
   getFollowedProviders,
@@ -6,17 +7,16 @@ import {
   getViewerUpcomingLives,
 } from "@/lib/backend/subscription-service";
 
-export async function GET(request: Request) {
+export async function GET() {
   try {
-    const { searchParams } = new URL(request.url);
-    const viewerUserId = searchParams.get("viewerUserId") ?? "user_viewer_mock";
+    const viewer = await requireRole("viewer");
 
     return jsonOk({
-      viewerUserId,
-      followedProviders: getFollowedProviders(viewerUserId),
-      replayFeed: getViewerReplayFeed(viewerUserId),
-      upcomingLives: getViewerUpcomingLives(viewerUserId),
-      availableProviders: getAvailableProvidersForViewer(viewerUserId),
+      viewerUserId: viewer.id,
+      followedProviders: await getFollowedProviders(viewer.id),
+      replayFeed: await getViewerReplayFeed(viewer.id),
+      upcomingLives: await getViewerUpcomingLives(viewer.id),
+      availableProviders: await getAvailableProvidersForViewer(viewer.id),
     });
   } catch (error) {
     return jsonError(error);

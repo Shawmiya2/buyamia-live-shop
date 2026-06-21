@@ -11,8 +11,6 @@ import type {
   ServiceLiveSetupRequest,
   VerificationStatus,
 } from "@/lib/backend/types";
-import { readDemoSession } from "@/lib/demo-session";
-
 type DashboardApiPanelsProps = {
   dashboardType: DashboardType;
   title: string;
@@ -34,6 +32,10 @@ type AnalyticsApiResponse = {
   analyticsSummary: AnalyticsSummary;
 };
 
+type ApiEnvelope<T> =
+  | { success: true; data: T }
+  | { success: false; error: { message: string } };
+
 const pinReasons: PinReason[] = [
   "sponsored",
   "nearby",
@@ -50,44 +52,32 @@ export function DashboardApiPanels({
   const [actionError, setActionError] = useState("");
   const [pendingAction, setPendingAction] = useState("");
 
-  const getDemoHeaders = useCallback(() => {
-    const demoSession = readDemoSession();
-
-    return demoSession
-      ? {
-          "x-demo-profile-type": demoSession.profileType,
-          "x-demo-user-id": demoSession.userId,
-        }
-      : undefined;
-  }, []);
-
   const loadDashboardData = useCallback(async () => {
     try {
       setState({ status: "loading" });
-      const headers = getDemoHeaders();
       const [dashboardResponse, analyticsResponse] = await Promise.all([
         fetch(`/api/dashboard/${dashboardType}`, {
           cache: "no-store",
-          headers,
         }),
         fetch(`/api/analytics/${dashboardType}`, {
           cache: "no-store",
-          headers,
         }),
       ]);
 
-      if (!dashboardResponse.ok || !analyticsResponse.ok) {
-        throw new Error("Dashboard API request failed.");
-      }
+      const dashboardPayload = (await dashboardResponse.json()) as ApiEnvelope<DashboardResponse>;
+      const analyticsPayload = (await analyticsResponse.json()) as ApiEnvelope<AnalyticsApiResponse>;
 
-      const dashboard = (await dashboardResponse.json()) as DashboardResponse;
-      const analyticsPayload =
-        (await analyticsResponse.json()) as AnalyticsApiResponse;
+      if (!dashboardPayload.success) {
+        throw new Error(dashboardPayload.error.message);
+      }
+      if (!analyticsPayload.success) {
+        throw new Error(analyticsPayload.error.message);
+      }
 
       setState({
         status: "ready",
-        dashboard,
-        analytics: analyticsPayload.analyticsSummary,
+        dashboard: dashboardPayload.data,
+        analytics: analyticsPayload.data.analyticsSummary,
       });
     } catch (error) {
       setState({
@@ -98,7 +88,7 @@ export function DashboardApiPanels({
             : "Unable to load dashboard API data.",
       });
     }
-  }, [dashboardType, getDemoHeaders]);
+  }, [dashboardType]);
 
   useEffect(() => {
     loadDashboardData();
@@ -115,12 +105,12 @@ export function DashboardApiPanels({
 
         if (!response.ok) {
           const payload = (await response.json().catch(() => null)) as
-            | { error?: string }
+            | { error?: { message?: string } }
             | null;
-          throw new Error(payload?.error ?? `${label} failed.`);
+          throw new Error(payload?.error?.message ?? `${label} failed.`);
         }
 
-        setActionMessage(`${label} saved locally.`);
+        setActionMessage(`${label} saved.`);
         await loadDashboardData();
       } catch (error) {
         setActionError(

@@ -1,179 +1,181 @@
-import { calculateReplayStatus, datePlusDays } from "./replay-policy";
-import { createAnalyticsEvent, readBackendStore, updateBackendStore } from "./store";
+import type { Live, ProviderProfile, User } from "@prisma/client";
+import { z } from "zod";
+import { prisma } from "./prisma";
+import { ApiError } from "./errors";
+import { createAnalyticsEvent } from "./analytics-service";
+import { datePlusDays, defaultReplayAvailabilityDays, getReplayStatus } from "./replay-policy";
 import type { LiveEvent, PinReason } from "./types";
 
-const pinReasons: PinReason[] = [
-  "sponsored",
-  "nearby",
-  "most_watched",
-  "featured_by_buyamia",
-];
+const pinSchema = z.object({
+  isPinned: z.boolean(),
+  pinReason: z.enum(["sponsored", "nearby", "most_watched", "featured_by_buyamia"]).optional(),
+  pinExpiresAt: z.string().datetime().optional(),
+  priorityScore: z.number().int().min(0).max(1000).optional(),
+});
 
-export { calculateReplayStatus };
+const replaySchema = z.object({
+  extensionDays: z.number().int().positive().max(365).default(5),
+});
 
-export function hydrateReplayStatus(live: LiveEvent, now = new Date()): LiveEvent {
+type LiveWithProvider = Live & {
+  provider: ProviderProfile & { user: User };
+};
+
+export function isPinActive(live: Pick<Live, "isPinned" | "pinExpiresAt">, now = new Date()) {
+  return live.isPinned && (!live.pinExpiresAt || live.pinExpiresAt > now);
+}
+
+export function toLiveEvent(live: LiveWithProvider): LiveEvent {
+  const replay = getReplayStatus(live.replayExpiresAt);
+
   return {
-    ...live,
+    id: live.id,
+    providerId: live.providerId,
+    providerName: live.provider.displayName,
+    providerRole: live.provider.category as LiveEvent["providerRole"],
+    title: live.title,
+    status:
+      live.status === "active"
+        ? "live"
+        : live.status === "completed"
+          ? "replay"
+          : "scheduled",
+    startsAt: (live.scheduledAt ?? live.startedAt ?? live.createdAt).toISOString(),
+    viewerCount: 0,
+    replayViews: 0,
+    conversionIntent: 0,
+    isPinned: isPinActive(live),
+    pinReason: live.pinReason ?? undefined,
+    pinExpiresAt: live.pinExpiresAt?.toISOString(),
+    priorityScore: live.priorityScore,
     replay: {
-      ...live.replay,
-      ...calculateReplayStatus(live.replay.expiresAt, now),
+      availableFrom: (live.endedAt ?? live.createdAt).toISOString(),
+      expiresAt: live.replayExpiresAt?.toISOString() ?? "",
+      daysRemaining: replay.daysRemaining,
+      status: replay.status,
+      extensionAvailable: true,
+      extensionDays: defaultReplayAvailabilityDays,
+      planLabel: "Replay extension",
+      priceLabel: "Payment placeholder: not connected",
     },
   };
 }
 
-export function getLives() {
-  return sortPinnedLives(
-    readBackendStore().lives.map((live) => hydrateReplayStatus(live)),
-  );
-}
-
-export function getLiveById(id: string) {
-  const live = readBackendStore().lives.find((item) => item.id === id);
-
-  if (!live) {
-    throw new Error("Live not found.");
-  }
-
-  return hydrateReplayStatus(live);
-}
-
 export function sortPinnedLives(input: LiveEvent[]) {
   return [...input].sort((a, b) => {
-    const aPinned = isPinActive(a);
-    const bPinned = isPinActive(b);
-
-    if (aPinned !== bPinned) {
-      return Number(bPinned) - Number(aPinned);
+    if (a.isPinned !== b.isPinned) {
+      return Number(b.isPinned) - Number(a.isPinned);
     }
-
     return b.priorityScore - a.priorityScore;
   });
 }
 
-export function getPinnedLives(providerId?: string) {
-  return sortPinnedLives(
-    getLives().filter((live) => {
-      const providerMatches = providerId ? live.providerId === providerId : true;
-      return isPinActive(live) && providerMatches;
-    }),
-  );
+export async function getLives(providerId?: string) {
+  const lives = await prisma.live.findMany({
+    where: providerId ? { providerId } : undefined,
+    include: { provider: { include: { user: true } } },
+  });
+
+  return sortPinnedLives(lives.map(toLiveEvent));
 }
 
-function isPinActive(live: LiveEvent) {
-  if (!live.isPinned) {
-    return false;
-  }
-
-  if (!live.pinExpiresAt) {
-    return true;
-  }
-
-  return new Date(live.pinExpiresAt).getTime() > Date.now();
+export async function getPinnedLives(providerId?: string) {
+  return (await getLives(providerId)).filter((live) => live.isPinned);
 }
 
-export function extendReplayAvailability(input: {
+export async function extendReplayAvailability(input: {
   liveId: string;
   extensionDays?: unknown;
-  planLabel?: unknown;
-  priceLabel?: unknown;
+  adminId?: string;
 }) {
-  return updateBackendStore((store) => {
-    const live = store.lives.find((item) => item.id === input.liveId);
+  const parsed = replaySchema.parse(input);
+  const live = await prisma.live.findUnique({ where: { id: input.liveId } });
+  if (!live) {
+    throw new ApiError("not_found", "Live not found.", 404);
+  }
 
-    if (!live) {
-      throw new Error("Live not found.");
-    }
-
-    const extensionDays =
-      typeof input.extensionDays === "number" && input.extensionDays > 0
-        ? Math.ceil(input.extensionDays)
-        : live.replay.extensionDays;
-    const currentExpiresAt = new Date(live.replay.expiresAt);
-    const baseDate =
-      currentExpiresAt.getTime() > Date.now() ? currentExpiresAt : new Date();
-    const nextExpiresAt = datePlusDays(baseDate, extensionDays).toISOString();
-
-    live.replay.expiresAt = nextExpiresAt;
-    live.replay.extensionDays = extensionDays;
-    live.replay.planLabel =
-      typeof input.planLabel === "string" && input.planLabel.trim()
-        ? input.planLabel.trim()
-        : "Extended demo replay";
-    live.replay.priceLabel =
-      typeof input.priceLabel === "string" && input.priceLabel.trim()
-        ? input.priceLabel.trim()
-        : "Payment placeholder: not connected";
-
-    store.analyticsEvents.push(
-      createAnalyticsEvent({
-        type: "replay_extended",
-        providerId: live.providerId,
-        liveId: live.id,
-        metadata: { extensionDays },
-      }),
-    );
-
-    return hydrateReplayStatus(live);
+  const baseDate =
+    live.replayExpiresAt && live.replayExpiresAt > new Date()
+      ? live.replayExpiresAt
+      : new Date();
+  const updated = await prisma.live.update({
+    where: { id: input.liveId },
+    data: { replayExpiresAt: datePlusDays(baseDate, parsed.extensionDays) },
+    include: { provider: { include: { user: true } } },
   });
+
+  await createAnalyticsEvent({
+    providerId: updated.providerId,
+    liveId: updated.id,
+    eventType: "replay_extended",
+    metadata: { extensionDays: parsed.extensionDays },
+  });
+
+  if (input.adminId) {
+    await prisma.adminActivity.create({
+      data: {
+        adminId: input.adminId,
+        action: "replay_extended",
+        targetType: "live",
+        targetId: updated.id,
+        message: `Extended replay by ${parsed.extensionDays} days.`,
+      },
+    });
+  }
+
+  return toLiveEvent(updated);
 }
 
-export function updateLivePin(input: {
+export async function updateLivePin(input: {
   liveId: string;
   isPinned: unknown;
   pinReason?: unknown;
   pinExpiresAt?: unknown;
   priorityScore?: unknown;
+  adminId?: string;
 }) {
-  return updateBackendStore((store) => {
-    const live = store.lives.find((item) => item.id === input.liveId);
+  const parsed = pinSchema.parse(input);
+  const live = await prisma.live.findUnique({ where: { id: input.liveId } });
+  if (!live) {
+    throw new ApiError("not_found", "Live not found.", 404);
+  }
 
-    if (!live) {
-      throw new Error("Live not found.");
-    }
-
-    if (typeof input.isPinned !== "boolean") {
-      throw new Error("isPinned must be a boolean.");
-    }
-
-    live.isPinned = input.isPinned;
-
-    if (input.pinReason !== undefined) {
-      if (
-        typeof input.pinReason !== "string" ||
-        !pinReasons.includes(input.pinReason as PinReason)
-      ) {
-        throw new Error("Invalid pin reason.");
-      }
-
-      live.pinReason = input.pinReason as PinReason;
-    }
-
-    if (typeof input.pinExpiresAt === "string" && input.pinExpiresAt.trim()) {
-      live.pinExpiresAt = new Date(input.pinExpiresAt).toISOString();
-    } else if (live.isPinned && !live.pinExpiresAt) {
-      live.pinExpiresAt = datePlusDays(new Date(), 5).toISOString();
-    }
-
-    if (typeof input.priorityScore === "number") {
-      live.priorityScore = input.priorityScore;
-    } else if (live.isPinned) {
-      live.priorityScore = Math.max(live.priorityScore, 100);
-    }
-
-    if (!live.isPinned) {
-      live.pinReason = undefined;
-      live.pinExpiresAt = undefined;
-    }
-
-    store.analyticsEvents.push(
-      createAnalyticsEvent({
-        type: live.isPinned ? "live_pinned" : "live_unpinned",
-        providerId: live.providerId,
-        liveId: live.id,
-        metadata: live.pinReason ? { pinReason: live.pinReason } : undefined,
-      }),
-    );
-
-    return hydrateReplayStatus(live);
+  const updated = await prisma.live.update({
+    where: { id: input.liveId },
+    data: parsed.isPinned
+      ? {
+          isPinned: true,
+          pinReason: parsed.pinReason ?? "featured_by_buyamia",
+          pinExpiresAt: parsed.pinExpiresAt ? new Date(parsed.pinExpiresAt) : datePlusDays(new Date(), 5),
+          priorityScore: parsed.priorityScore ?? Math.max(live.priorityScore, 100),
+        }
+      : {
+          isPinned: false,
+          pinReason: null,
+          pinExpiresAt: null,
+          priorityScore: 0,
+        },
+    include: { provider: { include: { user: true } } },
   });
+
+  await createAnalyticsEvent({
+    providerId: updated.providerId,
+    liveId: updated.id,
+    eventType: parsed.isPinned ? "live_pinned" : "live_unpinned",
+    metadata: parsed.pinReason ? { pinReason: parsed.pinReason } : undefined,
+  });
+
+  if (input.adminId) {
+    await prisma.adminActivity.create({
+      data: {
+        adminId: input.adminId,
+        action: parsed.isPinned ? "live_pinned" : "live_unpinned",
+        targetType: "live",
+        targetId: updated.id,
+        message: parsed.isPinned ? "Pinned live." : "Unpinned live.",
+      },
+    });
+  }
+
+  return toLiveEvent(updated);
 }

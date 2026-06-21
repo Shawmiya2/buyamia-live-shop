@@ -1,11 +1,12 @@
 import { jsonError, jsonOk } from "@/lib/backend/api-response";
-import { createMockAccount } from "@/lib/backend/account-service";
+import { signupUser, toAccountResponse } from "@/lib/backend/auth-service";
+import { readJson, signupSchema } from "@/lib/backend/validation";
 
 export async function POST(request: Request) {
   try {
-    const body = await request.json();
+    const body = signupSchema.parse(await readJson(request));
 
-    return jsonOk(createMockAccount(body), { status: 201 });
+    return jsonOk(toAccountResponse(await signupUser(body)), { status: 201 });
   } catch (error) {
     return jsonError(error);
   }

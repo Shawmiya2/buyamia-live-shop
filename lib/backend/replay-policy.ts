@@ -1,51 +1,59 @@
-import type { LiveReplay, ReplayStatus } from "./types";
+import type { ReplayStatus } from "./types";
 
 export const defaultReplayAvailabilityDays = 5;
-const dayMs = 86_400_000;
 
 export function datePlusDays(date: Date, days: number) {
   const next = new Date(date);
-  next.setUTCDate(next.getUTCDate() + days);
+  next.setDate(next.getDate() + days);
   return next;
 }
 
-export function calculateReplayStatus(expiresAt: string, now = new Date()) {
-  const expires = new Date(expiresAt);
-  const diffMs = expires.getTime() - now.getTime();
-  const daysRemaining = Math.max(0, Math.ceil(diffMs / dayMs));
-  let status: ReplayStatus = "active";
-
-  if (daysRemaining <= 0) {
-    status = "expired";
-  } else if (daysRemaining <= 2) {
-    status = "expiring_soon";
+export function getReplayStatus(expiresAt?: Date | string | null, now = new Date()): {
+  daysRemaining: number;
+  status: ReplayStatus;
+} {
+  if (!expiresAt) {
+    return { daysRemaining: 0, status: "expired" };
   }
 
-  return { daysRemaining, status };
+  const expiry = new Date(expiresAt);
+  const msRemaining = expiry.getTime() - now.getTime();
+  const daysRemaining = Math.max(0, Math.ceil(msRemaining / 86_400_000));
+
+  if (daysRemaining <= 0) {
+    return { daysRemaining: 0, status: "expired" };
+  }
+
+  return {
+    daysRemaining,
+    status: daysRemaining <= 2 ? "expiring_soon" : "active",
+  };
 }
+
+export const calculateReplayStatus = getReplayStatus;
 
 export function createMockReplayWindow(input: {
   availableFrom: string;
   now?: Date;
   availabilityDays?: number;
-  extensionDays?: number;
   planLabel?: string;
   priceLabel?: string;
-}): LiveReplay {
-  const availabilityDays =
-    input.availabilityDays ?? defaultReplayAvailabilityDays;
+}) {
+  const availableFrom = new Date(input.availableFrom);
   const expiresAt = datePlusDays(
-    new Date(input.availableFrom),
-    availabilityDays,
-  ).toISOString();
+    availableFrom,
+    input.availabilityDays ?? defaultReplayAvailabilityDays,
+  );
+  const replay = getReplayStatus(expiresAt, input.now ?? new Date());
 
   return {
-    availableFrom: input.availableFrom,
-    expiresAt,
-    ...calculateReplayStatus(expiresAt, input.now),
+    availableFrom: availableFrom.toISOString(),
+    expiresAt: expiresAt.toISOString(),
+    daysRemaining: replay.daysRemaining,
+    status: replay.status,
     extensionAvailable: true,
-    extensionDays: input.extensionDays ?? defaultReplayAvailabilityDays,
-    planLabel: input.planLabel ?? "Replay boost extension",
-    priceLabel: input.priceLabel ?? "Mock paid extension",
+    extensionDays: input.availabilityDays ?? defaultReplayAvailabilityDays,
+    planLabel: input.planLabel ?? "Replay extension",
+    priceLabel: input.priceLabel ?? "Payment placeholder: not connected",
   };
 }

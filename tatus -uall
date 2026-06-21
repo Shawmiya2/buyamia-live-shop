@@ -1,0 +1,56 @@
+warning: in the working copy of '.gitignore', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'README.md', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'app/api/account/create/route.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'app/api/analytics/[dashboardType]/route.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'app/api/dashboard/[type]/route.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'app/api/lives/[id]/pin/route.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'app/api/lives/[id]/replay-expiration/route.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'app/api/lives/route.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'app/api/services/live-requests/route.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'app/api/subscriptions/follow/route.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'app/api/subscriptions/viewer/route.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'app/api/verification/[userId]/route.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'app/api/verification/status/route.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'app/api/verification/submit/route.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'app/dashboard-access-gate.tsx', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'app/dashboard-api-panels.tsx', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'app/signup/page.tsx', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'lib/backend/analytics-service.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'lib/backend/api-response.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'lib/backend/dashboard-service.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'lib/backend/live-service.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'lib/backend/replay-policy.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'lib/backend/role-guard.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'lib/backend/service-request-service.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'lib/backend/subscription-service.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'lib/backend/types.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'lib/backend/verification-service.ts', LF will be replaced by CRLF the next time Git touches it
+.gitignore
+README.md
+app/api/account/create/route.ts
+app/api/analytics/[dashboardType]/route.ts
+app/api/dashboard/[type]/route.ts
+app/api/lives/[id]/pin/route.ts
+app/api/lives/[id]/replay-expiration/route.ts
+app/api/lives/route.ts
+app/api/services/live-requests/route.ts
+app/api/subscriptions/follow/route.ts
+app/api/subscriptions/viewer/route.ts
+app/api/verification/[userId]/route.ts
+app/api/verification/status/route.ts
+app/api/verification/submit/route.ts
+app/dashboard-access-gate.tsx
+app/dashboard-api-panels.tsx
+app/signup/page.tsx
+lib/backend/analytics-service.ts
+lib/backend/api-response.ts
+lib/backend/dashboard-service.ts
+lib/backend/live-service.ts
+lib/backend/replay-policy.ts
+lib/backend/role-guard.ts
+lib/backend/service-request-service.ts
+lib/backend/subscription-service.ts
+lib/backend/types.ts
+lib/backend/verification-service.ts
+package-lock.json
+package.json

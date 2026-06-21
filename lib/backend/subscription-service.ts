@@ -1,161 +1,101 @@
-import { getLives, sortPinnedLives } from "./live-service";
-import { createAnalyticsEvent, readBackendStore, updateBackendStore } from "./store";
-import type { Subscription } from "./types";
+import { prisma } from "./prisma";
+import { ApiError } from "./errors";
+import { createAnalyticsEvent } from "./analytics-service";
+import { getLives } from "./live-service";
+import type { Provider } from "./types";
 
-export function followProvider(input: {
-  viewerUserId?: unknown;
-  viewerId?: unknown;
-  providerId: unknown;
-}) {
-  const viewerUserId =
-    typeof input.viewerUserId === "string" && input.viewerUserId.trim()
-      ? input.viewerUserId
-      : typeof (input as { viewerId?: unknown }).viewerId === "string" &&
-          (input as { viewerId?: string }).viewerId?.trim()
-        ? (input as { viewerId: string }).viewerId
-        : "";
+function toProvider(input: {
+  id: string;
+  userId: string;
+  displayName: string;
+  category: string;
+  user: { verificationStatus: string };
+}): Provider {
+  return {
+    id: input.id,
+    ownerUserId: input.userId,
+    name: input.displayName,
+    profileType: input.category as Provider["profileType"],
+    verificationStatus: input.user.verificationStatus as Provider["verificationStatus"],
+  };
+}
 
-  if (!viewerUserId) {
-    throw new Error("viewerUserId is required.");
+export async function followProvider(input: { viewerUserId: string; providerId: string }) {
+  const viewer = await prisma.user.findUnique({ where: { id: input.viewerUserId } });
+  if (!viewer || viewer.role !== "viewer") {
+    throw new ApiError("forbidden", "Only viewer accounts can follow providers.", 403);
   }
 
-  if (typeof input.providerId !== "string" || !input.providerId.trim()) {
-    throw new Error("providerId is required.");
+  const provider = await prisma.providerProfile.findUnique({ where: { id: input.providerId } });
+  if (!provider) {
+    throw new ApiError("not_found", "Provider not found.", 404);
   }
-  const providerId = input.providerId.trim();
 
-  return updateBackendStore((store) => {
-    const provider = store.providers.find((item) => item.id === providerId);
-
-    if (!provider) {
-      throw new Error("Provider not found.");
-    }
-
-    const existing = store.subscriptions.find(
-      (item) =>
-        item.viewerUserId === viewerUserId &&
-        item.providerId === providerId,
-    );
-
-    if (existing) {
-      return existing;
-    }
-
-    const subscription: Subscription = {
-      viewerUserId,
-      providerId,
-      followedAt: new Date().toISOString(),
-    };
-
-    store.subscriptions.push(subscription);
-    store.analyticsEvents.push(
-      createAnalyticsEvent({
-        type: "followed_provider",
-        userId: viewerUserId,
-        providerId,
-      }),
-    );
-
-    return subscription;
+  const follow = await prisma.follow.upsert({
+    where: { viewerId_providerId: { viewerId: viewer.id, providerId: provider.id } },
+    update: {},
+    create: { viewerId: viewer.id, providerId: provider.id },
   });
-}
 
-export function unfollowProvider(input: {
-  viewerUserId?: unknown;
-  viewerId?: unknown;
-  providerId: unknown;
-}) {
-  const viewerUserId =
-    typeof input.viewerUserId === "string" && input.viewerUserId.trim()
-      ? input.viewerUserId
-      : typeof (input as { viewerId?: unknown }).viewerId === "string" &&
-          (input as { viewerId?: string }).viewerId?.trim()
-        ? (input as { viewerId: string }).viewerId
-        : "";
-
-  if (!viewerUserId) {
-    throw new Error("viewerUserId is required.");
-  }
-
-  if (typeof input.providerId !== "string" || !input.providerId.trim()) {
-    throw new Error("providerId is required.");
-  }
-  const providerId = input.providerId.trim();
-
-  return updateBackendStore((store) => {
-    const index = store.subscriptions.findIndex(
-      (item) =>
-        item.viewerUserId === viewerUserId &&
-        item.providerId === providerId,
-    );
-
-    if (index >= 0) {
-      store.subscriptions.splice(index, 1);
-    }
-
-    store.analyticsEvents.push(
-      createAnalyticsEvent({
-        type: "unfollowed_provider",
-        userId: viewerUserId,
-        providerId,
-      }),
-    );
-
-    return { viewerUserId, providerId };
+  await createAnalyticsEvent({
+    userId: viewer.id,
+    providerId: provider.id,
+    eventType: "provider_followed",
   });
+
+  return follow;
 }
 
-export function getFollowedProviders(viewerUserId: string) {
-  const store = readBackendStore();
-  const followedProviderIds = store.subscriptions
-    .filter((item) => item.viewerUserId === viewerUserId)
-    .map((item) => item.providerId);
+export async function unfollowProvider(input: { viewerUserId: string; providerId: string }) {
+  await prisma.follow
+    .delete({
+      where: { viewerId_providerId: { viewerId: input.viewerUserId, providerId: input.providerId } },
+    })
+    .catch(() => null);
 
-  return store.providers.filter((provider) => followedProviderIds.includes(provider.id));
+  await createAnalyticsEvent({
+    userId: input.viewerUserId,
+    providerId: input.providerId,
+    eventType: "provider_unfollowed",
+  });
+
+  return { viewerUserId: input.viewerUserId, providerId: input.providerId };
 }
 
-export function getProviderFollowers(providerId: string) {
-  return readBackendStore().subscriptions.filter(
-    (item) => item.providerId === providerId,
+export async function getFollowedProviders(viewerUserId: string) {
+  const follows = await prisma.follow.findMany({
+    where: { viewerId: viewerUserId },
+    include: { provider: { include: { user: true } } },
+    orderBy: { createdAt: "desc" },
+  });
+
+  return follows.map((follow) => toProvider(follow.provider));
+}
+
+export async function getProviderFollowers(providerId: string) {
+  return prisma.follow.findMany({ where: { providerId } });
+}
+
+export async function getViewerReplayFeed(viewerUserId: string) {
+  const followed = await getFollowedProviders(viewerUserId);
+  const ids = new Set(followed.map((provider) => provider.id));
+  return (await getLives()).filter(
+    (live) => ids.has(live.providerId) && live.status === "replay" && live.replay.status !== "expired",
   );
 }
 
-export function getViewerReplayFeed(viewerUserId: string) {
-  const followedProviderIds = getFollowedProviders(viewerUserId).map(
-    (provider) => provider.id,
-  );
-
-  return sortPinnedLives(
-    getLives().filter(
-      (live) =>
-        followedProviderIds.includes(live.providerId) &&
-        live.status === "replay" &&
-        live.replay.status !== "expired",
-    ),
-  );
+export async function getViewerUpcomingLives(viewerUserId: string) {
+  const followed = await getFollowedProviders(viewerUserId);
+  const ids = new Set(followed.map((provider) => provider.id));
+  return (await getLives()).filter((live) => ids.has(live.providerId) && live.status === "scheduled");
 }
 
-export function getAvailableProvidersForViewer(viewerUserId: string) {
-  const store = readBackendStore();
-  const followedIds = new Set(
-    store.subscriptions
-      .filter((item) => item.viewerUserId === viewerUserId)
-      .map((item) => item.providerId),
-  );
+export async function getAvailableProvidersForViewer(viewerUserId: string) {
+  const followedIds = new Set((await getFollowedProviders(viewerUserId)).map((provider) => provider.id));
+  const providers = await prisma.providerProfile.findMany({
+    include: { user: true },
+    orderBy: { createdAt: "desc" },
+  });
 
-  return store.providers.filter((provider) => !followedIds.has(provider.id));
-}
-
-export function getViewerUpcomingLives(viewerUserId: string) {
-  const followedProviderIds = getFollowedProviders(viewerUserId).map(
-    (provider) => provider.id,
-  );
-
-  return sortPinnedLives(
-    getLives().filter(
-      (live) =>
-        followedProviderIds.includes(live.providerId) &&
-        live.status === "scheduled",
-    ),
-  );
+  return providers.filter((provider) => !followedIds.has(provider.id)).map(toProvider);
 }

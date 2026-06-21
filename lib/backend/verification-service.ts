@@ -1,117 +1,126 @@
-import { createAnalyticsEvent, readBackendStore, updateBackendStore } from "./store";
-import type { VerificationDocumentMetadata, VerificationStatus } from "./types";
+import { z } from "zod";
+import type { Prisma, VerificationStatus } from "@prisma/client";
+import { prisma } from "./prisma";
+import { ApiError } from "./errors";
+import { createAnalyticsEvent } from "./analytics-service";
 
-export const verificationStatuses: VerificationStatus[] = [
+export const verificationStatuses = [
   "not_started",
   "pending",
   "verified",
   "rejected",
   "needs_more_info",
-];
+] as const;
+
+const submitSchema = z.object({
+  documentType: z.string().min(2),
+  documentMetadata: z.record(z.string(), z.unknown()).default({}),
+});
+
+export const documentVerificationAdapter = {
+  async storeMetadataOnly(metadata: Record<string, unknown>) {
+    return metadata;
+  },
+};
 
 export function isVerificationStatus(value: unknown): value is VerificationStatus {
-  return (
-    typeof value === "string" &&
-    verificationStatuses.includes(value as VerificationStatus)
-  );
+  return typeof value === "string" && verificationStatuses.includes(value as VerificationStatus);
 }
 
-export function getVerificationStatus(userId: string) {
-  const store = readBackendStore();
-  const user = store.users.find((item) => item.id === userId);
-
+export async function getVerificationStatus(userId: string) {
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    include: { verificationRequests: { orderBy: { submittedAt: "desc" } } },
+  });
   if (!user) {
-    throw new Error("User not found.");
+    throw new ApiError("not_found", "User not found.", 404);
   }
 
   return {
     userId: user.id,
-    profileType: user.profileType,
+    profileType: user.role,
     verificationStatus: user.verificationStatus,
-    documents: store.verificationDocuments[user.id] ?? [],
+    documents: user.verificationRequests,
+    reviewNote: user.verificationRequests[0]?.reviewNote ?? null,
   };
 }
 
-export function submitVerificationMetadata(input: {
-  userId: unknown;
-  documentType: unknown;
-  reviewNote?: unknown;
-}) {
-  if (typeof input.userId !== "string" || !input.userId.trim()) {
-    throw new Error("userId is required.");
-  }
+export async function submitVerificationMetadata(userId: string, input: unknown) {
+  const parsed = submitSchema.parse(input);
+  const metadata = await documentVerificationAdapter.storeMetadataOnly(parsed.documentMetadata);
 
-  if (typeof input.documentType !== "string" || !input.documentType.trim()) {
-    throw new Error("documentType is required.");
-  }
-
-  const userId = input.userId.trim();
-  const documentType = input.documentType.trim();
-  updateBackendStore((store) => {
-    const user = store.users.find((item) => item.id === userId);
-
-    if (!user) {
-      throw new Error("User not found.");
-    }
-
-    const metadata: VerificationDocumentMetadata = {
-      documentType,
-      uploadedAt: new Date().toISOString(),
+  const request = await prisma.verificationRequest.create({
+    data: {
+      userId,
       status: "pending",
-      reviewNote:
-        typeof input.reviewNote === "string" && input.reviewNote.trim()
-          ? input.reviewNote.trim()
-          : "Mock metadata submitted. No real document file stored.",
-    };
-
-    store.verificationDocuments[user.id] = [
-      ...(store.verificationDocuments[user.id] ?? []),
-      metadata,
-    ];
+      documentType: parsed.documentType,
+      documentMetadata: metadata as Prisma.InputJsonValue,
+      reviewNote: "Metadata submitted. No real identity files are stored.",
+    },
   });
 
-  return updateVerificationStatus(userId, "pending");
+  const user = await prisma.user.update({
+    where: { id: userId },
+    data: { verificationStatus: "pending" },
+    include: { providerProfile: true },
+  });
+
+  await createAnalyticsEvent({
+    userId,
+    providerId: user.providerProfile?.id,
+    eventType: "verification_submitted",
+    metadata: { verificationRequestId: request.id },
+  });
+
+  return getVerificationStatus(userId);
 }
 
-export function updateVerificationStatus(
-  userId: string,
-  status: VerificationStatus,
-) {
-  if (!isVerificationStatus(status)) {
-    throw new Error("Invalid verification status.");
+export async function reviewVerification(input: {
+  adminId: string;
+  userId: string;
+  status: VerificationStatus;
+  reviewNote?: string;
+}) {
+  if (!isVerificationStatus(input.status)) {
+    throw new ApiError("invalid_status", "Invalid verification status.", 400);
   }
 
-  return updateBackendStore((store) => {
-    const user = store.users.find((item) => item.id === userId);
-
-    if (!user) {
-      throw new Error("User not found.");
-    }
-
-    user.verificationStatus = status;
-
-    if (user.providerId) {
-      const provider = store.providers.find((item) => item.id === user.providerId);
-
-      if (provider) {
-        provider.verificationStatus = status;
-      }
-    }
-
-    store.analyticsEvents.push(
-      createAnalyticsEvent({
-        type: "verification_updated",
-        userId: user.id,
-        providerId: user.providerId,
-        metadata: { status },
-      }),
-    );
-
-    return {
-      userId: user.id,
-      profileType: user.profileType,
-      verificationStatus: user.verificationStatus,
-      documents: store.verificationDocuments[user.id] ?? [],
-    };
+  const user = await prisma.user.update({
+    where: { id: input.userId },
+    data: { verificationStatus: input.status },
+    include: { providerProfile: true, verificationRequests: { orderBy: { submittedAt: "desc" }, take: 1 } },
   });
+
+  if (user.verificationRequests[0]) {
+    await prisma.verificationRequest.update({
+      where: { id: user.verificationRequests[0].id },
+      data: {
+        status: input.status,
+        reviewNote: input.reviewNote,
+        reviewedAt: new Date(),
+      },
+    });
+  }
+
+  await prisma.adminActivity.create({
+    data: {
+      adminId: input.adminId,
+      action: `verification_${input.status}`,
+      targetType: "user",
+      targetId: input.userId,
+      message: input.reviewNote ?? `Verification ${input.status}.`,
+    },
+  });
+
+  await createAnalyticsEvent({
+    userId: input.userId,
+    providerId: user.providerProfile?.id,
+    eventType: "verification_reviewed",
+    metadata: { status: input.status },
+  });
+
+  return getVerificationStatus(input.userId);
 }
+
+export const updateVerificationStatus = (userId: string, status: VerificationStatus) =>
+  reviewVerification({ adminId: userId, userId, status });
