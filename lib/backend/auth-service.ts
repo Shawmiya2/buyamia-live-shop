@@ -2,7 +2,7 @@ import { randomBytes, createHash } from "crypto";
 import bcrypt from "bcryptjs";
 import type { Role, User } from "@prisma/client";
 import { prisma } from "./prisma";
-import { ApiError } from "./errors";
+import { ApiError, ValidationApiError } from "./errors";
 import {
   getDashboardForRole,
   isProviderRole,
@@ -91,7 +91,9 @@ export async function signupUser(input: {
   const email = input.email.trim().toLowerCase();
   const existing = await prisma.user.findUnique({ where: { email } });
   if (existing) {
-    throw new ApiError("email_exists", "An account with this email already exists.", 409);
+    throw new ValidationApiError({
+      email: "An account already exists with this email address.",
+    });
   }
 
   const passwordHash = await hashPassword(input.password);

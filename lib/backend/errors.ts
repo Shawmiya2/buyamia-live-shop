@@ -3,8 +3,20 @@ export class ApiError extends Error {
     public code: string,
     message: string,
     public status = 400,
+    public fields?: Record<string, string>,
   ) {
     super(message);
+  }
+}
+
+export class ValidationApiError extends ApiError {
+  constructor(fields: Record<string, string>) {
+    super(
+      "VALIDATION_ERROR",
+      "Please correct the highlighted fields.",
+      400,
+      fields,
+    );
   }
 }
 

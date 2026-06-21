@@ -1,5 +1,5 @@
 import type { DashboardResponse, DashboardType } from "./types";
-import { dashboardRoleMap } from "./role-guard";
+import { dashboardRoleMap, isProviderRole } from "./role-guard";
 import { prisma } from "./prisma";
 import { ApiError } from "./errors";
 import { getAnalyticsSummary } from "./analytics-service";
@@ -102,7 +102,7 @@ export async function getDashboardData(dashboardType: DashboardType, user: SafeU
 }
 
 export async function providerForCurrentUser(user: SafeUser) {
-  if (!user.providerId) {
+  if (!isProviderRole(user.role) || !user.providerId) {
     throw new ApiError("provider_required", "A provider profile is required.", 403);
   }
   return user.providerId;

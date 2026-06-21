@@ -47,15 +47,13 @@ function createSeedStore(): BackendStore {
       {
         id: "service_request_arrival_demo",
         providerId: "provider_service_arrival",
-        ownerUserId: "user_services_mock",
-        serviceName: "Private arrival transfer",
-        serviceCategory: "Airport transfer",
-        shortDescription:
+        title: "Private arrival transfer",
+        category: "Services",
+        description:
           "Vehicle walkthrough, driver introduction, and arrival timing Q&A.",
-        documentVerificationPlaceholder: "Document metadata received",
-        paymentPlaceholder: "Payment placeholder: not connected",
-        preferredLiveDate: "2026-06-08",
-        status: "pending_verification",
+        preferredDate: "2026-06-08",
+        status: "pending_review",
+        adminNote: null,
         createdAt: "2026-06-04T12:00:00.000Z",
       },
     ],

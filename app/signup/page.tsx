@@ -15,7 +15,13 @@ const roles: { label: string; profileType: Exclude<ProfileType, "main_admin">; d
 
 type ApiEnvelope<T> =
   | { success: true; data: T }
-  | { success: false; error: { message: string } };
+  | { success: false; error: { message: string; fields?: Partial<Record<FormField | "role", string>> } };
+
+type FormField = "name" | "email" | "password" | "passwordConfirmation";
+type FieldErrors = Partial<Record<FormField | "role", string>>;
+
+const generalValidationMessage = "Please correct the highlighted fields.";
+const fallbackSignupMessage = "We could not create your account. Please try again.";
 
 export default function SignupPage() {
   const router = useRouter();
@@ -23,16 +29,63 @@ export default function SignupPage() {
   const [form, setForm] = useState({ name: "", email: "", password: "", passwordConfirmation: "" });
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState("");
+  const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
   const [createdAccount, setCreatedAccount] = useState<AccountCreationResponse | null>(null);
   const selectedRole = useMemo(() => roles.find((item) => item.profileType === role) ?? roles[0], [role]);
 
-  function updateForm(key: keyof typeof form, value: string) {
+  function updateForm(key: FormField, value: string) {
     setForm((current) => ({ ...current, [key]: value }));
+    setFieldErrors((current) => {
+      const { [key]: _cleared, ...rest } = current;
+      return rest;
+    });
+  }
+
+  function updateRole(value: Exclude<ProfileType, "main_admin">) {
+    setRole(value);
+    setFieldErrors((current) => {
+      const { role: _cleared, ...rest } = current;
+      return rest;
+    });
+  }
+
+  function validateForm() {
+    const nextErrors: FieldErrors = {};
+
+    if (!form.name.trim()) {
+      nextErrors.name = "Please enter your name.";
+    }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email.trim())) {
+      nextErrors.email = "Please enter a valid email address.";
+    }
+    if (!form.password) {
+      nextErrors.password = "Please enter a password.";
+    } else if (form.password.length < 8) {
+      nextErrors.password = "Password must contain at least 8 characters.";
+    }
+    if (form.passwordConfirmation.length < 8) {
+      nextErrors.passwordConfirmation = "Please confirm your password.";
+    } else if (form.password !== form.passwordConfirmation) {
+      nextErrors.passwordConfirmation = "Passwords do not match.";
+    }
+    if (!role) {
+      nextErrors.role = "Please select an account type.";
+    }
+
+    return nextErrors;
   }
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setError("");
+    const clientErrors = validateForm();
+    if (Object.keys(clientErrors).length > 0) {
+      setFieldErrors(clientErrors);
+      setError(generalValidationMessage);
+      return;
+    }
+
+    setFieldErrors({});
     setIsSubmitting(true);
 
     try {
@@ -43,13 +96,14 @@ export default function SignupPage() {
       });
       const payload = (await response.json()) as ApiEnvelope<AccountCreationResponse>;
       if (!payload.success) {
-        throw new Error(payload.error.message);
+        setFieldErrors(payload.error.fields ?? {});
+        throw new Error(payload.error.fields ? generalValidationMessage : fallbackSignupMessage);
       }
       setCreatedAccount(payload.data);
       router.push(payload.data.dashboardUrl);
       router.refresh();
     } catch (requestError) {
-      setError(requestError instanceof Error ? requestError.message : "Unable to create the account.");
+      setError(requestError instanceof Error ? requestError.message : fallbackSignupMessage);
     } finally {
       setIsSubmitting(false);
     }
@@ -82,7 +136,7 @@ export default function SignupPage() {
             )}
           </div>
 
-          <form onSubmit={handleSubmit} className="rounded-3xl border border-[#d6cbb6] bg-[#fffaf0] p-5 shadow-sm sm:p-6">
+          <form onSubmit={handleSubmit} noValidate className="rounded-3xl border border-[#d6cbb6] bg-[#fffaf0] p-5 shadow-sm sm:p-6">
             <p className="text-sm font-semibold text-[#6f7f4f]">Profile type</p>
             <h2 className="mt-2 font-serif text-3xl leading-tight">Select your account mode</h2>
             <div className="mt-5 grid gap-3 sm:grid-cols-2">
@@ -90,7 +144,8 @@ export default function SignupPage() {
                 <button
                   key={item.profileType}
                   type="button"
-                  onClick={() => setRole(item.profileType)}
+                  onClick={() => updateRole(item.profileType)}
+                  aria-invalid={fieldErrors.role ? true : undefined}
                   className={`rounded-2xl border p-4 text-left transition ${role === item.profileType ? "border-[#1e2419] bg-[#1e2419] text-[#fffaf0]" : "border-[#d6cbb6] bg-[#f3ecdc] hover:bg-[#efe5d2]"}`}
                 >
                   <span className={`rounded-full px-3 py-1 text-xs font-black ${role === item.profileType ? "bg-[#cbd8a7] text-[#1e2419]" : "bg-[#edf2dd] text-[#596540]"}`}>{item.label}</span>
@@ -98,12 +153,13 @@ export default function SignupPage() {
                 </button>
               ))}
             </div>
+            {fieldErrors.role && <p id="signup-role-error" className="mt-2 text-sm font-semibold text-[#8c3f2b]">{fieldErrors.role}</p>}
 
             <div className="mt-6 grid gap-4 sm:grid-cols-2">
-              <TextField label="Name" value={form.name} onChange={(value) => updateForm("name", value)} />
-              <TextField label="Email" type="email" value={form.email} onChange={(value) => updateForm("email", value)} />
-              <TextField label="Password" type="password" value={form.password} onChange={(value) => updateForm("password", value)} />
-              <TextField label="Confirm password" type="password" value={form.passwordConfirmation} onChange={(value) => updateForm("passwordConfirmation", value)} />
+              <TextField name="name" label="Name" value={form.name} error={fieldErrors.name} onChange={(value) => updateForm("name", value)} />
+              <TextField name="email" label="Email" type="email" value={form.email} error={fieldErrors.email} onChange={(value) => updateForm("email", value)} />
+              <TextField name="password" label="Password" type="password" value={form.password} error={fieldErrors.password} onChange={(value) => updateForm("password", value)} />
+              <TextField name="passwordConfirmation" label="Confirm password" type="password" value={form.passwordConfirmation} error={fieldErrors.passwordConfirmation} onChange={(value) => updateForm("passwordConfirmation", value)} />
             </div>
 
             {error && <p className="mt-4 rounded-2xl bg-[#fff3ed] p-4 text-sm font-semibold text-[#8c3f2b]">{error}</p>}
@@ -117,7 +173,9 @@ export default function SignupPage() {
   );
 }
 
-function TextField({ label, value, onChange, type = "text" }: { label: string; value: string; onChange: (value: string) => void; type?: string }) {
+function TextField({ name, label, value, onChange, type = "text", error }: { name: FormField; label: string; value: string; onChange: (value: string) => void; type?: string; error?: string }) {
+  const errorId = `signup-${name}-error`;
+
   return (
     <label className="grid gap-2 text-sm font-bold text-[#596540]">
       {label}
@@ -125,9 +183,11 @@ function TextField({ label, value, onChange, type = "text" }: { label: string; v
         type={type}
         value={value}
         onChange={(event) => onChange(event.target.value)}
-        required
-        className="rounded-2xl border border-[#cabda4] bg-[#f3ecdc] px-4 py-3 text-sm font-semibold text-[#1e2419] outline-none focus:border-[#6f7f4f]"
+        aria-invalid={error ? true : undefined}
+        aria-describedby={error ? errorId : undefined}
+        className={`rounded-2xl border bg-[#f3ecdc] px-4 py-3 text-sm font-semibold text-[#1e2419] outline-none focus:border-[#6f7f4f] ${error ? "border-[#b85438]" : "border-[#cabda4]"}`}
       />
+      {error && <span id={errorId} className="text-sm font-semibold text-[#8c3f2b]">{error}</span>}
     </label>
   );
 }

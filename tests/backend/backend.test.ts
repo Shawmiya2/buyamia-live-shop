@@ -5,15 +5,23 @@ import {
   getUserBySessionToken,
   loginUser,
   logoutSession,
+  safeUser,
   signupUser,
 } from "../../lib/backend/auth-service";
 import { canAccessDashboard } from "../../lib/backend/role-guard";
 import {
   createLiveRequest,
+  getLiveRequest,
+  listLiveRequests,
   reviewLiveRequest,
   scheduleApprovedLiveRequest,
   updateLiveRequest,
 } from "../../lib/backend/live-request-service";
+import { assertProviderOwner } from "../../lib/backend/auth-context";
+import { jsonError } from "../../lib/backend/api-response";
+import { ApiError, ValidationApiError } from "../../lib/backend/errors";
+import { getDashboardData, providerForCurrentUser } from "../../lib/backend/dashboard-service";
+import { parseSignupInput } from "../../lib/backend/validation";
 import { submitVerificationMetadata, reviewVerification } from "../../lib/backend/verification-service";
 import { datePlusDays, getReplayStatus } from "../../lib/backend/replay-policy";
 import { extendReplayAvailability, getLives, updateLivePin } from "../../lib/backend/live-service";
@@ -43,6 +51,81 @@ async function provider(role: "hotel" | "restaurant" | "supplier" | "service_pro
 }
 
 describe("backend foundation", () => {
+  it("normalizes friendly signup validation responses", async () => {
+    try {
+      parseSignupInput({
+        name: "",
+        email: "not-email",
+        password: "short",
+        passwordConfirmation: "short",
+        role: undefined,
+      });
+      throw new Error("Expected validation to fail.");
+    } catch (error) {
+      expect(error).toBeInstanceOf(ValidationApiError);
+      const response = jsonError(error);
+      const payload = await response.json();
+      expect(payload.error).toEqual({
+        code: "VALIDATION_ERROR",
+        message: "Please correct the highlighted fields.",
+        fields: {
+          name: "Please enter your name.",
+          email: "Please enter a valid email address.",
+          password: "Password must contain at least 8 characters.",
+          passwordConfirmation: "Please confirm your password.",
+          role: "Please select an account type.",
+        },
+      });
+      expect(JSON.stringify(payload)).not.toContain("too_small");
+      expect(JSON.stringify(payload)).not.toContain("Zod");
+    }
+  });
+
+  it("returns a friendly password confirmation mismatch", () => {
+    expect(() =>
+      parseSignupInput({
+        name: "Mismatch User",
+        email: uniqueEmail("mismatch"),
+        password: "Password123!",
+        passwordConfirmation: "Password456!",
+        role: "viewer",
+      }),
+    ).toThrow("Please correct the highlighted fields.");
+
+    try {
+      parseSignupInput({
+        name: "Mismatch User",
+        email: uniqueEmail("mismatch"),
+        password: "Password123!",
+        passwordConfirmation: "Password456!",
+        role: "viewer",
+      });
+    } catch (error) {
+      expect((error as ValidationApiError).fields?.passwordConfirmation).toBe("Passwords do not match.");
+    }
+  });
+
+  it("returns a friendly duplicate email field error", async () => {
+    const email = uniqueEmail("duplicate");
+    await signupUser({
+      name: "Duplicate One",
+      email,
+      password: "Password123!",
+      role: "viewer",
+    });
+
+    await expect(
+      signupUser({
+        name: "Duplicate Two",
+        email,
+        password: "Password123!",
+        role: "viewer",
+      }),
+    ).rejects.toMatchObject({
+      fields: { email: "An account already exists with this email address." },
+    });
+  });
+
   it("allows public roles and rejects public main_admin registration", async () => {
     const user = await signupUser({
       name: "Signup Viewer",
@@ -93,6 +176,83 @@ describe("backend foundation", () => {
     });
 
     await expect(updateLiveRequest(b.providerId, request.id, { title: "Nope" })).rejects.toThrow(/another provider/i);
+  });
+
+  it("rejects unauthenticated live request submissions with 401", async () => {
+    const response = jsonError(new ApiError("unauthenticated", "Authentication is required.", 401));
+    const payload = await response.json();
+    expect(response.status).toBe(401);
+    expect(payload.error.code).toBe("unauthenticated");
+  });
+
+  it("prevents viewers from submitting live requests", async () => {
+    const viewer = await signupUser({
+      name: "Live Viewer",
+      email: uniqueEmail("live-viewer"),
+      password: "Password123!",
+      role: "viewer",
+    });
+
+    await expect(providerForCurrentUser(safeUser(viewer))).rejects.toThrow(/provider profile is required/i);
+  });
+
+  it("lets providers submit persistent live requests and keeps them private", async () => {
+    const a = await provider("restaurant");
+    const b = await provider("supplier");
+    const request = await createLiveRequest(a.providerId, {
+      title: "Chef table preview",
+      category: "Restaurant",
+      description: "Preview the tasting menu for review.",
+      preferredDate: datePlusDays(new Date(), 1).toISOString(),
+    });
+
+    expect(request.status).toBe("pending_review");
+    expect(request.providerId).toBe(a.providerId);
+    expect(await prisma.liveRequest.findUnique({ where: { id: request.id } })).toBeTruthy();
+    expect((await listLiveRequests({ providerId: a.providerId })).some((item) => item.id === request.id)).toBe(true);
+    expect(() => assertProviderOwner(safeUser(b.user), request.providerId)).toThrow(/another provider/i);
+
+    const persisted = await getLiveRequest(request.id);
+    expect(persisted.title).toBe("Chef table preview");
+  });
+
+  it("shows pending live requests to main admin and persists approve or reject", async () => {
+    const adminUser = await admin();
+    const first = await provider("hotel");
+    const second = await provider("service_provider");
+    const pending = await createLiveRequest(first.providerId, {
+      title: "Suite launch",
+      category: "Rooms",
+      description: "Show the new suite live.",
+      preferredDate: datePlusDays(new Date(), 1).toISOString(),
+    });
+    const rejectable = await createLiveRequest(second.providerId, {
+      title: "Spa launch",
+      category: "Spa",
+      description: "Show the spa facilities live.",
+      preferredDate: datePlusDays(new Date(), 2).toISOString(),
+    });
+
+    const dashboard = await getDashboardData("main", safeUser(adminUser));
+    expect(dashboard.pendingLiveRequests?.some((item) => item.id === pending.id)).toBe(true);
+
+    const approved = await reviewLiveRequest({
+      adminId: adminUser.id,
+      requestId: pending.id,
+      status: "approved",
+      adminNote: "Approved.",
+    });
+    const rejected = await reviewLiveRequest({
+      adminId: adminUser.id,
+      requestId: rejectable.id,
+      status: "rejected",
+      adminNote: "Needs more information.",
+    });
+
+    expect(approved.status).toBe("approved");
+    expect(rejected.status).toBe("rejected");
+    expect((await prisma.liveRequest.findUnique({ where: { id: pending.id } }))?.status).toBe("approved");
+    expect((await prisma.liveRequest.findUnique({ where: { id: rejectable.id } }))?.adminNote).toBe("Needs more information.");
   });
 
   it("runs live request, admin review, schedule, pin, replay, and activity workflows", async () => {

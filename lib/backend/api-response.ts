@@ -13,9 +13,11 @@ export function jsonError(error: unknown, status = 400) {
       error: {
         code: apiError?.code ?? "unexpected_error",
         message:
-          error instanceof Error
-            ? error.message
-            : "Unexpected API error.",
+          apiError?.message ??
+          (error instanceof Error
+            ? "Unexpected API error."
+            : "Unexpected API error."),
+        ...(apiError?.fields ? { fields: apiError.fields } : {}),
       },
     },
     { status: apiError?.status ?? status },

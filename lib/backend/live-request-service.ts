@@ -1,25 +1,107 @@
 import { z } from "zod";
-import type { LiveRequestStatus, Prisma } from "@prisma/client";
+import type { LiveRequestStatus } from "@prisma/client";
 import { prisma } from "./prisma";
-import { ApiError } from "./errors";
+import { ApiError, ValidationApiError } from "./errors";
 import { createAnalyticsEvent } from "./analytics-service";
 import { datePlusDays, defaultReplayAvailabilityDays } from "./replay-policy";
+import { fieldErrorsFromZod } from "./validation";
 
-const createSchema = z.object({
-  title: z.string().min(2),
-  category: z.string().min(2),
-  description: z.string().min(5),
-  preferredDate: z.string().min(1),
+export const liveRequestFieldMessages = {
+  title: "Please enter a live title.",
+  category: "Please select a category.",
+  description: "Please describe the live.",
+  preferredDate: "Please select a preferred date.",
+  preferredDatePast: "The preferred date cannot be in the past.",
+} as const;
+
+const liveRequestBaseSchema = z.object({
+  title: z.string().trim().min(1, liveRequestFieldMessages.title),
+  category: z.string().trim().min(1, liveRequestFieldMessages.category),
+  description: z.string().trim().min(1, liveRequestFieldMessages.description),
+  preferredDate: z.string().trim().min(1, liveRequestFieldMessages.preferredDate),
   documentMetadata: z.record(z.string(), z.unknown()).optional(),
   status: z.enum(["draft", "pending_review"]).default("pending_review"),
 });
 
-const updateSchema = createSchema.partial().extend({
-  status: z.enum(["draft", "pending_review", "canceled"]).optional(),
+const createSchema = liveRequestBaseSchema.superRefine((value, context) => {
+  if (!value.preferredDate) {
+    return;
+  }
+
+  const preferredDate = parsePreferredDate(value.preferredDate);
+  if (!preferredDate) {
+    context.addIssue({ code: "custom", path: ["preferredDate"], message: liveRequestFieldMessages.preferredDate });
+    return;
+  }
+
+  if (isBeforeToday(preferredDate)) {
+    context.addIssue({ code: "custom", path: ["preferredDate"], message: liveRequestFieldMessages.preferredDatePast });
+  }
 });
 
+const updateSchema = liveRequestBaseSchema.partial().extend({
+  status: z.enum(["draft", "pending_review", "canceled"]).optional(),
+}).superRefine((value, context) => {
+  if (!value.preferredDate) {
+    return;
+  }
+
+  const preferredDate = parsePreferredDate(value.preferredDate);
+  if (!preferredDate) {
+    context.addIssue({ code: "custom", path: ["preferredDate"], message: liveRequestFieldMessages.preferredDate });
+    return;
+  }
+
+  if (isBeforeToday(preferredDate)) {
+    context.addIssue({ code: "custom", path: ["preferredDate"], message: liveRequestFieldMessages.preferredDatePast });
+  }
+});
+
+const liveRequestInclude = {
+  provider: {
+    select: {
+      displayName: true,
+      category: true,
+      user: { select: { name: true, role: true } },
+    },
+  },
+} as const;
+
+function parsePreferredDate(value: string) {
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? null : date;
+}
+
+function isBeforeToday(value: Date) {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const candidate = new Date(value);
+  candidate.setHours(0, 0, 0, 0);
+  return candidate < today;
+}
+
+function parseCreateLiveRequestInput(input: unknown) {
+  const parsed = createSchema.safeParse(input);
+
+  if (!parsed.success) {
+    throw new ValidationApiError(fieldErrorsFromZod(parsed.error));
+  }
+
+  return parsed.data;
+}
+
+function parseUpdateLiveRequestInput(input: unknown) {
+  const parsed = updateSchema.safeParse(input);
+
+  if (!parsed.success) {
+    throw new ValidationApiError(fieldErrorsFromZod(parsed.error));
+  }
+
+  return parsed.data;
+}
+
 export async function createLiveRequest(providerId: string, input: unknown) {
-  const parsed = createSchema.parse(input);
+  const parsed = parseCreateLiveRequestInput(input);
   const provider = await prisma.providerProfile.findUnique({ where: { id: providerId } });
   if (!provider) {
     throw new ApiError("not_found", "Provider not found.", 404);
@@ -31,11 +113,12 @@ export async function createLiveRequest(providerId: string, input: unknown) {
       title: parsed.title,
       category: parsed.category,
       description: parsed.description,
-      preferredDate: new Date(parsed.preferredDate),
+      preferredDate: parsePreferredDate(parsed.preferredDate)!,
       status: parsed.status,
       documentsStatus: parsed.documentMetadata ? "pending" : "not_started",
       paymentStatus: "placeholder",
     },
+    include: liveRequestInclude,
   });
 
   await createAnalyticsEvent({
@@ -55,11 +138,12 @@ export async function listLiveRequests(options: { providerId?: string; pendingOn
       status: options.pendingOnly ? "pending_review" : undefined,
     },
     orderBy: { createdAt: "desc" },
+    include: liveRequestInclude,
   });
 }
 
 export async function getLiveRequest(id: string) {
-  const request = await prisma.liveRequest.findUnique({ where: { id } });
+  const request = await prisma.liveRequest.findUnique({ where: { id }, include: liveRequestInclude });
   if (!request) {
     throw new ApiError("not_found", "Live request not found.", 404);
   }
@@ -75,17 +159,18 @@ export async function updateLiveRequest(providerId: string, id: string, input: u
     throw new ApiError("invalid_state", "This request can no longer be edited.", 400);
   }
 
-  const parsed = updateSchema.parse(input);
+  const parsed = parseUpdateLiveRequestInput(input);
   return prisma.liveRequest.update({
     where: { id },
     data: {
       title: parsed.title,
       category: parsed.category,
       description: parsed.description,
-      preferredDate: parsed.preferredDate ? new Date(parsed.preferredDate) : undefined,
+      preferredDate: parsed.preferredDate ? parsePreferredDate(parsed.preferredDate)! : undefined,
       status: parsed.status as LiveRequestStatus | undefined,
       documentsStatus: parsed.documentMetadata ? "pending" : undefined,
     },
+    include: liveRequestInclude,
   });
 }
 
@@ -97,7 +182,7 @@ export async function cancelLiveRequest(providerId: string, id: string) {
   if (!["draft", "pending_review"].includes(request.status)) {
     throw new ApiError("invalid_state", "This request can no longer be canceled.", 400);
   }
-  return prisma.liveRequest.update({ where: { id }, data: { status: "canceled" } });
+  return prisma.liveRequest.update({ where: { id }, data: { status: "canceled" }, include: liveRequestInclude });
 }
 
 export async function reviewLiveRequest(input: {
@@ -110,6 +195,7 @@ export async function reviewLiveRequest(input: {
   const updated = await prisma.liveRequest.update({
     where: { id: input.requestId },
     data: { status: input.status, adminNote: input.adminNote },
+    include: liveRequestInclude,
   });
 
   await prisma.adminActivity.create({
