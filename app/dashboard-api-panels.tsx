@@ -11,8 +11,6 @@ import type {
   ServiceLiveSetupRequest,
   VerificationStatus,
 } from "@/lib/backend/types";
-import { readDemoSession } from "@/lib/demo-session";
-
 type DashboardApiPanelsProps = {
   dashboardType: DashboardType;
   title: string;
@@ -34,12 +32,39 @@ type AnalyticsApiResponse = {
   analyticsSummary: AnalyticsSummary;
 };
 
+type ApiEnvelope<T> =
+  | { success: true; data: T }
+  | { success: false; error: { message: string; fields?: Record<string, string> } };
+
 const pinReasons: PinReason[] = [
   "sponsored",
   "nearby",
   "most_watched",
   "featured_by_buyamia",
 ];
+
+const providerDashboardTypes: DashboardType[] = ["hotel", "restaurant", "supplier", "services"];
+const liveRequestCategories = [
+  "Rooms",
+  "Hotel",
+  "Restaurant",
+  "Food & Brunch",
+  "Spa",
+  "Facilities",
+  "Services",
+  "Experiences",
+  "Other",
+];
+const liveRequestStatusLabels: Record<string, string> = {
+  draft: "Draft",
+  pending_review: "Pending review",
+  approved: "Approved",
+  rejected: "Rejected",
+  scheduled: "Scheduled",
+  active: "Active",
+  completed: "Completed",
+  canceled: "Canceled",
+};
 
 export function DashboardApiPanels({
   dashboardType,
@@ -50,44 +75,32 @@ export function DashboardApiPanels({
   const [actionError, setActionError] = useState("");
   const [pendingAction, setPendingAction] = useState("");
 
-  const getDemoHeaders = useCallback(() => {
-    const demoSession = readDemoSession();
-
-    return demoSession
-      ? {
-          "x-demo-profile-type": demoSession.profileType,
-          "x-demo-user-id": demoSession.userId,
-        }
-      : undefined;
-  }, []);
-
   const loadDashboardData = useCallback(async () => {
     try {
       setState({ status: "loading" });
-      const headers = getDemoHeaders();
       const [dashboardResponse, analyticsResponse] = await Promise.all([
         fetch(`/api/dashboard/${dashboardType}`, {
           cache: "no-store",
-          headers,
         }),
         fetch(`/api/analytics/${dashboardType}`, {
           cache: "no-store",
-          headers,
         }),
       ]);
 
-      if (!dashboardResponse.ok || !analyticsResponse.ok) {
-        throw new Error("Dashboard API request failed.");
-      }
+      const dashboardPayload = (await dashboardResponse.json()) as ApiEnvelope<DashboardResponse>;
+      const analyticsPayload = (await analyticsResponse.json()) as ApiEnvelope<AnalyticsApiResponse>;
 
-      const dashboard = (await dashboardResponse.json()) as DashboardResponse;
-      const analyticsPayload =
-        (await analyticsResponse.json()) as AnalyticsApiResponse;
+      if (!dashboardPayload.success) {
+        throw new Error(dashboardPayload.error.message);
+      }
+      if (!analyticsPayload.success) {
+        throw new Error(analyticsPayload.error.message);
+      }
 
       setState({
         status: "ready",
-        dashboard,
-        analytics: analyticsPayload.analyticsSummary,
+        dashboard: dashboardPayload.data,
+        analytics: analyticsPayload.data.analyticsSummary,
       });
     } catch (error) {
       setState({
@@ -98,14 +111,14 @@ export function DashboardApiPanels({
             : "Unable to load dashboard API data.",
       });
     }
-  }, [dashboardType, getDemoHeaders]);
+  }, [dashboardType]);
 
   useEffect(() => {
     loadDashboardData();
   }, [loadDashboardData]);
 
   const runAction = useCallback(
-    async (label: string, request: () => Promise<Response>) => {
+    async (label: string, request: () => Promise<Response>, successMessage?: string) => {
       setPendingAction(label);
       setActionMessage("");
       setActionError("");
@@ -115,12 +128,12 @@ export function DashboardApiPanels({
 
         if (!response.ok) {
           const payload = (await response.json().catch(() => null)) as
-            | { error?: string }
+            | { error?: { message?: string } }
             | null;
-          throw new Error(payload?.error ?? `${label} failed.`);
+          throw new Error(payload?.error?.message ?? `${label} failed.`);
         }
 
-        setActionMessage(`${label} saved locally.`);
+        setActionMessage(successMessage ?? `${label} saved.`);
         await loadDashboardData();
       } catch (error) {
         setActionError(
@@ -251,8 +264,16 @@ export function DashboardApiPanels({
         />
       )}
 
-      {dashboardType === "services" && (
-        <ServiceLiveRequestPanel
+      {providerDashboardTypes.includes(dashboardType) && (
+        <ProviderLiveRequestPanel
+          dashboard={state.dashboard}
+          pendingAction={pendingAction}
+          runAction={runAction}
+        />
+      )}
+
+      {dashboardType === "main" && (
+        <MainLiveRequestPanel
           dashboard={state.dashboard}
           pendingAction={pendingAction}
           runAction={runAction}
@@ -269,7 +290,7 @@ function VerificationControls({
 }: {
   dashboard: DashboardResponse;
   pendingAction: string;
-  runAction: (label: string, request: () => Promise<Response>) => Promise<void>;
+  runAction: (label: string, request: () => Promise<Response>, successMessage?: string) => Promise<void>;
 }) {
   if (!dashboard.currentUserId) {
     return null;
@@ -384,7 +405,7 @@ function PinnedLivesPanel({
   lives: LiveEvent[];
   pinnedCount: number;
   pendingAction: string;
-  runAction: (label: string, request: () => Promise<Response>) => Promise<void>;
+  runAction: (label: string, request: () => Promise<Response>, successMessage?: string) => Promise<void>;
 }) {
   return (
     <section className="rounded-3xl border border-[#d6cbb6] bg-[#f3ecdc] p-4">
@@ -493,7 +514,7 @@ function ViewerFollowPanel({
 }: {
   dashboard: DashboardResponse;
   pendingAction: string;
-  runAction: (label: string, request: () => Promise<Response>) => Promise<void>;
+  runAction: (label: string, request: () => Promise<Response>, successMessage?: string) => Promise<void>;
 }) {
   const viewerId = dashboard.currentUserId ?? "user_viewer_mock";
   const followed = dashboard.subscriptions?.followedProviders ?? [];
@@ -625,107 +646,196 @@ function LiveFeed({ title, lives }: { title: string; lives: LiveEvent[] }) {
   );
 }
 
-function ServiceLiveRequestPanel({
+type LiveRequestForm = {
+  title: string;
+  category: string;
+  description: string;
+  preferredDate: string;
+};
+
+type LiveRequestFormField = keyof LiveRequestForm;
+
+function ProviderLiveRequestPanel({
   dashboard,
   pendingAction,
   runAction,
 }: {
   dashboard: DashboardResponse;
   pendingAction: string;
-  runAction: (label: string, request: () => Promise<Response>) => Promise<void>;
+  runAction: (label: string, request: () => Promise<Response>, successMessage?: string) => Promise<void>;
 }) {
-  const [form, setForm] = useState({
-    serviceName: "",
-    serviceCategory: "",
-    shortDescription: "",
-    preferredLiveDate: "",
+  const [isExpanded, setIsExpanded] = useState(false);
+  const [form, setForm] = useState<LiveRequestForm>({
+    title: "",
+    category: "",
+    description: "",
+    preferredDate: "",
   });
+  const [fieldErrors, setFieldErrors] = useState<Partial<Record<LiveRequestFormField, string>>>({});
   const requests = dashboard.serviceLiveSetupRequests ?? [];
 
-  function updateForm(key: keyof typeof form, value: string) {
+  function updateForm(key: LiveRequestFormField, value: string) {
     setForm((current) => ({ ...current, [key]: value }));
+    setFieldErrors((current) => {
+      const { [key]: _cleared, ...rest } = current;
+      return rest;
+    });
+  }
+
+  function validateForm() {
+    const errors: Partial<Record<LiveRequestFormField, string>> = {};
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const preferredDate = form.preferredDate ? new Date(form.preferredDate) : null;
+
+    if (!form.title.trim()) {
+      errors.title = "Please enter a live title.";
+    }
+    if (!form.category) {
+      errors.category = "Please select a category.";
+    }
+    if (!form.description.trim()) {
+      errors.description = "Please describe the live.";
+    }
+    if (!form.preferredDate) {
+      errors.preferredDate = "Please select a preferred date.";
+    } else if (preferredDate && preferredDate < today) {
+      errors.preferredDate = "The preferred date cannot be in the past.";
+    }
+
+    return errors;
   }
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    await runAction("Set up service live", () =>
-      fetch("/api/services/live-requests", {
+    const errors = validateForm();
+    if (Object.keys(errors).length > 0) {
+      setFieldErrors(errors);
+      return;
+    }
+
+    await runAction("Create a live request", async () => {
+      const response = await fetch("/api/live-requests", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           ...form,
-          userId: dashboard.currentUserId,
-          providerId: dashboard.providerId,
+          documentMetadata: { placeholder: "Document metadata placeholder" },
         }),
-      }),
-    );
+      });
+      if (!response.ok) {
+        const payload = (await response.json().catch(() => null)) as ApiEnvelope<unknown> | null;
+        if (payload && !payload.success && payload.error.fields) {
+          setFieldErrors(payload.error.fields as Partial<Record<LiveRequestFormField, string>>);
+        }
+      }
+      return response;
+    }, "Your live request has been submitted for review.");
+
     setForm({
-      serviceName: "",
-      serviceCategory: "",
-      shortDescription: "",
-      preferredLiveDate: "",
+      title: "",
+      category: "",
+      description: "",
+      preferredDate: "",
     });
+    setFieldErrors({});
+    setIsExpanded(false);
   }
 
   return (
     <section className="mt-5 grid gap-5 xl:grid-cols-[1fr_.9fr]">
-      <form
-        onSubmit={handleSubmit}
-        className="rounded-3xl border border-[#d6cbb6] bg-[#f3ecdc] p-4"
-      >
-        <PanelHeader
-          eyebrow="service live setup"
-          title="Set up a live for my service"
-          badge="Local demo"
-        />
-        <div className="mt-4 grid gap-3">
-          <TextField label="Service name" value={form.serviceName} onChange={(value) => updateForm("serviceName", value)} />
-          <TextField label="Service category" value={form.serviceCategory} onChange={(value) => updateForm("serviceCategory", value)} />
-          <label className="grid gap-2 text-sm font-bold text-[#596540]">
-            Short description
-            <textarea
-              value={form.shortDescription}
-              onChange={(event) => updateForm("shortDescription", event.target.value)}
-              required
-              className="min-h-24 rounded-2xl border border-[#cabda4] bg-[#fffaf0] px-4 py-3 text-sm font-semibold text-[#1e2419] outline-none"
-            />
-          </label>
-          <div className="rounded-2xl border border-dashed border-[#cabda4] bg-[#fffaf0] p-4 text-sm font-semibold text-[#675f50]">
-            Document verification placeholder: Document metadata received
-          </div>
-          <TextField
-            label="Preferred live date"
-            type="date"
-            value={form.preferredLiveDate}
-            onChange={(value) => updateForm("preferredLiveDate", value)}
+      <div className="rounded-3xl border border-[#d6cbb6] bg-[#f3ecdc] p-4">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+          <PanelHeader
+            eyebrow="live request workflow"
+            title="Create a live request"
+            badge="/api/live-requests"
           />
           <button
-            type="submit"
-            disabled={Boolean(pendingAction)}
-            className="rounded-full bg-[#1e2419] px-5 py-3 text-sm font-bold text-[#fffaf0] transition hover:bg-[#596540] disabled:opacity-60"
+            type="button"
+            onClick={() => setIsExpanded((current) => !current)}
+            className="w-fit rounded-full bg-[#1e2419] px-5 py-3 text-sm font-bold text-[#fffaf0] transition hover:bg-[#596540]"
           >
-            {pendingAction === "Set up service live"
-              ? "Saving..."
-              : "Set up a live for my service"}
+            Create a live request
           </button>
         </div>
-      </form>
-      <ServiceRequestList requests={requests} />
+
+        {dashboard.verificationStatus !== "verified" && (
+          <div className="mt-4 rounded-2xl border border-[#cabda4] bg-[#fffaf0] p-4 text-sm text-[#675f50]">
+            <p className="font-semibold text-[#1e2419]">Verification is still available from this dashboard.</p>
+            <p className="mt-1 leading-6">You can submit the request for review now. The admin review keeps verification and scheduling controls separate.</p>
+            <a href="#verification" className="mt-3 inline-flex rounded-full border border-[#cabda4] px-4 py-2 text-xs font-bold text-[#1e2419]">
+              Go to verification
+            </a>
+          </div>
+        )}
+
+        {isExpanded && (
+          <form onSubmit={handleSubmit} noValidate className="mt-4 grid gap-3">
+            <LiveRequestTextField label="Title" name="title" value={form.title} error={fieldErrors.title} onChange={(value) => updateForm("title", value)} />
+            <label className="grid gap-2 text-sm font-bold text-[#596540]">
+              Category
+              <select
+                value={form.category}
+                onChange={(event) => updateForm("category", event.target.value)}
+                aria-invalid={fieldErrors.category ? true : undefined}
+                aria-describedby={fieldErrors.category ? "live-request-category-error" : undefined}
+                className={`rounded-2xl border bg-[#fffaf0] px-4 py-3 text-sm font-semibold text-[#1e2419] outline-none ${fieldErrors.category ? "border-[#b85438]" : "border-[#cabda4]"}`}
+              >
+                <option value="">Select a category</option>
+                {liveRequestCategories.map((category) => (
+                  <option key={category} value={category}>{category}</option>
+                ))}
+              </select>
+              {fieldErrors.category && <span id="live-request-category-error" className="text-sm font-semibold text-[#8c3f2b]">{fieldErrors.category}</span>}
+            </label>
+            <label className="grid gap-2 text-sm font-bold text-[#596540]">
+              Description
+              <textarea
+                value={form.description}
+                onChange={(event) => updateForm("description", event.target.value)}
+                aria-invalid={fieldErrors.description ? true : undefined}
+                aria-describedby={fieldErrors.description ? "live-request-description-error" : undefined}
+                className={`min-h-24 rounded-2xl border bg-[#fffaf0] px-4 py-3 text-sm font-semibold text-[#1e2419] outline-none ${fieldErrors.description ? "border-[#b85438]" : "border-[#cabda4]"}`}
+              />
+              {fieldErrors.description && <span id="live-request-description-error" className="text-sm font-semibold text-[#8c3f2b]">{fieldErrors.description}</span>}
+            </label>
+          <div className="rounded-2xl border border-dashed border-[#cabda4] bg-[#fffaf0] p-4 text-sm font-semibold text-[#675f50]">
+              Document metadata placeholder: optional metadata can be attached later.
+          </div>
+            <LiveRequestTextField label="Preferred date" name="preferredDate" type="date" value={form.preferredDate} error={fieldErrors.preferredDate} onChange={(value) => updateForm("preferredDate", value)} />
+            <button
+              type="submit"
+              disabled={pendingAction === "Create a live request"}
+              className="rounded-full bg-[#1e2419] px-5 py-3 text-sm font-bold text-[#fffaf0] transition hover:bg-[#596540] disabled:opacity-60"
+            >
+              {pendingAction === "Create a live request" ? "Submitting..." : "Submit for review"}
+            </button>
+          </form>
+        )}
+      </div>
+      <LiveRequestList requests={requests} title="Your live requests" dark />
     </section>
   );
 }
 
-function TextField({
+function LiveRequestTextField({
   label,
+  name,
   value,
   onChange,
+  error,
   type = "text",
 }: {
   label: string;
+  name: LiveRequestFormField;
   value: string;
   onChange: (value: string) => void;
+  error?: string;
   type?: string;
 }) {
+  const errorId = `live-request-${name}-error`;
+
   return (
     <label className="grid gap-2 text-sm font-bold text-[#596540]">
       {label}
@@ -733,50 +843,152 @@ function TextField({
         type={type}
         value={value}
         onChange={(event) => onChange(event.target.value)}
-        required
-        className="rounded-2xl border border-[#cabda4] bg-[#fffaf0] px-4 py-3 text-sm font-semibold text-[#1e2419] outline-none"
+        aria-invalid={error ? true : undefined}
+        aria-describedby={error ? errorId : undefined}
+        className={`rounded-2xl border bg-[#fffaf0] px-4 py-3 text-sm font-semibold text-[#1e2419] outline-none ${error ? "border-[#b85438]" : "border-[#cabda4]"}`}
       />
+      {error && <span id={errorId} className="text-sm font-semibold text-[#8c3f2b]">{error}</span>}
     </label>
   );
 }
 
-function ServiceRequestList({
+function MainLiveRequestPanel({
+  dashboard,
+  pendingAction,
+  runAction,
+}: {
+  dashboard: DashboardResponse;
+  pendingAction: string;
+  runAction: (label: string, request: () => Promise<Response>, successMessage?: string) => Promise<void>;
+}) {
+  const requests = dashboard.pendingLiveRequests ?? [];
+
+  return (
+    <section className="mt-5 rounded-3xl border border-[#d6cbb6] bg-[#f3ecdc] p-4">
+      <PanelHeader eyebrow="main admin review" title="Pending live requests" badge={`${requests.length}`} />
+      <div className="mt-4 grid gap-3">
+        {requests.length ? (
+          requests.map((request) => (
+            <article key={request.id} className="rounded-2xl bg-[#fffaf0] p-4">
+              <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+                <div>
+                  <p className="font-semibold">{request.title}</p>
+                  <p className="mt-1 text-sm text-[#675f50]">
+                    {(request.provider?.displayName || request.provider?.user.name || "Provider")} - {formatStatus(request.provider?.user.role ?? request.provider?.category ?? "provider")}
+                  </p>
+                </div>
+                <span className="w-fit rounded-full bg-[#edf2dd] px-3 py-1 text-xs font-black text-[#596540]">
+                  {statusLabel(request.status)}
+                </span>
+              </div>
+              <div className="mt-3 grid gap-2 text-xs font-semibold text-[#675f50] sm:grid-cols-3">
+                <span>{request.category}</span>
+                <span>Preferred date: {formatDate(request.preferredDate)}</span>
+                <span>Created: {formatDate(request.createdAt)}</span>
+              </div>
+              <div className="mt-3 flex flex-wrap gap-2">
+                <button
+                  type="button"
+                  disabled={Boolean(pendingAction)}
+                  onClick={() => runAction("Approve live request", () => reviewRequest(request.id, "approved"))}
+                  className="rounded-full bg-[#6f7f4f] px-3 py-2 text-xs font-bold text-white disabled:opacity-60"
+                >
+                  Approve
+                </button>
+                <button
+                  type="button"
+                  disabled={Boolean(pendingAction)}
+                  onClick={() => runAction("Reject live request", () => reviewRequest(request.id, "rejected", "Rejected by main admin."))}
+                  className="rounded-full border border-[#cabda4] px-3 py-2 text-xs font-bold text-[#1e2419] disabled:opacity-60"
+                >
+                  Reject
+                </button>
+                <button
+                  type="button"
+                  disabled={Boolean(pendingAction)}
+                  onClick={() => runAction("Request more information", () => reviewRequest(request.id, "rejected", "Please provide more information before scheduling."))}
+                  className="rounded-full border border-[#cabda4] px-3 py-2 text-xs font-bold text-[#1e2419] disabled:opacity-60"
+                >
+                  Request more information
+                </button>
+                <button
+                  type="button"
+                  disabled={Boolean(pendingAction) || request.status !== "approved"}
+                  onClick={() =>
+                    runAction("Schedule live request", () =>
+                      fetch(`/api/admin/live-requests/${request.id}/schedule`, {
+                        method: "PATCH",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({ scheduledAt: new Date(Date.now() + 86400000).toISOString() }),
+                      }),
+                    )
+                  }
+                  className="rounded-full border border-[#cabda4] px-3 py-2 text-xs font-bold text-[#1e2419] disabled:opacity-60"
+                >
+                  Schedule
+                </button>
+              </div>
+            </article>
+          ))
+        ) : (
+          <p className="rounded-2xl bg-[#fffaf0] p-4 text-sm text-[#675f50]">
+            No pending live requests.
+          </p>
+        )}
+      </div>
+    </section>
+  );
+}
+
+function reviewRequest(requestId: string, status: "approved" | "rejected", adminNote?: string) {
+  return fetch(`/api/admin/live-requests/${requestId}/review`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ status, adminNote }),
+  });
+}
+
+function LiveRequestList({
   requests,
+  title,
+  dark = false,
 }: {
   requests: ServiceLiveSetupRequest[];
+  title: string;
+  dark?: boolean;
 }) {
   return (
-    <section className="rounded-3xl border border-[#1e2419] bg-[#1e2419] p-4 text-[#fffaf0]">
+    <section className={`rounded-3xl border p-4 ${dark ? "border-[#1e2419] bg-[#1e2419] text-[#fffaf0]" : "border-[#d6cbb6] bg-[#f3ecdc]"}`}>
       <PanelHeader
         eyebrow="created requests"
-        title="Service dashboard requests"
+        title={title}
         badge={`${requests.length}`}
       />
       <div className="mt-4 grid gap-3">
         {requests.length ? (
           requests.map((request) => (
-            <article key={request.id} className="rounded-2xl bg-white/[.07] p-4">
+            <article key={request.id} className={dark ? "rounded-2xl bg-white/[.07] p-4" : "rounded-2xl bg-[#fffaf0] p-4"}>
               <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
                 <div>
-                  <p className="font-semibold">{request.serviceName}</p>
-                  <p className="mt-1 text-sm text-[#ded8ca]">
-                    {request.serviceCategory} - {request.shortDescription}
+                  <p className="font-semibold">{request.title}</p>
+                  <p className={`mt-1 text-sm ${dark ? "text-[#ded8ca]" : "text-[#675f50]"}`}>
+                    {request.category} - {request.description}
                   </p>
                 </div>
-                <span className="w-fit rounded-full bg-[#fffaf0]/12 px-3 py-1 text-xs font-black text-[#cbd8a7]">
-                  {formatStatus(request.status)}
+                <span className={`w-fit rounded-full px-3 py-1 text-xs font-black ${dark ? "bg-[#fffaf0]/12 text-[#cbd8a7]" : "bg-[#edf2dd] text-[#596540]"}`}>
+                  {statusLabel(request.status)}
                 </span>
               </div>
-              <div className="mt-3 grid gap-2 text-xs font-semibold text-[#ded8ca]">
-                <span>Preferred live date: {request.preferredLiveDate}</span>
-                <span>{request.documentVerificationPlaceholder}</span>
-                <span>{request.paymentPlaceholder}</span>
+              <div className={`mt-3 grid gap-2 text-xs font-semibold ${dark ? "text-[#ded8ca]" : "text-[#675f50]"}`}>
+                <span>Preferred date: {formatDate(request.preferredDate)}</span>
+                {request.adminNote && <span>Admin note: {request.adminNote}</span>}
+                <span>Created: {formatDate(request.createdAt)}</span>
               </div>
             </article>
           ))
         ) : (
-          <p className="rounded-2xl bg-white/[.07] p-4 text-sm text-[#ded8ca]">
-            No service live setup requests yet.
+          <p className={dark ? "rounded-2xl bg-white/[.07] p-4 text-sm text-[#ded8ca]" : "rounded-2xl bg-[#fffaf0] p-4 text-sm text-[#675f50]"}>
+            You have not submitted any live requests yet.
           </p>
         )}
       </div>
@@ -868,6 +1080,18 @@ function formatAnalyticsValue(value: unknown) {
 
 function formatNumber(value: number) {
   return new Intl.NumberFormat("en-US").format(value);
+}
+
+function statusLabel(value: string) {
+  return liveRequestStatusLabels[value] ?? formatStatus(value);
+}
+
+function formatDate(value: string | Date) {
+  return new Intl.DateTimeFormat("en-US", {
+    year: "numeric",
+    month: "short",
+    day: "numeric",
+  }).format(new Date(value));
 }
 
 function formatStatus(value: string) {

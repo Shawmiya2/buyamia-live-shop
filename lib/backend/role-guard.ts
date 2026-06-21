@@ -1,5 +1,22 @@
-import { dashboardRoleMap, roleDashboardMap } from "./mock-data";
 import type { DashboardType, ProfileType } from "./types";
+
+export const roleDashboardMap: Record<ProfileType, string> = {
+  main_admin: "/dashboard/main",
+  hotel: "/dashboard/hotel",
+  restaurant: "/dashboard/restaurant",
+  supplier: "/dashboard/supplier",
+  service_provider: "/dashboard/services",
+  viewer: "/dashboard/viewer",
+};
+
+export const dashboardRoleMap: Record<DashboardType, ProfileType> = {
+  main: "main_admin",
+  hotel: "hotel",
+  restaurant: "restaurant",
+  supplier: "supplier",
+  services: "service_provider",
+  viewer: "viewer",
+};
 
 export const profileTypes: ProfileType[] = [
   "main_admin",
@@ -61,4 +78,13 @@ export function assertDashboardAccess(
 
 export function getDashboardAccessLabel(dashboardType: DashboardType) {
   return dashboardRoleMap[dashboardType].replace(/_/g, " ");
+}
+
+export function isProviderRole(role: ProfileType) {
+  return (
+    role === "hotel" ||
+    role === "restaurant" ||
+    role === "supplier" ||
+    role === "service_provider"
+  );
 }

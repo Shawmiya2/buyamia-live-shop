@@ -43,6 +43,16 @@ export type ServiceLiveSetupStatus =
   | "pending_verification"
   | "ready_to_schedule";
 
+export type LiveRequestStatus =
+  | "draft"
+  | "pending_review"
+  | "approved"
+  | "rejected"
+  | "scheduled"
+  | "active"
+  | "completed"
+  | "canceled";
+
 export type MockUser = {
   id: string;
   displayName: string;
@@ -61,6 +71,17 @@ export type DemoSession = {
   dashboardUrl: string;
   verificationStatus: VerificationStatus;
   onboardingStatus: OnboardingStatus;
+};
+
+export type SafeUser = {
+  id: string;
+  name: string;
+  email: string;
+  role: ProfileType;
+  verificationStatus: VerificationStatus;
+  onboardingStatus: OnboardingStatus;
+  dashboardUrl: string;
+  providerId?: string;
 };
 
 export type Provider = {
@@ -109,15 +130,21 @@ export type Subscription = {
 export type ServiceLiveSetupRequest = {
   id: string;
   providerId: string;
-  ownerUserId: string;
-  serviceName: string;
-  serviceCategory: string;
-  shortDescription: string;
-  documentVerificationPlaceholder: string;
-  paymentPlaceholder: string;
-  preferredLiveDate: string;
-  status: ServiceLiveSetupStatus;
-  createdAt: string;
+  title: string;
+  category: string;
+  description: string;
+  preferredDate: string | Date;
+  status: LiveRequestStatus;
+  adminNote?: string | null;
+  createdAt: string | Date;
+  provider?: {
+    displayName: string;
+    category: ProfileType;
+    user: {
+      name: string;
+      role: ProfileType;
+    };
+  };
 };
 
 export type DemoAnalyticsEvent = {
@@ -198,15 +225,18 @@ export type DashboardResponse = {
     followerCount?: number;
   };
   serviceLiveSetupRequests?: ServiceLiveSetupRequest[];
+  pendingLiveRequests?: ServiceLiveSetupRequest[];
   analyticsSummary: AnalyticsSummary;
   nextActions: string[];
 };
 
 export type AccountCreationResponse = {
   userId: string;
+  user?: SafeUser;
   name: string;
   email: string;
   profileType: ProfileType;
+  role?: ProfileType;
   dashboardUrl: string;
   verificationStatus: VerificationStatus;
   onboardingStatus: OnboardingStatus;

@@ -1,10 +1,10 @@
 import { jsonError, jsonOk } from "@/lib/backend/api-response";
 import { getAnalyticsSummary } from "@/lib/backend/analytics-service";
-import { getDemoAccessContext } from "@/lib/backend/demo-request";
+import { requireDashboardAccess } from "@/lib/backend/auth-context";
 import { isDashboardType } from "@/lib/backend/dashboard-service";
 
 export async function GET(
-  request: Request,
+  _request: Request,
   { params }: { params: Promise<{ dashboardType: string }> },
 ) {
   try {
@@ -14,25 +14,14 @@ export async function GET(
       return jsonError(new Error("Invalid dashboard type."), 404);
     }
 
-    const accessContext = getDemoAccessContext(request, dashboardType);
-
-    if (!accessContext.accessGranted) {
-      return jsonOk(
-        {
-          error: "Demo role cannot access this dashboard analytics.",
-          dashboardType,
-          auth: accessContext,
-        },
-        { status: 403 },
-      );
-    }
+    const user = await requireDashboardAccess(dashboardType);
 
     return jsonOk({
       dashboardType,
-      auth: accessContext,
-      analyticsSummary: getAnalyticsSummary(
+      analyticsSummary: await getAnalyticsSummary(
         dashboardType,
-        accessContext.currentUserId,
+        user.id,
+        user.providerId,
       ),
     });
   } catch (error) {

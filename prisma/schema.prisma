@@ -1,0 +1,197 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+}
+
+enum Role {
+  main_admin
+  hotel
+  restaurant
+  supplier
+  service_provider
+  viewer
+}
+
+enum VerificationStatus {
+  not_started
+  pending
+  verified
+  rejected
+  needs_more_info
+}
+
+enum OnboardingStatus {
+  not_started
+  in_progress
+  complete
+}
+
+enum LiveRequestStatus {
+  draft
+  pending_review
+  approved
+  rejected
+  scheduled
+  active
+  completed
+  canceled
+}
+
+enum DocumentStatus {
+  not_started
+  pending
+  verified
+  rejected
+  needs_more_info
+}
+
+enum PaymentStatus {
+  placeholder
+  not_required
+  pending
+  paid
+  failed
+}
+
+enum LiveStatus {
+  scheduled
+  active
+  completed
+  canceled
+}
+
+enum PinReason {
+  sponsored
+  nearby
+  most_watched
+  featured_by_buyamia
+}
+
+model User {
+  id                   String                @id @default(cuid())
+  name                 String
+  email                String                @unique
+  passwordHash         String
+  role                 Role
+  verificationStatus   VerificationStatus    @default(not_started)
+  onboardingStatus     OnboardingStatus      @default(in_progress)
+  createdAt            DateTime              @default(now())
+  updatedAt            DateTime              @updatedAt
+  providerProfile      ProviderProfile?
+  sessions             Session[]
+  verificationRequests VerificationRequest[]
+  analyticsEvents      AnalyticsEvent[]
+  adminActivities      AdminActivity[]       @relation("AdminActivities")
+  follows              Follow[]              @relation("ViewerFollows")
+}
+
+model ProviderProfile {
+  id              String           @id @default(cuid())
+  userId          String           @unique
+  displayName     String
+  category        Role
+  description     String?
+  location        String?
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+  user            User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  liveRequests    LiveRequest[]
+  lives           Live[]
+  followers       Follow[]         @relation("ProviderFollowers")
+  analyticsEvents AnalyticsEvent[]
+}
+
+model Session {
+  id        String   @id @default(cuid())
+  userId    String
+  tokenHash String   @unique
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model VerificationRequest {
+  id               String             @id @default(cuid())
+  userId           String
+  status           VerificationStatus @default(pending)
+  documentType     String
+  documentMetadata Json
+  reviewNote       String?
+  submittedAt      DateTime           @default(now())
+  reviewedAt       DateTime?
+  user             User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model LiveRequest {
+  id              String            @id @default(cuid())
+  providerId      String
+  title           String
+  category        String
+  description     String
+  preferredDate   DateTime
+  status          LiveRequestStatus @default(draft)
+  documentsStatus DocumentStatus    @default(not_started)
+  paymentStatus   PaymentStatus     @default(placeholder)
+  adminNote       String?
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
+  provider        ProviderProfile   @relation(fields: [providerId], references: [id], onDelete: Cascade)
+}
+
+model Live {
+  id              String           @id @default(cuid())
+  providerId      String
+  title           String
+  category        String
+  status          LiveStatus       @default(scheduled)
+  scheduledAt     DateTime?
+  startedAt       DateTime?
+  endedAt         DateTime?
+  replayExpiresAt DateTime?
+  isPinned        Boolean          @default(false)
+  pinReason       PinReason?
+  pinExpiresAt    DateTime?
+  priorityScore   Int              @default(0)
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+  provider        ProviderProfile  @relation(fields: [providerId], references: [id], onDelete: Cascade)
+  analyticsEvents AnalyticsEvent[]
+}
+
+model Follow {
+  id         String          @id @default(cuid())
+  viewerId   String
+  providerId String
+  createdAt  DateTime        @default(now())
+  viewer     User            @relation("ViewerFollows", fields: [viewerId], references: [id], onDelete: Cascade)
+  provider   ProviderProfile @relation("ProviderFollowers", fields: [providerId], references: [id], onDelete: Cascade)
+
+  @@unique([viewerId, providerId])
+}
+
+model AnalyticsEvent {
+  id         String           @id @default(cuid())
+  userId     String?
+  providerId String?
+  liveId     String?
+  eventType  String
+  metadata   Json?
+  createdAt  DateTime         @default(now())
+  user       User?            @relation(fields: [userId], references: [id], onDelete: SetNull)
+  provider   ProviderProfile? @relation(fields: [providerId], references: [id], onDelete: SetNull)
+  live       Live?            @relation(fields: [liveId], references: [id], onDelete: SetNull)
+}
+
+model AdminActivity {
+  id         String   @id @default(cuid())
+  adminId    String
+  action     String
+  targetType String
+  targetId   String
+  message    String
+  createdAt  DateTime @default(now())
+  admin      User     @relation("AdminActivities", fields: [adminId], references: [id], onDelete: Cascade)
+}
