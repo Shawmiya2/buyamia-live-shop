@@ -47,6 +47,10 @@ web_modules/
 coverage
 *.lcov
 .nyc_output
+test-results/
+playwright-report/
+traces/
+screenshots/
 
 # Next.js
 /.next/

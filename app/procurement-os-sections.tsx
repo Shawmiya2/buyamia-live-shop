@@ -1,3 +1,5 @@
+import Link from "next/link";
+
 const trustBadges = [
   ["Verified supplier", "Business identity, ownership, and export documents checked."],
   ["Export-ready", "Packaging, shipping docs, and customs workflow prepared."],
@@ -50,12 +52,12 @@ export function ProcurementOSSections() {
                 operating layer.
               </p>
               <div className="mt-6 flex flex-col gap-3 sm:flex-row">
-                <a
+                <Link
                   href="/live"
                   className="rounded-full bg-[#1f251a] px-5 py-3 text-center text-sm font-bold text-[#fffaf0] transition hover:bg-[#596540]"
                 >
                   Open live room
-                </a>
+                </Link>
                 <a
                   href="#seller-payment"
                   className="rounded-full border border-[#d6cbb6] bg-[#f3ecdc] px-5 py-3 text-center text-sm font-bold text-[#1f251a] transition hover:bg-[#efe5d2]"

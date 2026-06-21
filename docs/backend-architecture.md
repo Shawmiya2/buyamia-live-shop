@@ -6,7 +6,8 @@
 - Prisma ORM with local SQLite for development.
 - HttpOnly opaque session cookie with hashed session tokens in the database.
 - Zod validation for mutation payloads.
-- Vitest backend tests against the local persistent database.
+- Vitest backend tests for service/API behavior.
+- Playwright e2e tests with an isolated SQLite `test.db`.
 
 ## Source Of Truth
 
@@ -63,3 +64,56 @@ Failure:
 No fake payment processing, identity-document storage, cloud object storage, or
 livestream infrastructure is implemented. The local backend records workflow
 state and metadata only; real providers should be added behind service adapters.
+
+## Route Inventory
+
+Public/pages:
+
+- `/`
+- `/live`
+- `/live/[id]`
+- `/signup`
+- `/login`
+- `/dashboard/main`
+- `/dashboard/hotel`
+- `/dashboard/restaurant`
+- `/dashboard/supplier`
+- `/dashboard/services`
+- `/dashboard/viewer`
+- `/hotel-dashboard`
+- `/restaurant-dashboard`
+- `/supplier-dashboard`
+- `/services-dashboard`
+- `/traveler-dashboard`
+- `/viewer-dashboard`
+- `/ai-procurement-dashboard`
+
+API:
+
+- `/api/health`
+- `/api/auth/signup`
+- `/api/auth/login`
+- `/api/auth/logout`
+- `/api/auth/me`
+- `/api/account/create`
+- `/api/dashboard/[type]`
+- `/api/analytics/[dashboardType]`
+- `/api/live-requests`
+- `/api/live-requests/[id]`
+- `/api/admin/live-requests/[id]/review`
+- `/api/admin/live-requests/[id]/schedule`
+- `/api/lives`
+- `/api/lives/[id]/pin`
+- `/api/lives/[id]/replay-expiration`
+- `/api/follows`
+- `/api/follows/[providerId]`
+- `/api/subscriptions/follow`
+- `/api/subscriptions/viewer`
+- `/api/verification/status`
+- `/api/verification/submit`
+- `/api/verification/[userId]`
+- `/api/services/live-requests`
+
+## Test Database
+
+`npm run test:e2e` creates `test.db`, runs Prisma migrations, seeds deterministic local accounts, starts Next on `127.0.0.1:3106`, and tears the server down after tests. It does not delete or modify the normal development database.

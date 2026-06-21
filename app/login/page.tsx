@@ -7,7 +7,7 @@ import type { AccountCreationResponse } from "@/lib/backend/types";
 
 type ApiEnvelope<T> =
   | { success: true; data: T }
-  | { success: false; error: { message: string } };
+  | { success: false; error: { message: string; fields?: Partial<Record<"email" | "password", string>> } };
 
 export default function LoginPage() {
   const router = useRouter();
@@ -15,10 +15,12 @@ export default function LoginPage() {
   const [password, setPassword] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState("");
+  const [fieldErrors, setFieldErrors] = useState<Partial<Record<"email" | "password", string>>>({});
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setError("");
+    setFieldErrors({});
     setIsSubmitting(true);
     try {
       const response = await fetch("/api/auth/login", {
@@ -28,6 +30,7 @@ export default function LoginPage() {
       });
       const payload = (await response.json()) as ApiEnvelope<AccountCreationResponse>;
       if (!payload.success) {
+        setFieldErrors(payload.error.fields ?? {});
         throw new Error(payload.error.message);
       }
       router.push(payload.data.dashboardUrl);
@@ -50,8 +53,8 @@ export default function LoginPage() {
           <p className="text-sm font-semibold text-[#6f7f4f]">Welcome back</p>
           <h1 className="mt-2 font-serif text-4xl leading-tight">Login to Buyamia.</h1>
           <div className="mt-6 grid gap-4">
-            <TextField label="Email" type="email" value={email} onChange={setEmail} />
-            <TextField label="Password" type="password" value={password} onChange={setPassword} />
+            <TextField name="email" label="Email" type="email" value={email} error={fieldErrors.email} onChange={setEmail} />
+            <TextField name="password" label="Password" type="password" value={password} error={fieldErrors.password} onChange={setPassword} />
           </div>
           {error && <p className="mt-4 rounded-2xl bg-[#fff3ed] p-4 text-sm font-semibold text-[#8c3f2b]">{error}</p>}
           <button type="submit" disabled={isSubmitting} className="mt-6 w-full rounded-full bg-[#1e2419] px-5 py-3 text-sm font-bold text-[#fffaf0] transition hover:bg-[#596540] disabled:opacity-60">
@@ -63,11 +66,22 @@ export default function LoginPage() {
   );
 }
 
-function TextField({ label, value, onChange, type = "text" }: { label: string; value: string; onChange: (value: string) => void; type?: string }) {
+function TextField({ name, label, value, onChange, type = "text", error }: { name: "email" | "password"; label: string; value: string; onChange: (value: string) => void; type?: string; error?: string }) {
+  const errorId = `login-${name}-error`;
+
   return (
     <label className="grid gap-2 text-sm font-bold text-[#596540]">
       {label}
-      <input type={type} value={value} onChange={(event) => onChange(event.target.value)} required className="rounded-2xl border border-[#cabda4] bg-[#f3ecdc] px-4 py-3 text-sm font-semibold text-[#1e2419] outline-none focus:border-[#6f7f4f]" />
+      <input
+        type={type}
+        value={value}
+        onChange={(event) => onChange(event.target.value)}
+        required
+        aria-invalid={error ? true : undefined}
+        aria-describedby={error ? errorId : undefined}
+        className={`rounded-2xl border bg-[#f3ecdc] px-4 py-3 text-sm font-semibold text-[#1e2419] outline-none focus:border-[#6f7f4f] ${error ? "border-[#b85438]" : "border-[#cabda4]"}`}
+      />
+      {error && <span id={errorId} className="text-sm font-semibold text-[#8c3f2b]">{error}</span>}
     </label>
   );
 }

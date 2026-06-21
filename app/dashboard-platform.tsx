@@ -1449,13 +1449,13 @@ function BrowseCategories() {
       </div>
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         {publicCategories.map((category) => (
-          <a
+          <Link
             key={category}
-            href="#live-now"
+            href={`/live?category=${encodeURIComponent(category)}`}
             className="rounded-full border border-[#d6cbb6] bg-[#fffaf0] px-4 py-3 text-center text-sm font-bold shadow-sm transition hover:-translate-y-0.5 hover:bg-white"
           >
             {category}
-          </a>
+          </Link>
         ))}
       </div>
     </section>
@@ -1477,13 +1477,13 @@ function LiveNow() {
       <div className="mb-5 flex gap-2 overflow-x-auto pb-1">
         {["All", "Hotels", "Restaurants", "Services", "Nearby", "Live now", "Replays", "Pinned"].map(
           (filter) => (
-            <a
+            <Link
               key={filter}
-              href="#live-now"
+              href={`/live${filter === "All" ? "" : `?status=${encodeURIComponent(filter.toLowerCase().replace(/\s+/g, "_"))}`}`}
               className="min-w-fit rounded-full bg-[#fffaf0] px-3.5 py-2 text-xs font-bold text-[#596540] shadow-sm transition hover:bg-white"
             >
               {filter}
-            </a>
+            </Link>
           ),
         )}
       </div>
@@ -1518,20 +1518,23 @@ function LiveNow() {
               </p>
               <div className="mt-5 flex flex-col gap-2 sm:flex-row">
                 <Link
-                  href="/live"
+                  href={`/live?category=${encodeURIComponent(session.category)}`}
                   className="rounded-full bg-[#1e2419] px-4 py-3 text-center text-sm font-bold text-[#fffaf0] transition hover:bg-[#596540]"
                 >
                   Watch live
                 </Link>
                 <Link
-                  href="/live"
+                  href={`/live?category=${encodeURIComponent(session.category)}`}
                   className="rounded-full border border-[#cabda4] bg-[#f3ecdc] px-4 py-3 text-center text-sm font-bold text-[#1e2419] transition hover:bg-white"
                 >
                   View details
                 </Link>
-                <button className="rounded-full border border-[#cabda4] bg-white px-4 py-3 text-center text-sm font-bold text-[#1e2419] transition hover:bg-[#f3ecdc]">
-                  Follow
-                </button>
+                <Link
+                  href="/login"
+                  className="rounded-full border border-[#cabda4] bg-white px-4 py-3 text-center text-sm font-bold text-[#1e2419] transition hover:bg-[#f3ecdc]"
+                >
+                  Login to follow
+                </Link>
               </div>
             </div>
           </article>
@@ -1602,15 +1605,15 @@ function ViewerSubscriptions() {
                 {provider.replays}
               </p>
               <div className="mt-4 grid gap-2 sm:grid-cols-3 lg:grid-cols-1">
-                <button className="rounded-full bg-[#1e2419] px-4 py-2.5 text-sm font-bold text-[#fffaf0]">
+                <Link href="/dashboard/viewer" className="rounded-full bg-[#1e2419] px-4 py-2.5 text-center text-sm font-bold text-[#fffaf0]">
                   {provider.status}
-                </button>
-                <button className="rounded-full border border-[#cabda4] bg-[#f3ecdc] px-4 py-2.5 text-sm font-bold">
+                </Link>
+                <Link href="/live?status=replays" className="rounded-full border border-[#cabda4] bg-[#f3ecdc] px-4 py-2.5 text-center text-sm font-bold">
                   View replays
-                </button>
-                <button className="rounded-full border border-[#cabda4] bg-white px-4 py-2.5 text-sm font-bold">
+                </Link>
+                <Link href="/live?status=scheduled" className="rounded-full border border-[#cabda4] bg-white px-4 py-2.5 text-center text-sm font-bold">
                   Upcoming lives
-                </button>
+                </Link>
               </div>
             </article>
           ))}
@@ -1883,9 +1886,9 @@ function ServicesProviderSetup() {
               </select>
             </label>
           </div>
-          <button className="w-full rounded-full bg-[#1e2419] px-5 py-3 text-sm font-bold text-[#fffaf0] transition hover:bg-[#596540]">
+          <Link href="/dashboard/services" className="w-full rounded-full bg-[#1e2419] px-5 py-3 text-center text-sm font-bold text-[#fffaf0] transition hover:bg-[#596540]">
             Set up a live for my service
-          </button>
+          </Link>
         </div>
       </div>
 
@@ -2189,16 +2192,39 @@ function QuickActions({ title, actions }: { title: string; actions: string[] }) 
       </div>
       <div className="grid gap-2 sm:grid-cols-2">
         {actions.map((action) => (
-          <button
+          <Link
             key={action}
+            href={quickActionHref(action)}
             className="rounded-full border border-[#cabda4] bg-[#fffaf0]/74 px-4 py-3 text-left text-sm font-bold text-[#1e2419] transition hover:bg-white"
           >
             {action}
-          </button>
+          </Link>
         ))}
       </div>
     </section>
   );
+}
+
+function quickActionHref(action: string) {
+  const normalized = action.toLowerCase();
+
+  if (normalized.includes("live") || normalized.includes("stream")) {
+    return "/live";
+  }
+
+  if (normalized.includes("quote") || normalized.includes("rfq") || normalized.includes("escrow")) {
+    return "/dashboard/supplier";
+  }
+
+  if (normalized.includes("booking") || normalized.includes("review")) {
+    return "/dashboard/hotel";
+  }
+
+  if (normalized.includes("reservation") || normalized.includes("menu") || normalized.includes("tasting")) {
+    return "/dashboard/restaurant";
+  }
+
+  return "/dashboard/main";
 }
 
 function MiniItem({ item }: { item: WorkItem }) {

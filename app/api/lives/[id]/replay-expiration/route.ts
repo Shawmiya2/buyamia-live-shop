@@ -12,7 +12,7 @@ export async function PATCH(
     const admin = await requireRole("main_admin");
 
     return jsonOk(
-      extendReplayAvailability({
+      await extendReplayAvailability({
         liveId: id,
         extensionDays: body.extensionDays,
         adminId: admin.id,

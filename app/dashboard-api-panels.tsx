@@ -114,7 +114,7 @@ export function DashboardApiPanels({
   }, [dashboardType]);
 
   useEffect(() => {
-    loadDashboardData();
+    void Promise.resolve().then(loadDashboardData);
   }, [loadDashboardData]);
 
   const runAction = useCallback(
@@ -303,7 +303,7 @@ function VerificationControls({
   ];
 
   return (
-    <div className="mt-4 rounded-2xl border border-[#d6cbb6] bg-[#f3ecdc] p-4">
+    <div id="verification" className="mt-4 rounded-2xl border border-[#d6cbb6] bg-[#f3ecdc] p-4">
       <p className="text-sm font-bold text-[#596540]">Verification demo controls</p>
       <div className="mt-3 flex flex-wrap gap-2">
         {statuses.map((item) => (
@@ -629,10 +629,10 @@ function LiveFeed({ title, lives }: { title: string; lives: LiveEvent[] }) {
                 {live.providerName} - {formatStatus(live.status)}
               </p>
               <a
-                href="/live"
+                href={`/live/${live.id}`}
                 className="mt-2 inline-flex rounded-full border border-[#cabda4] px-3 py-1.5 text-xs font-bold text-[#1e2419]"
               >
-                View replays
+                View live
               </a>
             </div>
           ))

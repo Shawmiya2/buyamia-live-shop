@@ -12,7 +12,7 @@ export async function PATCH(
     const admin = await requireRole("main_admin");
 
     return jsonOk(
-      updateLivePin({
+      await updateLivePin({
         liveId: id,
         isPinned: body.isPinned,
         pinReason: body.pinReason,

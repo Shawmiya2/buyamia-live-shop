@@ -73,9 +73,14 @@ export function DashboardAccessGate({
           <p className="mt-3 max-w-2xl text-sm leading-6 text-[#675f50]">
             Current account: {user.name} as {user.role.replace(/_/g, " ")}.
           </p>
-          <Link href={getDashboardForRole(user.role)} className="mt-5 inline-flex rounded-full bg-[#1e2419] px-5 py-3 text-sm font-bold text-[#fffaf0]">
-            Go to your dashboard
-          </Link>
+          <div className="mt-5 flex flex-wrap gap-3">
+            <Link href={getDashboardForRole(user.role)} className="inline-flex rounded-full bg-[#1e2419] px-5 py-3 text-sm font-bold text-[#fffaf0]">
+              Go to your dashboard
+            </Link>
+            <button type="button" onClick={logout} className="inline-flex rounded-full border border-[#cabda4] bg-[#fffaf0] px-5 py-3 text-sm font-bold text-[#1e2419]">
+              Logout
+            </button>
+          </div>
         </div>
       </section>
     );

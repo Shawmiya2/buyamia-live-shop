@@ -109,6 +109,7 @@ export type LiveEvent = {
   providerName: string;
   providerRole: Exclude<ProfileType, "main_admin" | "viewer">;
   title: string;
+  category: string;
   status: "scheduled" | "live" | "replay";
   startsAt: string;
   viewerCount: number;

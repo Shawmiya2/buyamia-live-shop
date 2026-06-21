@@ -3,6 +3,8 @@ import Image from "next/image";
 import { BusinessLiveSuite } from "../business-live-suite";
 import { CheckoutControls, LiveHeroActions } from "./live-room-controls";
 import { EngagementDiscountPanel } from "./engagement-discount";
+import { getLives } from "@/lib/backend/live-service";
+import type { LiveEvent } from "@/lib/backend/types";
 
 type Product = {
   name: string;
@@ -110,7 +112,15 @@ const schedule: ScheduleItem[] = [
   },
 ];
 
-export default function LivePage() {
+export default async function LivePage({
+  searchParams,
+}: {
+  searchParams: Promise<{ category?: string; status?: string; q?: string }>;
+}) {
+  const filters = await searchParams;
+  const lives = await getLives();
+  const filteredLives = filterLives(lives, filters);
+
   return (
     <main className="min-h-screen overflow-hidden bg-[#f3ecdc] text-[#1f251a]">
       <style>{`
@@ -265,18 +275,18 @@ export default function LivePage() {
               </span>
               <BuyerAvatars />
               <div className="hidden items-center gap-1 rounded-full bg-[#fffaf0]/70 p-1 shadow-lg shadow-black/10 backdrop-blur-2xl md:flex">
-                <a
-                  href="#login"
+                <Link
+                  href="/login"
                   className="rounded-full px-4 py-2 text-xs font-bold text-[#5f584b] transition hover:bg-white/70 hover:text-[#1f251a]"
                 >
                   Login
-                </a>
-                <a
-                  href="#register"
+                </Link>
+                <Link
+                  href="/signup"
                   className="rounded-full bg-[#1f251a] px-4 py-2 text-xs font-bold text-[#fffaf0] transition hover:bg-[#596540]"
                 >
                   Register
-                </a>
+                </Link>
               </div>
             </div>
           </nav>
@@ -312,6 +322,8 @@ export default function LivePage() {
           </div>
         </div>
       </section>
+
+      <LiveDatabaseCatalog lives={filteredLives} filters={filters} />
 
       <EngagementDiscountPanel />
 
@@ -366,9 +378,9 @@ export default function LivePage() {
                 Pinned products from the live room.
               </h2>
             </div>
-            <button className="w-full rounded-full bg-[#1f251a] px-4 py-2.5 text-sm font-bold text-[#fffaf0] transition hover:bg-[#596540] focus:outline-none focus:ring-2 focus:ring-[#1f251a]/25 sm:w-fit">
+            <Link href="/dashboard/supplier" className="w-full rounded-full bg-[#1f251a] px-4 py-2.5 text-center text-sm font-bold text-[#fffaf0] transition hover:bg-[#596540] focus:outline-none focus:ring-2 focus:ring-[#1f251a]/25 sm:w-fit">
               Request stream RFQ
-            </button>
+            </Link>
           </div>
 
           <div className="grid gap-4 md:grid-cols-3">
@@ -405,9 +417,9 @@ export default function LivePage() {
                   </p>
                   <div className="mt-5 flex items-center justify-between">
                     <p className="text-xl font-semibold">{product.price}</p>
-                    <button className="rounded-full bg-[#6f7f4f] px-4 py-2.5 text-sm font-bold text-white transition hover:bg-[#596540] focus:outline-none focus:ring-2 focus:ring-[#6f7f4f]/35">
+                    <Link href="/dashboard/supplier" className="rounded-full bg-[#6f7f4f] px-4 py-2.5 text-sm font-bold text-white transition hover:bg-[#596540] focus:outline-none focus:ring-2 focus:ring-[#6f7f4f]/35">
                       RFQ
-                    </button>
+                    </Link>
                   </div>
                 </div>
               </article>
@@ -457,9 +469,9 @@ export default function LivePage() {
                 Minimal sourcing rooms, scheduled with intent.
               </h2>
             </div>
-            <button className="w-full rounded-full bg-[#1f251a] px-4 py-2.5 text-sm font-bold text-[#fffaf0] transition hover:bg-[#596540] focus:outline-none focus:ring-2 focus:ring-[#1f251a]/25 sm:w-fit">
+            <Link href="/live?status=scheduled" className="w-full rounded-full bg-[#1f251a] px-4 py-2.5 text-center text-sm font-bold text-[#fffaf0] transition hover:bg-[#596540] focus:outline-none focus:ring-2 focus:ring-[#1f251a]/25 sm:w-fit">
               View calendar
-            </button>
+            </Link>
           </div>
 
           <div className="grid gap-4 lg:grid-cols-3">
@@ -506,9 +518,9 @@ export default function LivePage() {
                     <p className="text-sm font-semibold text-[#675f50]">
                       {item.expectedBuyers}
                     </p>
-                    <button className="shrink-0 rounded-full bg-[#1f251a] px-4 py-2.5 text-sm font-bold text-white transition hover:bg-[#596540] focus:outline-none focus:ring-2 focus:ring-[#1f251a]/25">
+                    <Link href="/login" className="shrink-0 rounded-full bg-[#1f251a] px-4 py-2.5 text-sm font-bold text-white transition hover:bg-[#596540] focus:outline-none focus:ring-2 focus:ring-[#1f251a]/25">
                       Remind me
-                    </button>
+                    </Link>
                   </div>
                 </div>
               </article>
@@ -518,6 +530,116 @@ export default function LivePage() {
       </section>
     </main>
   );
+}
+
+function LiveDatabaseCatalog({
+  lives,
+  filters,
+}: {
+  lives: LiveEvent[];
+  filters: { category?: string; status?: string; q?: string };
+}) {
+  const hasFilters = Boolean(filters.category || filters.status || filters.q);
+
+  return (
+    <section className="px-5 pb-14 sm:px-7 lg:px-8" aria-labelledby="live-catalog-heading">
+      <div className="mx-auto max-w-7xl rounded-[2rem] border border-[#d6cbb6] bg-[#fffaf0] p-5 shadow-sm">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+          <div>
+            <p className="text-sm font-semibold text-[#6f7f4f]">Live catalogue</p>
+            <h2 id="live-catalog-heading" className="mt-2 font-serif text-2xl leading-tight sm:text-3xl">
+              Stored live streams and replays
+            </h2>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            {["Rooms", "Hotels", "Spa", "Food & Brunch", "Facilities", "Beach Side", "Services", "Experiences", "Offers"].map((category) => (
+              <Link
+                key={category}
+                href={`/live?category=${encodeURIComponent(category)}`}
+                className="rounded-full bg-[#f3ecdc] px-3 py-2 text-xs font-bold text-[#596540]"
+              >
+                {category}
+              </Link>
+            ))}
+            {hasFilters && (
+              <Link href="/live" className="rounded-full bg-[#1f251a] px-3 py-2 text-xs font-bold text-[#fffaf0]">
+                Clear filters
+              </Link>
+            )}
+          </div>
+        </div>
+
+        <div className="mt-5 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+          {lives.length ? (
+            lives.map((live) => (
+              <article key={live.id} className="rounded-3xl border border-[#d6cbb6] bg-[#f3ecdc] p-4">
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <p className="text-xs font-bold uppercase tracking-[.16em] text-[#6f7f4f]">{live.category}</p>
+                    <h3 className="mt-2 text-lg font-semibold">{live.title}</h3>
+                    <p className="mt-1 text-sm text-[#675f50]">{live.providerName}</p>
+                  </div>
+                  <span className="rounded-full bg-[#fffaf0] px-3 py-1 text-xs font-black text-[#596540]">
+                    {live.status}
+                  </span>
+                </div>
+                <div className="mt-4 flex flex-wrap gap-2">
+                  {live.isPinned && (
+                    <span className="rounded-full bg-[#b85438] px-3 py-1 text-xs font-black text-white">
+                      {live.pinReason?.replace(/_/g, " ")}
+                    </span>
+                  )}
+                  <span className="rounded-full bg-[#fffaf0] px-3 py-1 text-xs font-bold text-[#596540]">
+                    Replay {live.replay.status.replace(/_/g, " ")}
+                  </span>
+                  <span className="rounded-full bg-[#fffaf0] px-3 py-1 text-xs font-bold text-[#596540]">
+                    {live.replay.daysRemaining} days remaining
+                  </span>
+                </div>
+                <div className="mt-5 flex flex-wrap gap-2">
+                  <Link href={`/live/${live.id}`} className="rounded-full bg-[#1f251a] px-4 py-2.5 text-sm font-bold text-[#fffaf0]">
+                    {live.status === "replay" ? "View replay" : "Watch live"}
+                  </Link>
+                  <Link href={`/live/${live.id}`} className="rounded-full border border-[#cabda4] bg-[#fffaf0] px-4 py-2.5 text-sm font-bold text-[#1f251a]">
+                    View details
+                  </Link>
+                </div>
+              </article>
+            ))
+          ) : (
+            <p className="rounded-2xl bg-[#f3ecdc] p-4 text-sm font-semibold text-[#675f50]">
+              No live streams match these filters. Clear filters or choose another category.
+            </p>
+          )}
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function filterLives(lives: LiveEvent[], filters: { category?: string; status?: string; q?: string }) {
+  const category = filters.category?.toLowerCase();
+  const status = filters.status?.toLowerCase();
+  const query = filters.q?.toLowerCase();
+
+  return lives.filter((live) => {
+    const categoryMatches =
+      !category ||
+      live.category.toLowerCase() === category ||
+      live.providerRole.toLowerCase().includes(category.replace(/s$/, ""));
+    const statusMatches =
+      !status ||
+      live.status === status ||
+      (status === "live_now" && live.status === "live") ||
+      (status === "replays" && live.status === "replay") ||
+      (status === "pinned" && live.isPinned);
+    const queryMatches =
+      !query ||
+      live.title.toLowerCase().includes(query) ||
+      live.providerName.toLowerCase().includes(query);
+
+    return categoryMatches && statusMatches && queryMatches;
+  });
 }
 
 function AIOverlay() {
