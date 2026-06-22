@@ -546,7 +546,7 @@ const dashboards: Dashboard[] = [
     eyebrow: "Service provider studio",
     headline: "Generic service providers can launch verified lives without fitting Hotel or Restaurant.",
     summary:
-      "Service partners manage live setup, document verification placeholders, replay windows, paid promotion options, and provider visibility from a simple service-first workspace.",
+      "Service partners manage live setup, document verification placeholders, replay windows, demo promotion options, and provider visibility from a simple service-first workspace.",
     command: "Ask Buyamia AI to prepare a service live setup checklist",
     heroImage:
       "https://images.unsplash.com/photo-1521791136064-7986c2920216?auto=format&fit=crop&w=1500&q=88",
@@ -663,7 +663,7 @@ const dashboards: Dashboard[] = [
           },
           {
             title: "Extend replay availability",
-            detail: "Paid extension option is represented as UI only.",
+            detail: "Replay extension option is represented as UI only.",
             status: "Extend",
           },
           {
@@ -1055,7 +1055,7 @@ const platformModules: WorkItem[] = [
   },
   {
     title: "Seller studio",
-    detail: "Paid stream setup, vouchers, booking lives, free delivery rules, and account modes.",
+    detail: "Demo stream setup, vouchers, booking lives, free delivery rules, and account modes.",
     status: "Studio",
   },
   {
@@ -1122,7 +1122,7 @@ const liveSessions = [
     title: "Private driver arrival service",
     category: "Services - Nearby",
     status: "Pinned",
-    pinReason: "Sponsored / paid pin",
+    pinReason: "Sponsored demo pin",
     replayLabel: "Replay available for 5 days",
     expiry: "Expires in 2 days",
     provider: "Island Arrival Concierge",
@@ -1164,8 +1164,8 @@ const replayPolicies: WorkItem[] = [
   },
   {
     title: "Extend replay availability",
-    detail: "Paid extension is represented as a placeholder option, not a real payment flow.",
-    status: "Paid option",
+    detail: "Replay extension is represented as a placeholder option, not a real payment flow.",
+    status: "Demo option",
     tone: "warm",
   },
   {
@@ -1449,13 +1449,13 @@ function BrowseCategories() {
       </div>
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         {publicCategories.map((category) => (
-          <a
+          <Link
             key={category}
-            href="#live-now"
+            href={`/live?category=${encodeURIComponent(category)}`}
             className="rounded-full border border-[#d6cbb6] bg-[#fffaf0] px-4 py-3 text-center text-sm font-bold shadow-sm transition hover:-translate-y-0.5 hover:bg-white"
           >
             {category}
-          </a>
+          </Link>
         ))}
       </div>
     </section>
@@ -1477,13 +1477,13 @@ function LiveNow() {
       <div className="mb-5 flex gap-2 overflow-x-auto pb-1">
         {["All", "Hotels", "Restaurants", "Services", "Nearby", "Live now", "Replays", "Pinned"].map(
           (filter) => (
-            <a
+            <Link
               key={filter}
-              href="#live-now"
+              href={`/live${filter === "All" ? "" : `?status=${encodeURIComponent(filter.toLowerCase().replace(/\s+/g, "_"))}`}`}
               className="min-w-fit rounded-full bg-[#fffaf0] px-3.5 py-2 text-xs font-bold text-[#596540] shadow-sm transition hover:bg-white"
             >
               {filter}
-            </a>
+            </Link>
           ),
         )}
       </div>
@@ -1518,20 +1518,23 @@ function LiveNow() {
               </p>
               <div className="mt-5 flex flex-col gap-2 sm:flex-row">
                 <Link
-                  href="/live"
+                  href={`/live?category=${encodeURIComponent(session.category)}`}
                   className="rounded-full bg-[#1e2419] px-4 py-3 text-center text-sm font-bold text-[#fffaf0] transition hover:bg-[#596540]"
                 >
                   Watch live
                 </Link>
                 <Link
-                  href="/live"
+                  href={`/live?category=${encodeURIComponent(session.category)}`}
                   className="rounded-full border border-[#cabda4] bg-[#f3ecdc] px-4 py-3 text-center text-sm font-bold text-[#1e2419] transition hover:bg-white"
                 >
                   View details
                 </Link>
-                <button className="rounded-full border border-[#cabda4] bg-white px-4 py-3 text-center text-sm font-bold text-[#1e2419] transition hover:bg-[#f3ecdc]">
-                  Follow
-                </button>
+                <Link
+                  href="/login"
+                  className="rounded-full border border-[#cabda4] bg-white px-4 py-3 text-center text-sm font-bold text-[#1e2419] transition hover:bg-[#f3ecdc]"
+                >
+                  Login to follow
+                </Link>
               </div>
             </div>
           </article>
@@ -1555,7 +1558,7 @@ function PinnedLives() {
         </p>
       </div>
       <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-        {["Sponsored / paid pin", "Nearby", "Most watched", "Featured by Buyamia"].map(
+        {["Sponsored demo pin", "Nearby", "Most watched", "Featured by Buyamia"].map(
           (reason) => (
             <article
               key={reason}
@@ -1602,15 +1605,15 @@ function ViewerSubscriptions() {
                 {provider.replays}
               </p>
               <div className="mt-4 grid gap-2 sm:grid-cols-3 lg:grid-cols-1">
-                <button className="rounded-full bg-[#1e2419] px-4 py-2.5 text-sm font-bold text-[#fffaf0]">
+                <Link href="/dashboard/viewer" className="rounded-full bg-[#1e2419] px-4 py-2.5 text-center text-sm font-bold text-[#fffaf0]">
                   {provider.status}
-                </button>
-                <button className="rounded-full border border-[#cabda4] bg-[#f3ecdc] px-4 py-2.5 text-sm font-bold">
+                </Link>
+                <Link href="/live?status=replays" className="rounded-full border border-[#cabda4] bg-[#f3ecdc] px-4 py-2.5 text-center text-sm font-bold">
                   View replays
-                </button>
-                <button className="rounded-full border border-[#cabda4] bg-white px-4 py-2.5 text-sm font-bold">
+                </Link>
+                <Link href="/live?status=scheduled" className="rounded-full border border-[#cabda4] bg-white px-4 py-2.5 text-center text-sm font-bold">
                   Upcoming lives
-                </button>
+                </Link>
               </div>
             </article>
           ))}
@@ -1782,7 +1785,7 @@ function HotelAudienceSplit() {
     },
     {
       title: "Supplier / hotel partner view",
-      detail: "Manage room lives, verification, booking signals, replay expiration, and paid promotion placeholders.",
+      detail: "Manage room lives, verification, booking signals, replay expiration, and demo promotion placeholders.",
       status: "Partner path",
       tone: "dark",
     },
@@ -1883,9 +1886,9 @@ function ServicesProviderSetup() {
               </select>
             </label>
           </div>
-          <button className="w-full rounded-full bg-[#1e2419] px-5 py-3 text-sm font-bold text-[#fffaf0] transition hover:bg-[#596540]">
+          <Link href="/dashboard/services" className="w-full rounded-full bg-[#1e2419] px-5 py-3 text-center text-sm font-bold text-[#fffaf0] transition hover:bg-[#596540]">
             Set up a live for my service
-          </button>
+          </Link>
         </div>
       </div>
 
@@ -2189,16 +2192,39 @@ function QuickActions({ title, actions }: { title: string; actions: string[] }) 
       </div>
       <div className="grid gap-2 sm:grid-cols-2">
         {actions.map((action) => (
-          <button
+          <Link
             key={action}
+            href={quickActionHref(action)}
             className="rounded-full border border-[#cabda4] bg-[#fffaf0]/74 px-4 py-3 text-left text-sm font-bold text-[#1e2419] transition hover:bg-white"
           >
             {action}
-          </button>
+          </Link>
         ))}
       </div>
     </section>
   );
+}
+
+function quickActionHref(action: string) {
+  const normalized = action.toLowerCase();
+
+  if (normalized.includes("live") || normalized.includes("stream")) {
+    return "/live";
+  }
+
+  if (normalized.includes("quote") || normalized.includes("rfq") || normalized.includes("escrow")) {
+    return "/dashboard/supplier";
+  }
+
+  if (normalized.includes("booking") || normalized.includes("review")) {
+    return "/dashboard/hotel";
+  }
+
+  if (normalized.includes("reservation") || normalized.includes("menu") || normalized.includes("tasting")) {
+    return "/dashboard/restaurant";
+  }
+
+  return "/dashboard/main";
 }
 
 function MiniItem({ item }: { item: WorkItem }) {

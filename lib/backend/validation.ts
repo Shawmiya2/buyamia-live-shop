@@ -47,6 +47,19 @@ export const loginSchema = z.object({
   password: z.string().min(1),
 });
 
+export function parseLoginInput(input: unknown) {
+  const result = loginSchema.safeParse(input);
+
+  if (!result.success) {
+    throw new ValidationApiError({
+      email: "Please enter a valid email address.",
+      password: "Please enter your password.",
+    });
+  }
+
+  return result.data;
+}
+
 export function fieldErrorsFromZod(error: z.ZodError) {
   const fields: Record<string, string> = {};
 

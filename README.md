@@ -21,6 +21,9 @@ npm run dev
 npm run lint
 npm run backend:setup
 npm run test:backend
+npm run check:links
+npm run test:e2e
+npm run qa:full
 npm run build
 ```
 
@@ -61,6 +64,32 @@ Seeded demo users use `Password123!`:
 The main admin uses `SEED_ADMIN_EMAIL` and `SEED_ADMIN_PASSWORD`; without a local
 `.env`, the documented `.env.example` defaults are used for local development.
 
+## Test Database And QA
+
+Automated tests do not intentionally reset the normal development database.
+Playwright e2e tests create an isolated `test.db`, run Prisma migrations, seed
+local demo accounts, and start Next on `http://127.0.0.1:3101`.
+
+Full local verification:
+
+```bash
+npm run qa:full
+```
+
+This runs, in order:
+
+- `npm run test:backend`
+- `npm run check:links`
+- `npm run test:e2e`
+- `npm run lint`
+- `npm run build`
+
+If Playwright browsers are missing after a fresh install, run:
+
+```bash
+npx playwright install chromium
+```
+
 ## Demo Workflow
 
 1. Sign up at `/signup` or log in at `/login`.
@@ -70,10 +99,20 @@ The main admin uses `SEED_ADMIN_EMAIL` and `SEED_ADMIN_PASSWORD`; without a loca
 
 ## External Integrations
 
-Payments, identity verification, object storage, and livestream/video streaming
-remain adapter/placeholders until real providers and credentials are selected.
+Payments, identity verification, object storage, transactional email, insurance,
+and livestream/video streaming remain adapter/placeholders until real providers
+and credentials are selected.
 The local backend stores workflow state and verification metadata only; it does
 not process fake payments or store real identity documents.
+
+Provider boundaries still required for production:
+
+- real payment processing;
+- real identity document verification;
+- real cloud video streaming;
+- real object storage;
+- transactional email;
+- insurance underwriting.
 
 ## Notes
 
@@ -83,3 +122,6 @@ the service boundaries.
 
 The live commerce strategy document is available at `docs/live-commerce-strategy.md`.
 Backend architecture is documented in `docs/backend-architecture.md`.
+Functional coverage and the dead-button/link inventory are documented in
+`docs/functional-matrix.md`.
+Manual verification steps are documented in `docs/manual-test-checklist.md`.

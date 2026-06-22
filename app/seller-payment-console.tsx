@@ -37,14 +37,14 @@ export function SellerPaymentConsole() {
         <div className="mb-6 flex flex-col justify-between gap-4 sm:flex-row sm:items-end">
           <div>
             <p className="text-sm font-semibold text-[#6f7f4f]">
-              Seller paid live booking
+              Seller demo live booking
             </p>
             <h2 className="mt-2 max-w-4xl font-serif text-2xl leading-tight sm:text-4xl">
               Suppliers pay, validate, then go live or schedule a 30 min stream.
             </h2>
           </div>
           <span className="w-fit rounded-full bg-[#fffaf0] px-4 py-2 text-xs font-bold text-[#596540] shadow-sm">
-            QR payment ready
+            Demo payment adapter
           </span>
         </div>
 
@@ -101,14 +101,14 @@ export function SellerPaymentConsole() {
                 <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
                   <div>
                     <p className="text-xs font-bold uppercase tracking-[.16em] text-[#6f7f4f]">
-                      QR payment
+                      Demo payment
                     </p>
                     <h3 className="mt-2 text-2xl font-semibold">
-                      Scan to unlock seller live controls.
+                      Demo validation unlocks seller live controls.
                     </h3>
                     <p className="mt-2 text-sm leading-6 text-[#675f50]">
-                      Payment validation unlocks instant start, scheduled live,
-                      and urgent overstock streams.
+                      This local demo does not charge money. Validation only
+                      unlocks safe interface controls for testing.
                     </p>
                   </div>
                   <div className="grid size-28 shrink-0 grid-cols-5 gap-1 rounded-2xl bg-[#fffaf0] p-3 shadow-sm">
@@ -131,7 +131,7 @@ export function SellerPaymentConsole() {
                   onClick={() => setPaymentValidated(true)}
                   className="mt-5 w-full rounded-full bg-[#1f251a] px-5 py-3 text-sm font-bold text-[#fffaf0] transition hover:bg-[#596540]"
                 >
-                  Validate payment
+                  Validate demo payment
                 </button>
               </div>
             </div>
@@ -154,7 +154,7 @@ export function SellerPaymentConsole() {
                     : "bg-[#fffaf0]/12 text-[#fffaf0]"
                 }`}
               >
-                {paymentValidated ? "Paid" : "Pending"}
+                {paymentValidated ? "Demo validated" : "Demo pending"}
               </span>
             </div>
 
@@ -190,7 +190,7 @@ export function SellerPaymentConsole() {
               <p className="mt-2 text-sm leading-6 text-[#ded7c9]">
                 {paymentValidated
                   ? `${selectedAction} is unlocked for ${selectedDay.label}.`
-                  : "Validate QR payment to unlock live controls."}
+                  : "Validate the demo payment adapter to unlock live controls."}
               </p>
             </div>
           </div>

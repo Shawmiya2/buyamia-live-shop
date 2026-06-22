@@ -4,7 +4,7 @@ import { prisma } from "./prisma";
 import { ApiError } from "./errors";
 import { createAnalyticsEvent } from "./analytics-service";
 import { datePlusDays, defaultReplayAvailabilityDays, getReplayStatus } from "./replay-policy";
-import type { LiveEvent, PinReason } from "./types";
+import type { LiveEvent } from "./types";
 
 const pinSchema = z.object({
   isPinned: z.boolean(),
@@ -34,6 +34,7 @@ export function toLiveEvent(live: LiveWithProvider): LiveEvent {
     providerName: live.provider.displayName,
     providerRole: live.provider.category as LiveEvent["providerRole"],
     title: live.title,
+    category: live.category,
     status:
       live.status === "active"
         ? "live"
@@ -77,6 +78,19 @@ export async function getLives(providerId?: string) {
   });
 
   return sortPinnedLives(lives.map(toLiveEvent));
+}
+
+export async function getLiveById(id: string) {
+  const live = await prisma.live.findUnique({
+    where: { id },
+    include: { provider: { include: { user: true } } },
+  });
+
+  if (!live) {
+    throw new ApiError("not_found", "Live not found.", 404);
+  }
+
+  return toLiveEvent(live);
 }
 
 export async function getPinnedLives(providerId?: string) {

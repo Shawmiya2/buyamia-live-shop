@@ -1,3 +1,5 @@
+import Link from "next/link";
+
 const trustBadges = [
   ["Verified supplier", "Business identity, ownership, and export documents checked."],
   ["Export-ready", "Packaging, shipping docs, and customs workflow prepared."],
@@ -20,7 +22,7 @@ const securityItems = [
   ["Warranty system", "Product coverage and supplier response commitments."],
   ["Documentation vault", "Invoices, export docs, certificates, and RFQ history."],
   ["Delivery scheduling", "Reserve production windows and shipment milestones."],
-  ["Payment protection", "Apple Pay, Stripe, wire transfer, and QR status UI."],
+  ["Payment adapter status", "Apple Pay, Stripe, wire transfer, and QR status UI placeholders."],
 ];
 
 const analyticsRows = [
@@ -45,17 +47,17 @@ export function ProcurementOSSections() {
               </h2>
               <p className="mt-5 max-w-2xl text-sm leading-7 text-[#675f50]">
                 Buyamia connects live supplier storytelling, AI sourcing,
-                automated RFQs, trusted verification, protected payments,
+                automated RFQs, trusted verification, payment-adapter status,
                 overstock liquidation, and hospitality experiences in one
                 operating layer.
               </p>
               <div className="mt-6 flex flex-col gap-3 sm:flex-row">
-                <a
+                <Link
                   href="/live"
                   className="rounded-full bg-[#1f251a] px-5 py-3 text-center text-sm font-bold text-[#fffaf0] transition hover:bg-[#596540]"
                 >
                   Open live room
-                </a>
+                </Link>
                 <a
                   href="#seller-payment"
                   className="rounded-full border border-[#d6cbb6] bg-[#f3ecdc] px-5 py-3 text-center text-sm font-bold text-[#1f251a] transition hover:bg-[#efe5d2]"
@@ -213,8 +215,8 @@ export function ProcurementOSSections() {
 
           <div className="grid gap-3">
             {[
-              ["Start now", "Paid sellers can open urgent inventory lives instantly."],
-              ["Flash wholesale", "Temporary quantity breaks with protected checkout."],
+              ["Start now", "Demo-validated sellers can stage urgent inventory lives instantly."],
+              ["Flash wholesale", "Temporary quantity breaks with checkout-adapter status."],
               ["AI alerting", "Notify buyers whose briefs match the overstock lot."],
               ["Liquidation RFQ", "Generate a one-click RFQ for the full bundle."],
             ].map(([title, body]) => (

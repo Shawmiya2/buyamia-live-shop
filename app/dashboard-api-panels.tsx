@@ -114,7 +114,7 @@ export function DashboardApiPanels({
   }, [dashboardType]);
 
   useEffect(() => {
-    loadDashboardData();
+    void Promise.resolve().then(loadDashboardData);
   }, [loadDashboardData]);
 
   const runAction = useCallback(
@@ -303,7 +303,7 @@ function VerificationControls({
   ];
 
   return (
-    <div className="mt-4 rounded-2xl border border-[#d6cbb6] bg-[#f3ecdc] p-4">
+    <div id="verification" className="mt-4 rounded-2xl border border-[#d6cbb6] bg-[#f3ecdc] p-4">
       <p className="text-sm font-bold text-[#596540]">Verification demo controls</p>
       <div className="mt-3 flex flex-wrap gap-2">
         {statuses.map((item) => (
@@ -629,10 +629,10 @@ function LiveFeed({ title, lives }: { title: string; lives: LiveEvent[] }) {
                 {live.providerName} - {formatStatus(live.status)}
               </p>
               <a
-                href="/live"
+                href={`/live/${live.id}`}
                 className="mt-2 inline-flex rounded-full border border-[#cabda4] px-3 py-1.5 text-xs font-bold text-[#1e2419]"
               >
-                View replays
+                View live
               </a>
             </div>
           ))
@@ -677,7 +677,8 @@ function ProviderLiveRequestPanel({
   function updateForm(key: LiveRequestFormField, value: string) {
     setForm((current) => ({ ...current, [key]: value }));
     setFieldErrors((current) => {
-      const { [key]: _cleared, ...rest } = current;
+      const rest = { ...current };
+      delete rest[key];
       return rest;
     });
   }
@@ -914,6 +915,7 @@ function MainLiveRequestPanel({
                 <button
                   type="button"
                   disabled={Boolean(pendingAction) || request.status !== "approved"}
+                  aria-describedby={request.status !== "approved" ? `schedule-help-${request.id}` : undefined}
                   onClick={() =>
                     runAction("Schedule live request", () =>
                       fetch(`/api/admin/live-requests/${request.id}/schedule`, {
@@ -927,6 +929,11 @@ function MainLiveRequestPanel({
                 >
                   Schedule
                 </button>
+                {request.status !== "approved" && (
+                  <span id={`schedule-help-${request.id}`} className="basis-full text-xs font-semibold text-[#675f50]">
+                    Schedule unlocks after this request is approved.
+                  </span>
+                )}
               </div>
             </article>
           ))
