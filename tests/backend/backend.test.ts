@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { readFileSync } from "fs";
 import { prisma } from "../../lib/backend/prisma";
 import {
   createSession,
@@ -24,9 +25,21 @@ import { getDashboardData, providerForCurrentUser } from "../../lib/backend/dash
 import { parseSignupInput } from "../../lib/backend/validation";
 import { submitVerificationMetadata, reviewVerification } from "../../lib/backend/verification-service";
 import { datePlusDays, getReplayStatus } from "../../lib/backend/replay-policy";
-import { extendReplayAvailability, getLives, updateLivePin } from "../../lib/backend/live-service";
+import { extendReplayAvailability, getLiveDetailsById, getLives, listLives, updateLivePin } from "../../lib/backend/live-service";
 import { followProvider, getFollowedProviders, unfollowProvider } from "../../lib/backend/subscription-service";
 import { getMainAnalyticsSummary, getProviderAnalyticsSummary, getViewerAnalyticsSummary } from "../../lib/backend/analytics-service";
+import {
+  createNegotiation,
+  createRfq,
+  listCalendarEvents,
+  listNegotiations,
+  listRfqs,
+  listRiskItems,
+  rankSuppliers,
+  recordRiskDecision,
+  updateNegotiation,
+} from "../../lib/backend/procurement-service";
+import { getAssistantIntegrationStatus, runAssistantQuery } from "../../lib/backend/assistant-service";
 
 function uniqueEmail(prefix: string) {
   return `${prefix}-${Date.now()}-${Math.random().toString(16).slice(2)}@example.test`;
@@ -326,6 +339,115 @@ describe("backend foundation", () => {
     expect(laterPinnedIndex).toBe(-1);
   });
 
+  it("paginates, filters, mutates, counts active pins, and loads admin live details", async () => {
+    const adminUser = await admin();
+    const prefix = `Admin live controls ${Date.now()}`;
+    const hotel = await provider("hotel");
+    const restaurant = await provider("restaurant");
+    const supplier = await provider("supplier");
+    const service = await provider("service_provider");
+    const providers = [hotel, restaurant, supplier, service];
+    const categories = ["Rooms", "Hotel", "Restaurant", "Food & Brunch", "Spa", "Facilities", "Services", "Experiences", "Other"];
+    const created = [];
+
+    for (let index = 0; index < 13; index += 1) {
+      const owner = providers[index % providers.length];
+      const live = await prisma.live.create({
+        data: {
+          providerId: owner.providerId,
+          title: `${prefix} ${index}`,
+          category: categories[index % categories.length],
+          status: index % 3 === 0 ? "scheduled" : index % 3 === 1 ? "active" : "completed",
+          scheduledAt: datePlusDays(new Date(), index - 3),
+          startedAt: index % 3 === 0 ? null : datePlusDays(new Date(), index - 3),
+          endedAt: index % 3 === 2 ? datePlusDays(new Date(), index - 2) : null,
+          replayExpiresAt: index === 2 ? datePlusDays(new Date(), -1) : index === 5 ? datePlusDays(new Date(), 1) : datePlusDays(new Date(), 7),
+          isPinned: index === 0 || index === 1 || index === 2,
+          pinReason: index === 0 ? "sponsored" : index === 1 ? "nearby" : index === 2 ? "most_watched" : undefined,
+          pinExpiresAt: index === 2 ? datePlusDays(new Date(), -1) : index < 2 ? datePlusDays(new Date(), 4) : undefined,
+          priorityScore: 100 - index,
+        },
+      });
+      created.push(live);
+    }
+
+    await prisma.analyticsEvent.createMany({
+      data: [
+        { liveId: created[0].id, providerId: created[0].providerId, eventType: "live_viewed" },
+        { liveId: created[0].id, providerId: created[0].providerId, eventType: "replay_viewed" },
+        { liveId: created[0].id, providerId: created[0].providerId, eventType: "conversion_intent" },
+      ],
+    });
+
+    const firstPage = await listLives({ search: prefix });
+    expect(firstPage.items).toHaveLength(10);
+    expect(firstPage.pagination).toMatchObject({
+      page: 1,
+      pageSize: 10,
+      totalItems: 13,
+      totalPages: 2,
+      hasPreviousPage: false,
+      hasNextPage: true,
+    });
+
+    const nextPage = await listLives({ search: prefix, page: 2 });
+    expect(nextPage.items).toHaveLength(3);
+    expect(nextPage.pagination.hasPreviousPage).toBe(true);
+    expect(nextPage.pagination.hasNextPage).toBe(false);
+
+    const previousPage = await listLives({ search: prefix, page: 1 });
+    expect(previousPage.pagination.hasPreviousPage).toBe(false);
+
+    const lastPage = await listLives({ search: prefix, page: 2 });
+    expect(lastPage.pagination.page).toBe(2);
+    expect(lastPage.pagination.hasNextPage).toBe(false);
+
+    expect((await listLives({ search: `${prefix} 11` })).items.every((live) => live.title.includes("11"))).toBe(true);
+    expect((await listLives({ search: prefix, status: "scheduled" })).items.every((live) => live.status === "scheduled")).toBe(true);
+    expect((await listLives({ search: prefix, status: "active" })).items.every((live) => live.status === "live")).toBe(true);
+    expect((await listLives({ search: prefix, status: "replay" })).items.every((live) => live.status === "replay" && live.replay.status !== "expired")).toBe(true);
+    expect((await listLives({ search: prefix, status: "expired" })).items.every((live) => live.replay.status === "expired")).toBe(true);
+    expect((await listLives({ search: prefix, category: "Rooms" })).items.every((live) => live.category === "Rooms")).toBe(true);
+    expect((await listLives({ search: prefix, providerRole: "hotel" })).items.every((live) => live.providerRole === "hotel")).toBe(true);
+    expect((await listLives({ search: prefix, providerId: supplier.providerId })).items.every((live) => live.providerId === supplier.providerId)).toBe(true);
+    expect((await listLives({ search: prefix, pinned: "pinned" })).items.every((live) => live.isPinned)).toBe(true);
+    expect((await listLives({ search: prefix, pinned: "not_pinned" })).items.every((live) => !live.isPinned)).toBe(true);
+    expect((await listLives({ search: prefix, pinReason: "sponsored" })).items.every((live) => live.pinReason === "sponsored")).toBe(true);
+    expect((await listLives({ search: prefix, replayStatus: "active" })).items.every((live) => live.replay.status === "active")).toBe(true);
+    expect((await listLives({ search: prefix, replayStatus: "expiring_soon" })).items.every((live) => live.replay.status === "expiring_soon")).toBe(true);
+    expect((await listLives({ search: prefix, replayStatus: "expired" })).items.every((live) => live.replay.status === "expired")).toBe(true);
+    expect((await listLives({ search: prefix, category: "Rooms", providerRole: "hotel", pinned: "pinned", pinReason: "sponsored" })).items).toHaveLength(1);
+
+    const capped = await listLives({ search: prefix, pageSize: 500 });
+    expect(capped.pagination.pageSize).toBe(50);
+    expect(capped.items.length).toBe(13);
+
+    const activePinCount = await prisma.live.count({
+      where: {
+        isPinned: true,
+        OR: [{ pinExpiresAt: null }, { pinExpiresAt: { gt: new Date() } }],
+      },
+    });
+    expect(firstPage.activePinnedCount).toBe(activePinCount);
+
+    const unpinned = await updateLivePin({ adminId: adminUser.id, liveId: created[0].id, isPinned: false });
+    expect(unpinned.isPinned).toBe(false);
+    const pinned = await updateLivePin({ adminId: adminUser.id, liveId: created[3].id, isPinned: true, pinReason: "featured_by_buyamia" });
+    expect(pinned.isPinned).toBe(true);
+    expect(pinned.pinReason).toBe("featured_by_buyamia");
+
+    const beforeExtension = (await prisma.live.findUniqueOrThrow({ where: { id: created[4].id } })).replayExpiresAt!;
+    await extendReplayAvailability({ adminId: adminUser.id, liveId: created[4].id, extensionDays: 5 });
+    const afterExtension = (await prisma.live.findUniqueOrThrow({ where: { id: created[4].id } })).replayExpiresAt!;
+    expect(afterExtension.getTime()).toBeGreaterThan(beforeExtension.getTime());
+
+    const details = await getLiveDetailsById(created[0].id);
+    expect(details.id).toBe(created[0].id);
+    expect(details.providerName).toBeTruthy();
+    expect(details.viewerCount).toBe(1);
+    expect(details.replayViews).toBe(1);
+  });
+
   it("supports follow, unfollow, duplicate prevention, and analytics calculations", async () => {
     const viewer = await signupUser({
       name: "Follow Viewer",
@@ -348,5 +470,187 @@ describe("backend foundation", () => {
 
     await unfollowProvider({ viewerUserId: viewer.id, providerId });
     expect(await prisma.follow.count({ where: { viewerId: viewer.id, providerId } })).toBe(0);
+  });
+
+  it("creates and lists persistent RFQs", async () => {
+    const adminUser = await admin();
+    const rfq = await createRfq(adminUser.id, {
+      title: "Outdoor furniture package",
+      category: "Furniture",
+      requirements: "Need weatherproof lounge sets with warranty, MOQ, CIF Bali, and production lead time.",
+      budgetMin: 1000,
+      budgetMax: 5000,
+      deadline: datePlusDays(new Date(), 7).toISOString(),
+      supplierType: "supplier",
+    });
+
+    expect(rfq.id).toBeTruthy();
+    expect((await prisma.rfq.findUnique({ where: { id: rfq.id } }))?.title).toBe("Outdoor furniture package");
+    expect((await listRfqs()).some((item) => item.id === rfq.id)).toBe(true);
+  });
+
+  it("ranks suppliers with stored filters and metrics", async () => {
+    const { providerId } = await provider("supplier");
+    await prisma.providerProfile.update({ where: { id: providerId }, data: { location: "Ubud" } });
+    const ranked = await rankSuppliers({ search: "Test supplier", category: "supplier", location: "Ubud", sort: "lives" });
+
+    expect(ranked.some((item) => item.id === providerId)).toBe(true);
+    expect(ranked.every((item) => item.category === "supplier")).toBe(true);
+  });
+
+  it("creates negotiations, stores messages, and updates status", async () => {
+    const adminUser = await admin();
+    const { providerId } = await provider("supplier");
+    const rfq = await createRfq(adminUser.id, {
+      title: "Negotiation RFQ",
+      category: "Fixtures",
+      requirements: "Need fixtures with compliance notes, delivery dates, warranty, and packaging terms.",
+      deadline: datePlusDays(new Date(), 5).toISOString(),
+      supplierType: "supplier",
+    });
+
+    const negotiation = await createNegotiation(adminUser.id, {
+      title: "Fixture terms",
+      providerId,
+      rfqId: rfq.id,
+      message: "Please confirm lead time.",
+    });
+    const updated = await updateNegotiation(adminUser.id, negotiation.id, {
+      status: "awaiting_response",
+      message: "Awaiting supplier confirmation.",
+    });
+
+    expect(updated.status).toBe("awaiting_response");
+    expect(updated.messages.length).toBe(2);
+    expect((await listNegotiations()).some((item) => item.id === negotiation.id)).toBe(true);
+  });
+
+  it("derives risk items and persists admin review decisions", async () => {
+    const adminUser = await admin();
+    const { providerId } = await provider("service_provider");
+    await prisma.user.update({ where: { id: (await prisma.providerProfile.findUniqueOrThrow({ where: { id: providerId } })).userId }, data: { verificationStatus: "rejected" } });
+    const items = await listRiskItems({ role: "service_provider", riskLevel: "high" });
+    const item = items.find((candidate) => candidate.providerId === providerId);
+
+    expect(item?.indicators.join(" ")).toMatch(/Verification is rejected/);
+    const review = await recordRiskDecision(adminUser.id, {
+      targetType: "provider",
+      providerId,
+      riskLevel: "high",
+      indicators: item?.indicators ?? [],
+      reviewStatus: "escalated",
+      adminNote: "Escalate verification rejection.",
+    });
+    expect(review.reviewStatus).toBe("escalated");
+    expect((await prisma.riskReview.findUnique({ where: { id: review.id } }))?.adminNote).toContain("Escalate");
+  });
+
+  it("builds calendar events from stored operational dates", async () => {
+    const { providerId } = await provider("hotel");
+    const request = await createLiveRequest(providerId, {
+      title: "Calendar live request",
+      category: "Rooms",
+      description: "Preferred date should appear on the operations calendar.",
+      preferredDate: datePlusDays(new Date(), 3).toISOString(),
+    });
+
+    const events = await listCalendarEvents({ role: "hotel" });
+    expect(events.some((event) => event.id === `request:${request.id}`)).toBe(true);
+    expect(events.every((event) => event.detailHref.startsWith("/") && event.detailHref !== "/live")).toBe(true);
+  });
+
+  it("runs the local Buyamia Assistant command registry and search with role permissions", async () => {
+    const adminUser = safeUser(await admin());
+    const viewer = safeUser(await signupUser({
+      name: "Assistant Viewer",
+      email: uniqueEmail("assistant-viewer"),
+      password: "Password123!",
+      role: "viewer",
+    }));
+    const coreCommands = [
+      ["Open calendar", "/dashboard/main/calendar"],
+      ["Generate an RFQ", "/dashboard/main/rfqs/new"],
+      ["Show RFQs", "/dashboard/main/rfqs"],
+      ["Rank suppliers", "/dashboard/main/suppliers/rank"],
+      ["Open negotiations", "/dashboard/main/negotiations"],
+      ["Review risk", "/dashboard/main/risk"],
+      ["Show pending live requests", "/dashboard/main#pending-live-requests"],
+      ["Manage lives", "/dashboard/main/lives"],
+      ["Show pinned lives", "/dashboard/main/lives?pinned=true"],
+      ["Show replay expiring soon", "/dashboard/main/lives?replayStatus=expiring_soon"],
+      ["Open hotel dashboard", "/dashboard/hotel"],
+      ["Open restaurant dashboard", "/dashboard/restaurant"],
+      ["Open supplier dashboard", "/dashboard/supplier"],
+      ["Open services dashboard", "/dashboard/services"],
+      ["Open viewer dashboard", "/dashboard/viewer"],
+      ["Explore live streams", "/live"],
+      ["Create account", "/signup"],
+    ] as const;
+
+    for (const [query, href] of coreCommands) {
+      const result = await runAssistantQuery({ query }, adminUser);
+      expect(result.recognizedAction?.href, query).toBe(href);
+    }
+
+    const help = await runAssistantQuery({ query: "Help" }, adminUser);
+    expect(help.actions.length).toBeGreaterThan(5);
+    expect(help.message).toMatch(/Available commands/);
+
+    const restricted = await runAssistantQuery({ query: "Manage lives" }, viewer);
+    expect(restricted.recognizedAction).toBeUndefined();
+    expect(restricted.actions.some((action) => action.href.includes("/dashboard/main"))).toBe(false);
+
+    const localStatus = getAssistantIntegrationStatus();
+    expect(localStatus.mode).toBe(process.env.BUYAMIA_AI_PROVIDER || process.env.OPENAI_API_KEY ? "provider" : "local");
+    expect(localStatus).not.toHaveProperty("apiKey");
+
+    const publicCommand = await runAssistantQuery({ query: "Explore live streams" }, null);
+    expect(publicCommand.recognizedAction?.href).toBe("/live");
+
+    const liveSearch = await runAssistantQuery({ query: "Find hotel lives" }, adminUser);
+    expect(liveSearch.results.some((result) => result.type === "live")).toBe(true);
+
+    const providerSearch = await runAssistantQuery({ query: "Find supplier Bali Rattan" }, adminUser);
+    expect(providerSearch.results.some((result) => result.type === "provider" && /rattan/i.test(result.title))).toBe(true);
+
+    const rfq = await createRfq(adminUser.id, {
+      title: "Assistant RFQ patio set",
+      category: "Furniture",
+      requirements: "Find outdoor patio sets with warranty, lead time, and CIF Bali pricing.",
+      deadline: datePlusDays(new Date(), 5).toISOString(),
+      supplierType: "supplier",
+    });
+    const rfqSearch = await runAssistantQuery({ query: "Assistant RFQ patio set" }, adminUser);
+    expect(rfqSearch.results.some((result) => result.href === `/dashboard/main/rfqs/${rfq.id}`)).toBe(true);
+
+    const unknown = await runAssistantQuery({ query: "quantum pineapple schedule" }, adminUser);
+    expect(unknown.recognizedAction).toBeUndefined();
+    expect(unknown.message).toMatch(/could not match/i);
+    expect(unknown.suggestions.length).toBeGreaterThan(0);
+  });
+
+  it("keeps procurement quick actions away from generic live routing", () => {
+    const source = readFileSync("app/dashboard-platform.tsx", "utf8");
+    for (const label of ["Generate RFQ", "Rank suppliers", "Open negotiation", "Review risk", "View calendar"]) {
+      expect(source).toContain(`"${label.toLowerCase()}": "/dashboard/main/`);
+    }
+  });
+
+  it("protects new main-admin action APIs with role authorization", () => {
+    for (const file of [
+      "app/api/rfqs/route.ts",
+      "app/api/rfqs/[id]/route.ts",
+      "app/api/suppliers/rank/route.ts",
+      "app/api/suppliers/[id]/route.ts",
+      "app/api/negotiations/route.ts",
+      "app/api/negotiations/[id]/route.ts",
+      "app/api/risk-reviews/route.ts",
+      "app/api/calendar-events/route.ts",
+      "app/api/lives/route.ts",
+    ]) {
+      expect(readFileSync(file, "utf8")).toContain('requireRole("main_admin")');
+    }
+    expect(readFileSync("app/dashboard/main/lives/page.tsx", "utf8")).toContain('requireRole("main_admin")');
+    expect(readFileSync("app/dashboard/main/lives/[id]/page.tsx", "utf8")).toContain('requireRole("main_admin")');
   });
 });

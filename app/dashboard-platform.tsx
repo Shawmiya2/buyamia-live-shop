@@ -2,6 +2,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { DashboardAccessGate } from "./dashboard-access-gate";
 import { DashboardApiPanels } from "./dashboard-api-panels";
+import { BuyamiaAssistant } from "./buyamia-assistant";
 import type { DashboardType } from "@/lib/backend/types";
 
 type DashboardKind =
@@ -1017,7 +1018,7 @@ const dashboards: Dashboard[] = [
       { label: "Operational risk", value: "22%", width: 22 },
       { label: "AI automation", value: "93%", width: 93 },
     ],
-    quickActions: ["Generate RFQ", "Rank suppliers", "Open negotiation", "Review risk"],
+    quickActions: ["Generate RFQ", "Rank suppliers", "Open negotiation", "Review risk", "View calendar"],
   },
 ];
 
@@ -1343,23 +1344,7 @@ function Topbar({ activeDashboard }: { activeDashboard: string }) {
             {isPublicHome ? "Buyamia live access" : `${activeDashboard} dashboard`}
           </h1>
         </div>
-        <form className="flex min-w-0 items-center gap-2 rounded-2xl border border-[#d6cbb6] bg-[#fffaf0]/86 px-3 py-2 shadow-sm">
-          <span className="grid size-8 shrink-0 place-items-center rounded-xl bg-[#edf2dd] text-sm font-black text-[#596540]">
-            {isPublicHome ? "B" : "AI"}
-          </span>
-          <input
-            aria-label="Ask Buyamia AI"
-            className="min-w-0 flex-1 bg-transparent text-sm text-[#1e2419] outline-none placeholder:text-[#8a8170]"
-            placeholder={
-              isPublicHome
-                ? "Search hotels, rooms, food, spa, or live experiences"
-                : "Ask Buyamia AI about RFQs, bookings, trust, risk, or live performance"
-            }
-          />
-          <span className="hidden rounded-full bg-[#f3ecdc] px-3 py-1 text-xs font-bold text-[#766e5e] sm:inline-flex">
-            Cmd K
-          </span>
-        </form>
+        <BuyamiaAssistant isPublicHome={isPublicHome} />
         <div className="flex flex-wrap gap-2 xl:justify-end">
           <Link
             href="/live"
@@ -2187,7 +2172,7 @@ function QuickActions({ title, actions }: { title: string; actions: string[] }) 
           <h2 className="mt-1 text-lg font-semibold">{title}</h2>
         </div>
         <span className="rounded-full bg-[#1e2419] px-3 py-1 text-xs font-bold text-[#fffaf0]">
-          AI ready
+          Assistant ready
         </span>
       </div>
       <div className="grid gap-2 sm:grid-cols-2">
@@ -2207,16 +2192,47 @@ function QuickActions({ title, actions }: { title: string; actions: string[] }) 
 
 function quickActionHref(action: string) {
   const normalized = action.toLowerCase();
+  const directRoutes: Record<string, string> = {
+    "generate rfq": "/dashboard/main/rfqs/new",
+    "rank suppliers": "/dashboard/main/suppliers/rank",
+    "open negotiation": "/dashboard/main/negotiations",
+    "review risk": "/dashboard/main/risk",
+    "view calendar": "/dashboard/main/calendar",
+    "open hotel dashboard": "/dashboard/hotel",
+    "open services dashboard": "/dashboard/services",
+    "open supplier dashboard": "/dashboard/supplier",
+    "open ai procurement": "/dashboard/main",
+    "compare hotels": "/dashboard/viewer",
+    "update wishlist": "/dashboard/viewer",
+    "check booking": "/dashboard/viewer",
+    "review verification": "/dashboard/main/risk",
+    "extend replay availability": "/dashboard/services",
+    "request pinned placement": "/dashboard/services",
+    "set up a live for my service": "/dashboard/services",
+    "create booking push": "/dashboard/hotel",
+    "schedule stream": "/dashboard/hotel",
+    "generate review brief": "/dashboard/hotel",
+    "pin menu highlight": "/dashboard/restaurant",
+    "create tasting": "/dashboard/restaurant",
+    "adjust reservations": "/dashboard/restaurant",
+    "generate quote": "/dashboard/main/rfqs/new",
+    "open sourcing stream": "/dashboard/main/suppliers/rank",
+    "update escrow": "/dashboard/main/negotiations",
+  };
+
+  if (directRoutes[normalized]) {
+    return directRoutes[normalized];
+  }
 
   if (normalized.includes("live") || normalized.includes("stream")) {
     return "/live";
   }
 
   if (normalized.includes("quote") || normalized.includes("rfq") || normalized.includes("escrow")) {
-    return "/dashboard/supplier";
+    return "/dashboard/main/rfqs";
   }
 
-  if (normalized.includes("booking") || normalized.includes("review")) {
+  if (normalized.includes("booking")) {
     return "/dashboard/hotel";
   }
 

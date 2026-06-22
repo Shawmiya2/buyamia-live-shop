@@ -40,7 +40,7 @@ export function LiveHeroActions() {
           }}
           className="rounded-full border border-[#fffaf0]/30 bg-[#fffaf0]/14 px-5 py-3 text-sm font-bold text-[#fffaf0] shadow-2xl shadow-black/10 backdrop-blur-xl transition hover:bg-[#fffaf0]/22 focus:outline-none focus:ring-2 focus:ring-[#fffaf0]/60 focus:ring-offset-2 focus:ring-offset-[#1f251a]"
         >
-          Ask AI for landed cost
+          Ask assistant for landed cost
         </button>
       </div>
 
@@ -54,7 +54,7 @@ export function LiveHeroActions() {
               <p className="mt-1 text-sm font-semibold">{summary}</p>
             </div>
             <span className="w-fit rounded-full bg-[#6f7f4f] px-3 py-1 text-xs font-bold text-white">
-              AI ready
+              Assistant ready
             </span>
           </div>
 

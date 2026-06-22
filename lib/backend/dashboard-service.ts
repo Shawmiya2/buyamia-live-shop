@@ -3,7 +3,7 @@ import { dashboardRoleMap, isProviderRole } from "./role-guard";
 import { prisma } from "./prisma";
 import { ApiError } from "./errors";
 import { getAnalyticsSummary } from "./analytics-service";
-import { getLives, getPinnedLives } from "./live-service";
+import { getLives, getPinnedLives, listLives } from "./live-service";
 import { listLiveRequests } from "./live-request-service";
 import {
   getAvailableProvidersForViewer,
@@ -53,6 +53,7 @@ export async function getDashboardData(dashboardType: DashboardType, user: SafeU
     expiringReplays: allLives.filter((live) => live.replay.status === "expiring_soon").length,
   };
 
+  const mainLiveSummary = dashboardType === "main" ? await listLives({ page: 1, pageSize: 5, sort: "important" }) : undefined;
   const response: DashboardResponse & { adminActivity?: unknown[]; pendingLiveRequests?: unknown[]; pendingVerifications?: unknown[] } = {
     dashboardType,
     role,
@@ -65,7 +66,7 @@ export async function getDashboardData(dashboardType: DashboardType, user: SafeU
       scheduledLives: allLives.filter((live) => live.status === "scheduled").length,
     },
     replayStats,
-    liveCatalog: allLives,
+    liveCatalog: mainLiveSummary?.items ?? allLives,
     pinnedLives,
     analyticsSummary: await getAnalyticsSummary(dashboardType, user.id, providerId),
     nextActions: getNextActions(dashboardType),

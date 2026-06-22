@@ -122,6 +122,52 @@ export type LiveEvent = {
   replay: LiveReplay;
 };
 
+export type LivePagination = {
+  page: number;
+  pageSize: number;
+  totalItems: number;
+  totalPages: number;
+  hasPreviousPage: boolean;
+  hasNextPage: boolean;
+};
+
+export type LiveListResponse = {
+  items: LiveEvent[];
+  pagination: LivePagination;
+  activePinnedCount: number;
+};
+
+export type AssistantMode = "local" | "provider";
+
+export type AssistantAction = {
+  id: string;
+  title: string;
+  href: string;
+  description: string;
+  category: "command" | "search" | "help";
+};
+
+export type AssistantSearchResult = {
+  id: string;
+  title: string;
+  href: string;
+  context: string;
+  type: "live" | "provider" | "rfq" | "live_request";
+};
+
+export type AssistantResponse = {
+  mode: AssistantMode;
+  providerConfigured: boolean;
+  providerHealthy: boolean;
+  role: ProfileType | null;
+  query: string;
+  recognizedAction?: AssistantAction;
+  actions: AssistantAction[];
+  results: AssistantSearchResult[];
+  suggestions: AssistantAction[];
+  message: string;
+};
+
 export type Subscription = {
   viewerUserId: string;
   providerId: string;
