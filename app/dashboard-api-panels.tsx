@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 import type {
   AnalyticsSummary,
@@ -407,9 +408,19 @@ function PinnedLivesPanel({
   pendingAction: string;
   runAction: (label: string, request: () => Promise<Response>, successMessage?: string) => Promise<void>;
 }) {
+  const [selectedReasons, setSelectedReasons] = useState<Record<string, PinReason>>({});
+
   return (
     <section className="rounded-3xl border border-[#d6cbb6] bg-[#f3ecdc] p-4">
-      <PanelHeader eyebrow="liveCatalog" title="Backend live controls" badge={`${pinnedCount} pinned`} />
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+        <PanelHeader eyebrow="liveCatalog" title="Backend live controls" badge={`${pinnedCount} active pins`} />
+        <Link
+          href="/dashboard/main/lives"
+          className="w-fit rounded-full bg-[#1e2419] px-4 py-2 text-sm font-bold text-[#fffaf0] transition hover:bg-[#596540]"
+        >
+          Manage all lives
+        </Link>
+      </div>
       <div className="mt-4 grid gap-3">
         {lives.length > 0 ? (
           lives.map((live, index) => (
@@ -434,12 +445,7 @@ function PinnedLivesPanel({
               </div>
               <div className="mt-3 flex flex-wrap gap-2">
                 <span className="rounded-full bg-[#edf2dd] px-3 py-1 text-xs font-black text-[#596540]">
-                  Replay available for {live.replay.extensionDays} days
-                </span>
-                <span className="rounded-full bg-[#f3ecdc] px-3 py-1 text-xs font-black text-[#596540]">
-                  {live.replay.daysRemaining > 0
-                    ? `Expires in ${live.replay.daysRemaining} days`
-                    : "Replay expired"}
+                  {replayExpirationLabel(live)}
                 </span>
               </div>
               <div className="mt-3 flex flex-wrap gap-2">
@@ -457,43 +463,69 @@ function PinnedLivesPanel({
                   }
                   className="rounded-full bg-[#6f7f4f] px-3 py-2 text-xs font-bold text-white disabled:opacity-60"
                 >
-                  Extend replay by 5 days
+                  {pendingAction === "Extend replay by 5 days" ? "Extending..." : "Extend replay by 5 days"}
                 </button>
-                <button
-                  type="button"
-                  disabled={Boolean(pendingAction)}
-                  onClick={() =>
-                    runAction("Unpin live", () =>
-                      fetch(`/api/lives/${live.id}/pin`, {
-                        method: "PATCH",
-                        headers: { "Content-Type": "application/json" },
-                        body: JSON.stringify({ isPinned: false }),
-                      }),
-                    )
-                  }
-                  className="rounded-full border border-[#cabda4] px-3 py-2 text-xs font-bold text-[#1e2419] disabled:opacity-60"
-                >
-                  Unpin
-                </button>
-                <button
-                  type="button"
-                  disabled={Boolean(pendingAction)}
-                  onClick={() =>
-                    runAction("Pin live", () =>
-                      fetch(`/api/lives/${live.id}/pin`, {
-                        method: "PATCH",
-                        headers: { "Content-Type": "application/json" },
-                        body: JSON.stringify({
-                          isPinned: true,
-                          pinReason: pinReasons[index % pinReasons.length],
+                {live.isPinned ? (
+                  <button
+                    type="button"
+                    disabled={Boolean(pendingAction)}
+                    onClick={() =>
+                      runAction("Unpin live", () =>
+                        fetch(`/api/lives/${live.id}/pin`, {
+                          method: "PATCH",
+                          headers: { "Content-Type": "application/json" },
+                          body: JSON.stringify({ isPinned: false }),
                         }),
-                      }),
-                    )
-                  }
-                  className="rounded-full border border-[#cabda4] px-3 py-2 text-xs font-bold text-[#1e2419] disabled:opacity-60"
+                      )
+                    }
+                    className="rounded-full border border-[#cabda4] px-3 py-2 text-xs font-bold text-[#1e2419] disabled:opacity-60"
+                  >
+                    {pendingAction === "Unpin live" ? "Unpinning..." : "Unpin"}
+                  </button>
+                ) : (
+                  <>
+                    <select
+                      aria-label={`Pin reason for ${live.title}`}
+                      value={selectedReasons[live.id] ?? pinReasons[index % pinReasons.length]}
+                      onChange={(event) =>
+                        setSelectedReasons((current) => ({
+                          ...current,
+                          [live.id]: event.target.value as PinReason,
+                        }))
+                      }
+                      className="rounded-full border border-[#cabda4] bg-[#fffaf0] px-3 py-2 text-xs font-bold text-[#1e2419]"
+                    >
+                      {pinReasons.map((reason) => (
+                        <option key={reason} value={reason}>{formatStatus(reason)}</option>
+                      ))}
+                    </select>
+                    <button
+                      type="button"
+                      disabled={Boolean(pendingAction)}
+                      onClick={() =>
+                        runAction("Pin live", () =>
+                          fetch(`/api/lives/${live.id}/pin`, {
+                            method: "PATCH",
+                            headers: { "Content-Type": "application/json" },
+                            body: JSON.stringify({
+                              isPinned: true,
+                              pinReason: selectedReasons[live.id] ?? pinReasons[index % pinReasons.length],
+                            }),
+                          }),
+                        )
+                      }
+                      className="rounded-full border border-[#cabda4] px-3 py-2 text-xs font-bold text-[#1e2419] disabled:opacity-60"
+                    >
+                      {pendingAction === "Pin live" ? "Pinning..." : "Pin live"}
+                    </button>
+                  </>
+                )}
+                <Link
+                  href={`/dashboard/main/lives/${live.id}`}
+                  className="rounded-full border border-[#cabda4] px-3 py-2 text-xs font-bold text-[#1e2419]"
                 >
-                  Pin live
-                </button>
+                  Details
+                </Link>
               </div>
             </article>
           ))
@@ -865,7 +897,7 @@ function MainLiveRequestPanel({
   const requests = dashboard.pendingLiveRequests ?? [];
 
   return (
-    <section className="mt-5 rounded-3xl border border-[#d6cbb6] bg-[#f3ecdc] p-4">
+    <section id="pending-live-requests" className="mt-5 rounded-3xl border border-[#d6cbb6] bg-[#f3ecdc] p-4">
       <PanelHeader eyebrow="main admin review" title="Pending live requests" badge={`${requests.length}`} />
       <div className="mt-4 grid gap-3">
         {requests.length ? (
@@ -1099,6 +1131,16 @@ function formatDate(value: string | Date) {
     month: "short",
     day: "numeric",
   }).format(new Date(value));
+}
+
+function replayExpirationLabel(live: LiveEvent) {
+  if (!live.replay.expiresAt || live.replay.status === "expired") {
+    return "Replay expired";
+  }
+
+  return live.replay.daysRemaining === 1
+    ? "Replay expires in 1 day"
+    : `Replay expires in ${live.replay.daysRemaining} days`;
 }
 
 function formatStatus(value: string) {

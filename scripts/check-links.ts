@@ -2,7 +2,13 @@ import { existsSync, readdirSync, readFileSync, statSync } from "fs";
 import path from "path";
 
 const appDir = path.join(process.cwd(), "app");
-const allowedDynamicPrefixes = ["/live/"];
+const allowedDynamicPrefixes = [
+  "/live/",
+  "/dashboard/main/rfqs/",
+  "/dashboard/main/suppliers/",
+  "/dashboard/main/negotiations/",
+  "/dashboard/main/lives/",
+];
 const compatibilityRoutes: Record<string, string> = {
   "/hotel-dashboard": "/dashboard/hotel",
   "/restaurant-dashboard": "/dashboard/restaurant",

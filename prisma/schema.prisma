@@ -70,6 +70,33 @@ enum PinReason {
   featured_by_buyamia
 }
 
+enum RfqStatus {
+  open
+  in_review
+  awarded
+  closed
+}
+
+enum NegotiationStatus {
+  open
+  awaiting_response
+  paused
+  closed
+}
+
+enum RiskLevel {
+  low
+  medium
+  high
+}
+
+enum RiskReviewStatus {
+  pending
+  reviewed
+  escalated
+  dismissed
+}
+
 model User {
   id                   String                @id @default(cuid())
   name                 String
@@ -86,6 +113,10 @@ model User {
   analyticsEvents      AnalyticsEvent[]
   adminActivities      AdminActivity[]       @relation("AdminActivities")
   follows              Follow[]              @relation("ViewerFollows")
+  rfqs                 Rfq[]                 @relation("RfqCreator")
+  negotiations         Negotiation[]         @relation("NegotiationCreator")
+  negotiationMessages  NegotiationMessage[]  @relation("NegotiationMessageAuthor")
+  riskReviews          RiskReview[]          @relation("RiskReviewReviewer")
 }
 
 model ProviderProfile {
@@ -102,6 +133,8 @@ model ProviderProfile {
   lives           Live[]
   followers       Follow[]         @relation("ProviderFollowers")
   analyticsEvents AnalyticsEvent[]
+  negotiations    Negotiation[]
+  riskReviews     RiskReview[]
 }
 
 model Session {
@@ -194,4 +227,65 @@ model AdminActivity {
   message    String
   createdAt  DateTime @default(now())
   admin      User     @relation("AdminActivities", fields: [adminId], references: [id], onDelete: Cascade)
+}
+
+model Rfq {
+  id            String        @id @default(cuid())
+  title         String
+  category      String
+  requirements  String
+  budgetMin     Float?
+  budgetMax     Float?
+  deadline      DateTime
+  supplierType  Role?
+  status        RfqStatus     @default(open)
+  createdById   String
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+  createdBy     User          @relation("RfqCreator", fields: [createdById], references: [id], onDelete: Cascade)
+  negotiations  Negotiation[]
+  riskReviews   RiskReview[]
+}
+
+model Negotiation {
+  id          String               @id @default(cuid())
+  title       String
+  status      NegotiationStatus    @default(open)
+  providerId  String?
+  rfqId       String?
+  createdById String
+  createdAt   DateTime             @default(now())
+  updatedAt   DateTime             @updatedAt
+  provider    ProviderProfile?     @relation(fields: [providerId], references: [id], onDelete: SetNull)
+  rfq         Rfq?                 @relation(fields: [rfqId], references: [id], onDelete: SetNull)
+  createdBy   User                 @relation("NegotiationCreator", fields: [createdById], references: [id], onDelete: Cascade)
+  messages    NegotiationMessage[]
+}
+
+model NegotiationMessage {
+  id            String       @id @default(cuid())
+  negotiationId String
+  authorId      String
+  body          String
+  createdAt     DateTime     @default(now())
+  negotiation   Negotiation  @relation(fields: [negotiationId], references: [id], onDelete: Cascade)
+  author        User         @relation("NegotiationMessageAuthor", fields: [authorId], references: [id], onDelete: Cascade)
+}
+
+model RiskReview {
+  id           String           @id @default(cuid())
+  targetType   String
+  providerId   String?
+  rfqId        String?
+  riskLevel    RiskLevel
+  indicators   Json
+  reviewStatus RiskReviewStatus @default(pending)
+  adminNote    String?
+  reviewerId   String?
+  reviewedAt   DateTime?
+  createdAt    DateTime         @default(now())
+  updatedAt    DateTime         @updatedAt
+  provider     ProviderProfile? @relation(fields: [providerId], references: [id], onDelete: SetNull)
+  rfq          Rfq?             @relation(fields: [rfqId], references: [id], onDelete: SetNull)
+  reviewer     User?            @relation("RiskReviewReviewer", fields: [reviewerId], references: [id], onDelete: SetNull)
 }

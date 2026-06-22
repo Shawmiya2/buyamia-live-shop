@@ -89,6 +89,113 @@ test("provider live request persists and admin can review it", async ({ page }) 
   await expect(page.getByText("Approve live request saved.")).toBeVisible();
 });
 
+test("main admin manages paginated lives with persistent filters and details", async ({ page }) => {
+  await login(page, "admin@example.test", "ChangeMe123!");
+  await page.goto("/dashboard/main");
+  await page.getByRole("link", { name: "Manage all lives" }).click();
+  await expect(page).toHaveURL(/\/dashboard\/main\/lives/);
+  await expect(page.getByRole("heading", { name: "Backend live controls" })).toBeVisible();
+
+  await page.getByLabel("Search").fill("replay");
+  await page.locator('select[name="status"]').selectOption("replay");
+  await page.getByLabel("Provider role").selectOption("hotel");
+  await page.getByRole("button", { name: "Apply filters" }).click();
+  await expect(page).toHaveURL(/search=replay/);
+  await expect(page).toHaveURL(/status=replay/);
+  await expect(page).toHaveURL(/providerRole=hotel/);
+  await page.reload();
+  await expect(page.getByLabel("Search")).toHaveValue("replay");
+  await expect(page.locator('select[name="status"]')).toHaveValue("replay");
+  await expect(page.getByLabel("Provider role")).toHaveValue("hotel");
+
+  await page.getByRole("link", { name: "Clear filters" }).click();
+  await expect(page).toHaveURL(/\/dashboard\/main\/lives$/);
+  await page.getByRole("link", { name: "Details" }).first().click();
+  await expect(page).toHaveURL(/\/dashboard\/main\/lives\/.+/);
+  await expect(page.getByRole("heading", { name: /live/i })).toBeVisible();
+  await expect(page.getByText("Replay expiration")).toBeVisible();
+});
+
+test("main admin submits an RFQ without runtime errors and sees it in the list", async ({ page }) => {
+  const pageErrors: string[] = [];
+  page.on("pageerror", (error) => pageErrors.push(error.message));
+  await login(page, "admin@example.test", "ChangeMe123!");
+  await page.goto("/dashboard/main/rfqs/new");
+
+  const title = `E2E RFQ ${Date.now()}`;
+  await page.getByLabel("Title").fill(title);
+  await page.getByLabel("Category").fill("Outdoor furniture");
+  await page.getByLabel("Requirements").fill("Supply weather-resistant lounge chairs, side tables, and replacement cushions for resort pool areas.");
+  await page.getByLabel("Budget min").fill("1000");
+  await page.getByLabel("Budget max").fill("2500");
+  await page.getByLabel("Deadline").fill("2026-12-31");
+  await page.getByLabel("Supplier type").selectOption("supplier");
+  await page.getByRole("button", { name: "Create RFQ" }).click();
+
+  await expect(page.getByText(`RFQ created: ${title}`)).toBeVisible();
+  await expect(pageErrors).toEqual([]);
+  await expect(page.getByRole("link", { name: "View all RFQs" })).toHaveAttribute("href", "/dashboard/main/rfqs");
+  await expect(page.getByLabel("Title")).toHaveValue("");
+  await expect(page.getByLabel("Category")).toHaveValue("");
+  await expect(page.getByLabel("Requirements")).toHaveValue("");
+  await expect(page.getByLabel("Budget min")).toHaveValue("");
+  await expect(page.getByLabel("Budget max")).toHaveValue("");
+  await expect(page.getByLabel("Deadline")).toHaveValue("");
+  await expect(page.getByLabel("Supplier type")).toHaveValue("");
+
+  await page.getByRole("link", { name: "View all RFQs" }).click();
+  await expect(page).toHaveURL(/\/dashboard\/main\/rfqs$/);
+  await expect(page.getByRole("heading", { name: "RFQs" })).toBeVisible();
+  await expect(page.getByText(title)).toBeVisible();
+});
+
+test("Buyamia Assistant opens, searches, handles commands, and respects role restrictions", async ({ page }) => {
+  await login(page, "admin@example.test", "ChangeMe123!");
+  await page.goto("/dashboard/main");
+
+  await page.getByRole("button", { name: "Open Buyamia Assistant" }).click();
+  await expect(page.getByRole("dialog", { name: "Buyamia Assistant" })).toBeVisible();
+  await expect(page.getByLabel("Assistant query")).toBeFocused();
+
+  await page.getByLabel("Assistant query").fill("Manage lives");
+  await page.getByRole("button", { name: "Submit" }).click();
+  await expect(page.getByRole("link", { name: /Manage lives/ })).toHaveAttribute("href", "/dashboard/main/lives");
+
+  await page.getByLabel("Assistant query").fill("Find hotel lives");
+  await page.getByRole("button", { name: "Submit" }).click();
+  await expect(page.getByText("Results")).toBeVisible();
+  await expect(page.locator('a[href^="/dashboard/main/lives/"], a[href^="/live/"]').first()).toBeVisible();
+
+  await page.getByLabel("Assistant query").fill("unknown command with no match");
+  await page.getByRole("button", { name: "Submit" }).click();
+  await expect(page.getByText(/could not match/i)).toBeVisible();
+  await expect(page.getByRole("button", { name: "Show available commands" })).toBeVisible();
+
+  await page.keyboard.press("Escape");
+  await expect(page.getByRole("dialog", { name: "Buyamia Assistant" })).toHaveCount(0);
+
+  await page.keyboard.press("Control+K");
+  await expect(page.getByRole("dialog", { name: "Buyamia Assistant" })).toBeVisible();
+  await page.keyboard.press("Escape");
+
+  await page.getByRole("button", { name: "Logout" }).click();
+  await login(page, "viewer@example.test");
+  await page.goto("/dashboard/viewer");
+  await page.getByRole("button", { name: "Open Buyamia Assistant" }).click();
+  await page.getByLabel("Assistant query").fill("Manage lives");
+  await page.getByRole("button", { name: "Submit" }).click();
+  await expect(page.getByRole("link", { name: /Manage lives/ })).toHaveCount(0);
+  await expect(page.getByText(/could not match/i)).toBeVisible();
+});
+
+test("AI integration status page reports local assistant mode without secrets", async ({ page }) => {
+  await page.goto("/settings/integrations/ai");
+  await expect(page.getByRole("heading", { name: "Buyamia Assistant status" })).toBeVisible();
+  await expect(page.getByText(/Local assistant|Provider adapter/)).toBeVisible();
+  await expect(page.getByText("No secrets are shown here")).toBeVisible();
+  await expect(page.getByText(/OPENAI_API_KEY|BUYAMIA_AI_PROVIDER/)).toHaveCount(0);
+});
+
 test("viewer can follow and unfollow providers", async ({ page }) => {
   await login(page, "viewer@example.test");
   await page.goto("/dashboard/viewer");
@@ -108,6 +215,15 @@ test("known internal routes do not show 404 or 500", async ({ page }) => {
     expect(response?.status(), route).toBeLessThan(500);
     await expect(page.getByText(/Application error|Page not found/)).toHaveCount(0);
   }
+});
+
+test("main admin live routes do not show unexpected 404", async ({ page }) => {
+  await login(page, "admin@example.test", "ChangeMe123!");
+  const response = await page.goto("/dashboard/main/lives");
+  expect(response?.status()).toBeLessThan(500);
+  await expect(page.getByText(/Application error|Page not found/)).toHaveCount(0);
+  await page.getByRole("link", { name: "Details" }).first().click();
+  await expect(page.getByText(/Application error|Page not found/)).toHaveCount(0);
 });
 
 test("mobile viewport renders public navigation and live catalogue", async ({ browser }) => {
