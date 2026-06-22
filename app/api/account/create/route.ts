@@ -5,7 +5,12 @@ import { readJson, parseSignupInput } from "@/lib/backend/validation";
 export async function POST(request: Request) {
   try {
     const body = parseSignupInput(await readJson(request));
-    const { passwordConfirmation: _passwordConfirmation, ...accountInput } = body;
+    const accountInput = {
+      name: body.name,
+      email: body.email,
+      password: body.password,
+      role: body.role,
+    };
 
     return jsonOk(toAccountResponse(await signupUser(accountInput)), { status: 201 });
   } catch (error) {

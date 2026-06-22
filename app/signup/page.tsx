@@ -36,7 +36,8 @@ export default function SignupPage() {
   function updateForm(key: FormField, value: string) {
     setForm((current) => ({ ...current, [key]: value }));
     setFieldErrors((current) => {
-      const { [key]: _cleared, ...rest } = current;
+      const rest = { ...current };
+      delete rest[key];
       return rest;
     });
   }
@@ -44,7 +45,8 @@ export default function SignupPage() {
   function updateRole(value: Exclude<ProfileType, "main_admin">) {
     setRole(value);
     setFieldErrors((current) => {
-      const { role: _cleared, ...rest } = current;
+      const rest = { ...current };
+      delete rest.role;
       return rest;
     });
   }
@@ -145,7 +147,7 @@ export default function SignupPage() {
                   key={item.profileType}
                   type="button"
                   onClick={() => updateRole(item.profileType)}
-                  aria-invalid={fieldErrors.role ? true : undefined}
+                  aria-pressed={role === item.profileType}
                   className={`rounded-2xl border p-4 text-left transition ${role === item.profileType ? "border-[#1e2419] bg-[#1e2419] text-[#fffaf0]" : "border-[#d6cbb6] bg-[#f3ecdc] hover:bg-[#efe5d2]"}`}
                 >
                   <span className={`rounded-full px-3 py-1 text-xs font-black ${role === item.profileType ? "bg-[#cbd8a7] text-[#1e2419]" : "bg-[#edf2dd] text-[#596540]"}`}>{item.label}</span>

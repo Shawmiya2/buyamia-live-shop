@@ -79,6 +79,21 @@ for (const file of sourceFiles) {
   if (/javascript:void\(0\)|onClick=\{\(\) => \{\}\}|console\.log\(/.test(source)) {
     failures.push(`${relative}: contains placeholder click or console-only action`);
   }
+
+  const buttonRegex = /<button\b([\s\S]*?)>/g;
+  let buttonMatch: RegExpExecArray | null;
+  while ((buttonMatch = buttonRegex.exec(source))) {
+    const attrs = buttonMatch[1] ?? "";
+    const typeMatch = attrs.match(/type=(?:"([^"]*)"|'([^']*)')/);
+    const type = typeMatch?.[1] ?? typeMatch?.[2] ?? "submit";
+    const hasMeaningfulBehavior =
+      type === "submit" ||
+      /onClick=|formAction=|disabled=|aria-disabled=/.test(attrs);
+
+    if (!hasMeaningfulBehavior) {
+      failures.push(`${relative}: button type="${type}" is missing an action or disabled state`);
+    }
+  }
 }
 
 if (!existsSync(path.join(appDir, "not-found.tsx"))) {

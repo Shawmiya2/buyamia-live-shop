@@ -677,7 +677,8 @@ function ProviderLiveRequestPanel({
   function updateForm(key: LiveRequestFormField, value: string) {
     setForm((current) => ({ ...current, [key]: value }));
     setFieldErrors((current) => {
-      const { [key]: _cleared, ...rest } = current;
+      const rest = { ...current };
+      delete rest[key];
       return rest;
     });
   }
@@ -914,6 +915,7 @@ function MainLiveRequestPanel({
                 <button
                   type="button"
                   disabled={Boolean(pendingAction) || request.status !== "approved"}
+                  aria-describedby={request.status !== "approved" ? `schedule-help-${request.id}` : undefined}
                   onClick={() =>
                     runAction("Schedule live request", () =>
                       fetch(`/api/admin/live-requests/${request.id}/schedule`, {
@@ -927,6 +929,11 @@ function MainLiveRequestPanel({
                 >
                   Schedule
                 </button>
+                {request.status !== "approved" && (
+                  <span id={`schedule-help-${request.id}`} className="basis-full text-xs font-semibold text-[#675f50]">
+                    Schedule unlocks after this request is approved.
+                  </span>
+                )}
               </div>
             </article>
           ))

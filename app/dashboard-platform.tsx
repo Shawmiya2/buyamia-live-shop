@@ -546,7 +546,7 @@ const dashboards: Dashboard[] = [
     eyebrow: "Service provider studio",
     headline: "Generic service providers can launch verified lives without fitting Hotel or Restaurant.",
     summary:
-      "Service partners manage live setup, document verification placeholders, replay windows, paid promotion options, and provider visibility from a simple service-first workspace.",
+      "Service partners manage live setup, document verification placeholders, replay windows, demo promotion options, and provider visibility from a simple service-first workspace.",
     command: "Ask Buyamia AI to prepare a service live setup checklist",
     heroImage:
       "https://images.unsplash.com/photo-1521791136064-7986c2920216?auto=format&fit=crop&w=1500&q=88",
@@ -663,7 +663,7 @@ const dashboards: Dashboard[] = [
           },
           {
             title: "Extend replay availability",
-            detail: "Paid extension option is represented as UI only.",
+            detail: "Replay extension option is represented as UI only.",
             status: "Extend",
           },
           {
@@ -1055,7 +1055,7 @@ const platformModules: WorkItem[] = [
   },
   {
     title: "Seller studio",
-    detail: "Paid stream setup, vouchers, booking lives, free delivery rules, and account modes.",
+    detail: "Demo stream setup, vouchers, booking lives, free delivery rules, and account modes.",
     status: "Studio",
   },
   {
@@ -1122,7 +1122,7 @@ const liveSessions = [
     title: "Private driver arrival service",
     category: "Services - Nearby",
     status: "Pinned",
-    pinReason: "Sponsored / paid pin",
+    pinReason: "Sponsored demo pin",
     replayLabel: "Replay available for 5 days",
     expiry: "Expires in 2 days",
     provider: "Island Arrival Concierge",
@@ -1164,8 +1164,8 @@ const replayPolicies: WorkItem[] = [
   },
   {
     title: "Extend replay availability",
-    detail: "Paid extension is represented as a placeholder option, not a real payment flow.",
-    status: "Paid option",
+    detail: "Replay extension is represented as a placeholder option, not a real payment flow.",
+    status: "Demo option",
     tone: "warm",
   },
   {
@@ -1558,7 +1558,7 @@ function PinnedLives() {
         </p>
       </div>
       <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-        {["Sponsored / paid pin", "Nearby", "Most watched", "Featured by Buyamia"].map(
+        {["Sponsored demo pin", "Nearby", "Most watched", "Featured by Buyamia"].map(
           (reason) => (
             <article
               key={reason}
@@ -1785,7 +1785,7 @@ function HotelAudienceSplit() {
     },
     {
       title: "Supplier / hotel partner view",
-      detail: "Manage room lives, verification, booking signals, replay expiration, and paid promotion placeholders.",
+      detail: "Manage room lives, verification, booking signals, replay expiration, and demo promotion placeholders.",
       status: "Partner path",
       tone: "dark",
     },

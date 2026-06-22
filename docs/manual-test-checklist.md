@@ -19,6 +19,7 @@ Open `http://localhost:3000`.
 - Confirm the page shows provider, category, pin state, replay expiration, and labelled demo player.
 - Click Copy live link and Share.
 - Try Follow provider while logged out and confirm a friendly auth message or login path.
+- Click demo payment, sourcing, AI, and flash-deal controls in the public concept sections; confirm each toggles state or shows a provider-not-configured/demo status message.
 
 ## Authentication
 

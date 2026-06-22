@@ -63,6 +63,7 @@ export function EngagementDiscountPanel() {
   const [configuredReward, setConfiguredReward] = useState(rewardTypes[0]);
   const [configuredProduct, setConfiguredProduct] = useState(sellerProducts[0]);
   const [configuredDuration, setConfiguredDuration] = useState(30);
+  const [dealMessage, setDealMessage] = useState("");
 
   const nextMilestone =
     milestones.find((milestone) => likes < milestone.target) ??
@@ -283,6 +284,13 @@ export function EngagementDiscountPanel() {
                     </div>
                     <button
                       type="button"
+                      onClick={() =>
+                        setDealMessage(
+                          isAffected && secondsLeft > 0
+                            ? `${name} demo deal staged. Real checkout requires a payment provider.`
+                            : `${name} needs an active reward window before it can be claimed.`,
+                        )
+                      }
                       className="mt-4 w-full rounded-full bg-[#fffaf0] px-4 py-3 text-sm font-bold text-[#1f251a] transition hover:bg-white"
                     >
                       {isAffected && secondsLeft > 0
@@ -293,6 +301,11 @@ export function EngagementDiscountPanel() {
                 );
               })}
             </div>
+            {dealMessage && (
+              <p className="mt-3 rounded-2xl bg-white/[.1] p-3 text-sm font-semibold text-[#cbd8a7]">
+                {dealMessage}
+              </p>
+            )}
           </div>
 
           <div className="rounded-[2rem] border border-[#d6cbb6] bg-[#fffaf0] p-5 shadow-sm">

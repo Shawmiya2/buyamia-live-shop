@@ -6,7 +6,7 @@ export default async function globalSetup() {
   const root = process.cwd();
   const testDb = path.join(root, "test.db");
   const resultsDir = path.join(root, "test-results");
-  const port = 3106;
+  const port = 3101;
   const bin = (name: string) => path.join(root, "node_modules", ".bin", `${name}.cmd`);
   const run = (command: string, args: string[]) => {
     execFileSync("cmd.exe", ["/c", command, ...args], { cwd: root, env, stdio: "inherit" });

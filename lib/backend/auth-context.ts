@@ -1,5 +1,4 @@
 import { cookies } from "next/headers";
-import type { Role, User } from "@prisma/client";
 import { ApiError } from "./errors";
 import { canAccessDashboard, isProviderRole } from "./role-guard";
 import { getUserBySessionToken, safeUser, sessionCookieName } from "./auth-service";

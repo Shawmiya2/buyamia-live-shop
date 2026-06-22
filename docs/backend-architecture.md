@@ -116,4 +116,6 @@ API:
 
 ## Test Database
 
-`npm run test:e2e` creates `test.db`, runs Prisma migrations, seeds deterministic local accounts, starts Next on `127.0.0.1:3106`, and tears the server down after tests. It does not delete or modify the normal development database.
+`npm run test:e2e` creates `test.db`, runs Prisma migrations, seeds deterministic local accounts, and starts Next on `127.0.0.1:3101`. It does not delete or modify the normal development database.
+
+`npm run check:links` statically inventories App Router pages, internal links, placeholder click handlers, and enabled `type="button"` controls that have no action or disabled state.

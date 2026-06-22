@@ -4,7 +4,7 @@ import { prisma } from "./prisma";
 import { ApiError } from "./errors";
 import { createAnalyticsEvent } from "./analytics-service";
 import { datePlusDays, defaultReplayAvailabilityDays, getReplayStatus } from "./replay-policy";
-import type { LiveEvent, PinReason } from "./types";
+import type { LiveEvent } from "./types";
 
 const pinSchema = z.object({
   isPinned: z.boolean(),

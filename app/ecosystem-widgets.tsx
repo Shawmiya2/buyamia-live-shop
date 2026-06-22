@@ -26,7 +26,7 @@ const accountTypes = [
 ];
 
 const sellerTools = [
-  ["Paid stream setup", "30 min live package", "QR payment unlocks live controls"],
+  ["Demo stream setup", "30 min live package", "Demo payment adapter unlocks live controls"],
   ["Delivery methods", "Instant, scheduled, standard", "Gojek and Grab placeholders"],
   ["Free delivery", "After 3 products", "Threshold rules per campaign"],
   ["Vouchers", "VIP and referral coupons", "Limited redemptions per stream"],
@@ -68,6 +68,7 @@ export function EcosystemExpansion() {
   const [premiumAi, setPremiumAi] = useState(false);
   const [newsletter, setNewsletter] = useState(false);
   const [sellerTool, setSellerTool] = useState(sellerTools[0][0]);
+  const [actionMessage, setActionMessage] = useState("");
 
   const selectedAccount = accountTypes.find((item) => item.name === accountType);
   const coinBonus = newsletter ? "+10% sourcing coins active" : "Standard coin earn rate";
@@ -189,12 +190,18 @@ export function EcosystemExpansion() {
                   <button
                     key={action}
                     type="button"
+                    onClick={() => setActionMessage(`${action} demo request staged. Configure calendar and messaging providers to send it externally.`)}
                     className="rounded-full border border-[#d6cbb6] bg-white/50 px-4 py-3 text-sm font-bold transition hover:bg-white focus:outline-none focus:ring-2 focus:ring-[#6f7f4f]/35"
                   >
                     {action}
                   </button>
                 ))}
               </div>
+              {actionMessage && (
+                <p className="mt-3 rounded-2xl bg-[#edf2dd] p-3 text-sm font-semibold text-[#44512f]">
+                  {actionMessage}
+                </p>
+              )}
             </div>
 
             <div className="rounded-[2rem] border border-[#d6cbb6] bg-[#1f251a] p-5 text-[#fffaf0] shadow-xl shadow-[#8a7d61]/12">
@@ -311,13 +318,17 @@ export function EcosystemExpansion() {
               <div className="mt-5 grid gap-2 sm:grid-cols-2">
                 <button
                   type="button"
-                  onClick={() => setPremiumAi(true)}
+                  onClick={() => {
+                    setPremiumAi(true);
+                    setActionMessage("AI insights demo unlocked. Real premium billing requires a payment provider.");
+                  }}
                   className="rounded-full bg-[#1f251a] px-4 py-3 text-sm font-bold text-[#fffaf0] transition hover:bg-[#596540]"
                 >
                   Unlock AI insights
                 </button>
                 <button
                   type="button"
+                  onClick={() => setActionMessage("AI agent demo request staged. Connect an agent runtime before external calls are placed.")}
                   className="rounded-full bg-[#6f7f4f] px-4 py-3 text-sm font-bold text-white transition hover:bg-[#596540]"
                 >
                   Call AI agent
@@ -325,10 +336,16 @@ export function EcosystemExpansion() {
               </div>
               <button
                 type="button"
+                onClick={() => setActionMessage("Sourcing agent demo request staged. Configure messaging before contacting suppliers.")}
                 className="mt-2 w-full rounded-full border border-[#d6cbb6] bg-white/45 px-4 py-3 text-sm font-bold transition hover:bg-white"
               >
                 Talk with sourcing agent
               </button>
+              {actionMessage && (
+                <p className="mt-3 rounded-2xl bg-[#edf2dd] p-3 text-sm font-semibold text-[#44512f]">
+                  {actionMessage}
+                </p>
+              )}
             </div>
           </div>
         </div>
@@ -338,10 +355,10 @@ export function EcosystemExpansion() {
         <div className="mx-auto grid max-w-7xl gap-5 lg:grid-cols-2">
           <div className="rounded-[2rem] border border-[#d6cbb6] bg-[#fffaf0] p-5 shadow-sm">
             <p className="text-sm font-semibold text-[#6f7f4f]">
-              Payments and logistics
+              Payment adapters and logistics
             </p>
             <h2 className="mt-3 font-serif text-2xl leading-tight">
-              Checkout adapts to local delivery and global procurement.
+              Checkout UI is ready for local delivery and global procurement providers.
             </h2>
             <div className="mt-5 flex flex-wrap gap-2">
               {[
@@ -370,8 +387,8 @@ export function EcosystemExpansion() {
               </p>
               <p className="mt-2 text-2xl font-semibold">{delivery}</p>
               <p className="mt-1 text-sm text-[#675f50]">
-                Gojek and Grab delivery integrations are staged as marketplace
-                connectors alongside Apple Pay, Stripe, and wire transfer.
+                Gojek, Grab, Apple Pay, Stripe, and wire transfer are staged as
+                integration adapters until real provider credentials are configured.
               </p>
             </div>
             <div className="mt-4 flex flex-wrap gap-2">

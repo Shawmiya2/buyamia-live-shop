@@ -145,7 +145,7 @@ export function BusinessLiveSuite() {
   const [freeSeconds, setFreeSeconds] = useState(30 * 60);
   const [isWatching, setIsWatching] = useState(false);
   const [showPayment, setShowPayment] = useState(false);
-  const [paidExtension, setPaidExtension] = useState(false);
+  const [demoExtension, setDemoExtension] = useState(false);
 
   const selectedCategory = useMemo(
     () =>
@@ -161,7 +161,7 @@ export function BusinessLiveSuite() {
   );
 
   useEffect(() => {
-    if (!isWatching || showPayment || paidExtension) {
+    if (!isWatching || showPayment || demoExtension) {
       return;
     }
 
@@ -178,7 +178,7 @@ export function BusinessLiveSuite() {
     }, 1000);
 
     return () => window.clearInterval(timer);
-  }, [isWatching, paidExtension, showPayment]);
+  }, [isWatching, demoExtension, showPayment]);
 
   async function copyInviteLink() {
     try {
@@ -193,12 +193,12 @@ export function BusinessLiveSuite() {
   function startFreeAccess() {
     setIsWatching(true);
     setShowPayment(false);
-    setPaidExtension(false);
+    setDemoExtension(false);
     setFreeSeconds(30 * 60);
   }
 
   function unlockExtension() {
-    setPaidExtension(true);
+    setDemoExtension(true);
     setShowPayment(false);
     setFreeSeconds(30 * 60);
   }
@@ -340,7 +340,7 @@ export function BusinessLiveSuite() {
                   </h3>
                 </div>
                 <span className="rounded-full bg-[#fffaf0]/12 px-3 py-1.5 text-xs font-bold">
-                  +30 min $5
+                  +30 min demo
                 </span>
               </div>
 
@@ -353,7 +353,7 @@ export function BusinessLiveSuite() {
                       setSelectedLive(live);
                       setIsWatching(false);
                       setShowPayment(false);
-                      setPaidExtension(false);
+                      setDemoExtension(false);
                       setFreeSeconds(30 * 60);
                     }}
                     className={`rounded-[1.35rem] border p-4 text-left transition ${
@@ -421,7 +421,7 @@ export function BusinessLiveSuite() {
               {showPayment && (
                 <div
                   role="dialog"
-                  aria-label="Continue watching payment"
+                  aria-label="Continue watching demo access"
                   className="absolute inset-x-4 bottom-4 rounded-[1.5rem] border border-[#d6cbb6] bg-[#fffaf0] p-4 text-[#1f251a] shadow-2xl shadow-black/18"
                 >
                   <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
@@ -430,11 +430,11 @@ export function BusinessLiveSuite() {
                         Free session ended
                       </p>
                       <h4 className="mt-2 text-xl font-semibold">
-                        Continue watching for $5.
+                        Continue with the demo access adapter.
                       </h4>
                       <p className="mt-1 text-sm text-[#675f50]">
-                        Unlock 30 extra minutes with Apple Pay, Stripe, or wire
-                        transfer.
+                        No payment is charged. Real Apple Pay, Stripe, or wire
+                        transfer support requires a configured provider.
                       </p>
                     </div>
                     <button
@@ -442,15 +442,15 @@ export function BusinessLiveSuite() {
                       onClick={unlockExtension}
                       className="rounded-full bg-[#1f251a] px-5 py-3 text-sm font-bold text-[#fffaf0] transition hover:bg-[#596540]"
                     >
-                      Pay $5
+                      Unlock demo extension
                     </button>
                   </div>
                 </div>
               )}
 
-              {paidExtension && (
+              {demoExtension && (
                 <p className="mt-3 rounded-full bg-[#cbd8a7] px-4 py-2 text-center text-xs font-black text-[#1f251a]">
-                  Extra 30 minutes unlocked
+                  Demo extension unlocked for 30 minutes
                 </p>
               )}
             </div>

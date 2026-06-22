@@ -22,7 +22,7 @@ const securityItems = [
   ["Warranty system", "Product coverage and supplier response commitments."],
   ["Documentation vault", "Invoices, export docs, certificates, and RFQ history."],
   ["Delivery scheduling", "Reserve production windows and shipment milestones."],
-  ["Payment protection", "Apple Pay, Stripe, wire transfer, and QR status UI."],
+  ["Payment adapter status", "Apple Pay, Stripe, wire transfer, and QR status UI placeholders."],
 ];
 
 const analyticsRows = [
@@ -47,7 +47,7 @@ export function ProcurementOSSections() {
               </h2>
               <p className="mt-5 max-w-2xl text-sm leading-7 text-[#675f50]">
                 Buyamia connects live supplier storytelling, AI sourcing,
-                automated RFQs, trusted verification, protected payments,
+                automated RFQs, trusted verification, payment-adapter status,
                 overstock liquidation, and hospitality experiences in one
                 operating layer.
               </p>
@@ -215,8 +215,8 @@ export function ProcurementOSSections() {
 
           <div className="grid gap-3">
             {[
-              ["Start now", "Paid sellers can open urgent inventory lives instantly."],
-              ["Flash wholesale", "Temporary quantity breaks with protected checkout."],
+              ["Start now", "Demo-validated sellers can stage urgent inventory lives instantly."],
+              ["Flash wholesale", "Temporary quantity breaks with checkout-adapter status."],
               ["AI alerting", "Notify buyers whose briefs match the overstock lot."],
               ["Liquidation RFQ", "Generate a one-click RFQ for the full bundle."],
             ].map(([title, body]) => (

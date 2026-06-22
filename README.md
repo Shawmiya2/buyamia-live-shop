@@ -68,7 +68,7 @@ The main admin uses `SEED_ADMIN_EMAIL` and `SEED_ADMIN_PASSWORD`; without a loca
 
 Automated tests do not intentionally reset the normal development database.
 Playwright e2e tests create an isolated `test.db`, run Prisma migrations, seed
-local demo accounts, start Next on `http://127.0.0.1:3106`, and tear it down.
+local demo accounts, and start Next on `http://127.0.0.1:3101`.
 
 Full local verification:
 
@@ -99,8 +99,9 @@ npx playwright install chromium
 
 ## External Integrations
 
-Payments, identity verification, object storage, and livestream/video streaming
-remain adapter/placeholders until real providers and credentials are selected.
+Payments, identity verification, object storage, transactional email, insurance,
+and livestream/video streaming remain adapter/placeholders until real providers
+and credentials are selected.
 The local backend stores workflow state and verification metadata only; it does
 not process fake payments or store real identity documents.
 
@@ -121,5 +122,6 @@ the service boundaries.
 
 The live commerce strategy document is available at `docs/live-commerce-strategy.md`.
 Backend architecture is documented in `docs/backend-architecture.md`.
-Functional coverage is documented in `docs/functional-matrix.md`.
+Functional coverage and the dead-button/link inventory are documented in
+`docs/functional-matrix.md`.
 Manual verification steps are documented in `docs/manual-test-checklist.md`.

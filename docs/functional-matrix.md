@@ -16,6 +16,7 @@ Last verified: 2026-06-21 with `npm run qa:full`.
 | `/live` | RFQ / Request stream RFQ | Navigates to supplier dashboard | Require supplier/admin login for RFQ workflow | `/dashboard/supplier` | Supplier/main_admin via guard | Implemented | `check:links`, e2e route health |
 | `/live` | View calendar | Navigates to scheduled filter | Show scheduled lives | `/live?status=scheduled` | Public | Implemented | `check:links` |
 | `/live` | Remind me | Navigates to login | Auth prompt for reminders | `/login` | Public | Implemented | `check:links` |
+| Concept sections | Demo/payment/sourcing buttons | Toggle state or show a demo status message | Never silently do nothing; explain missing external provider where relevant | Local UI state | Public | Implemented | `check:links` dead-button scan |
 | `/live/[id]` | Demo player | Displays labelled demo/unavailable state | Never imply real streaming provider | Page UI | Public | Implemented | e2e live detail |
 | `/live/[id]` | Follow provider | Calls follow API or shows auth error | Persist viewer/provider follow | `POST /api/follows` | viewer | Implemented | e2e viewer follow |
 | `/live/[id]` | Copy live link | Writes URL to clipboard | Copy and confirm | Clipboard API | Public | Implemented | e2e copy link |
@@ -41,6 +42,7 @@ Last verified: 2026-06-21 with `npm run qa:full`.
 | `/dashboard/viewer` | Unfollow provider | Calls unfollow mutation | Delete follow pair | `DELETE /api/subscriptions/follow` | viewer | Implemented | e2e viewer follow, backend tests |
 | `/dashboard/viewer` | Upcoming/replay links | Opens live detail | Navigate to persisted live | `/live/[id]` | Public detail, viewer feeds | Implemented | `check:links` |
 | Compatibility pages | Old dashboard routes | Render canonical dashboard shell | Preserve old route access | `/hotel-dashboard`, `/restaurant-dashboard`, `/supplier-dashboard`, `/traveler-dashboard`, `/ai-procurement-dashboard` | Guarded through API panels | Implemented | build route inventory |
+| All visible buttons | Static dead-button guard | Scans for placeholder/no-op button patterns | Enabled buttons must submit, navigate, toggle, call an API, copy/share, or show demo status | `scripts/check-links.ts` | Public/source scan | Implemented | `npm run check:links` |
 | All route handlers | API responses | Normalized envelope | Safe success/error shape | `/api/*` | Route-specific | Implemented | backend tests |
 | `/api/health` | Health check | Reports app/db availability | No secrets | `/api/health` | Public safe | Implemented | build route inventory |
 
