@@ -4,6 +4,7 @@ import { prisma } from "./prisma";
 import { ApiError, ValidationApiError } from "./errors";
 import { fieldErrorsFromZod } from "./validation";
 import { getReplayStatus } from "./replay-policy";
+import { calculateSupplierTrustScore } from "./trust-score-service";
 
 const supplierRoles = ["hotel", "restaurant", "supplier", "service_provider"] as const;
 const negotiationStatuses = ["open", "awaiting_response", "paused", "closed"] as const;
@@ -118,6 +119,10 @@ export async function rankSuppliers(options: {
 
   const rows = providers.map((provider) => {
     const replayViews = provider.analyticsEvents.filter((event) => event.eventType === "replay_viewed").length;
+    const trustScore = calculateSupplierTrustScore(
+      provider,
+      provider.lives.filter((live) => live.status === "completed").length,
+    );
     return {
       id: provider.id,
       name: provider.displayName,
@@ -128,6 +133,7 @@ export async function rankSuppliers(options: {
       followers: provider.followers.length,
       lives: provider.lives.length,
       replayViews,
+      trustScore,
       verifiedRank: provider.user.verificationStatus === "verified" ? 1 : 0,
       detailHref: `/dashboard/main/suppliers/${provider.id}`,
     };
@@ -155,6 +161,7 @@ export async function rankSuppliers(options: {
     if (sort === "followers") return b.followers - a.followers;
     if (sort === "lives") return b.lives - a.lives;
     if (sort === "replayViews") return b.replayViews - a.replayViews;
+    if (sort === "trustScore") return b.trustScore.score - a.trustScore.score;
     return b.verifiedRank - a.verifiedRank || b.followers - a.followers || b.lives - a.lives;
   });
 }
@@ -173,7 +180,13 @@ export async function getSupplierDetail(id: string) {
   if (!provider) {
     throw new ApiError("not_found", "Supplier not found.", 404);
   }
-  return provider;
+  return {
+    ...provider,
+    trustScore: calculateSupplierTrustScore(
+      provider,
+      provider.lives.filter((live) => live.status === "completed").length,
+    ),
+  };
 }
 
 const negotiationInclude = {

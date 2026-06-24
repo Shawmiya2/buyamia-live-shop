@@ -13,6 +13,10 @@ async function login(page: import("@playwright/test").Page, email: string, passw
 test("public homepage, category navigation, live details, and copy link work", async ({ page, context }) => {
   await page.goto("/");
   await expect(page.getByRole("heading", { name: /Buyamia live access/i })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Featured Supplier Sessions" })).toBeVisible();
+  for (const category of ["Recommended", "Popular", "Nearby", "Sponsored", "New verified suppliers"]) {
+    await expect(page.getByRole("link", { name: category })).toBeVisible();
+  }
   await page.getByRole("link", { name: /Explore live streams/i }).first().click();
   await expect(page).toHaveURL(/\/live/);
   await expect(page.getByRole("heading", { name: /Stored live streams and replays/i })).toBeVisible();
@@ -61,7 +65,7 @@ test("role dashboards are guarded and main admin can reach all dashboards", asyn
 
   await page.getByRole("button", { name: "Logout" }).click();
   await login(page, "admin@example.test", "ChangeMe123!");
-  for (const route of ["/dashboard/main", "/dashboard/hotel", "/dashboard/restaurant", "/dashboard/supplier", "/dashboard/services", "/dashboard/viewer"]) {
+  for (const route of ["/dashboard/main", "/dashboard/procurement-agent", "/dashboard/hotel", "/dashboard/restaurant", "/dashboard/supplier", "/dashboard/services", "/dashboard/viewer"]) {
     await page.goto(route);
     await expect(page.getByText(/Buyamia Main Admin - main admin/)).toBeVisible();
   }
@@ -209,7 +213,7 @@ test("viewer can follow and unfollow providers", async ({ page }) => {
 });
 
 test("known internal routes do not show 404 or 500", async ({ page }) => {
-  const routes = ["/", "/live", "/signup", "/login", "/dashboard/main", "/dashboard/hotel", "/dashboard/restaurant", "/dashboard/supplier", "/dashboard/services", "/dashboard/viewer"];
+  const routes = ["/", "/live", "/signup", "/login", "/dashboard/main", "/dashboard/procurement-agent", "/dashboard/hotel", "/dashboard/restaurant", "/dashboard/supplier", "/dashboard/services", "/dashboard/viewer"];
   for (const route of routes) {
     const response = await page.goto(route);
     expect(response?.status(), route).toBeLessThan(500);

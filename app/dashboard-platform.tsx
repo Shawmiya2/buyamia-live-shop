@@ -3,7 +3,11 @@ import Link from "next/link";
 import { DashboardAccessGate } from "./dashboard-access-gate";
 import { DashboardApiPanels } from "./dashboard-api-panels";
 import { BuyamiaAssistant } from "./buyamia-assistant";
-import type { DashboardType } from "@/lib/backend/types";
+import type {
+  DashboardType,
+  FeaturedSupplierCategory,
+  FeaturedSupplierSession,
+} from "@/lib/backend/types";
 
 type DashboardKind =
   | "overview"
@@ -538,7 +542,7 @@ const dashboards: Dashboard[] = [
       { label: "Capacity load", value: "71%", width: 71 },
       { label: "Buyer response", value: "17m", width: 84 },
     ],
-    quickActions: ["Generate quote", "Open sourcing stream", "Update escrow", "Launch overstock live"],
+    quickActions: ["Live preparation center", "Generate quote", "Open sourcing stream", "Update escrow", "Launch overstock live"],
   },
   {
     kind: "services",
@@ -1018,7 +1022,7 @@ const dashboards: Dashboard[] = [
       { label: "Operational risk", value: "22%", width: 22 },
       { label: "AI automation", value: "93%", width: 93 },
     ],
-    quickActions: ["Generate RFQ", "Rank suppliers", "Open negotiation", "Review risk", "View calendar"],
+    quickActions: ["Open procurement agent dashboard", "Generate RFQ", "Rank suppliers", "Open negotiation", "Review risk", "View calendar"],
   },
 ];
 
@@ -1219,8 +1223,10 @@ const connectedWorkflows: WorkItem[] = [
 
 export function DashboardPlatform({
   activeDashboard,
+  featuredSupplierSessions = [],
 }: {
   activeDashboard: DashboardKind;
+  featuredSupplierSessions?: FeaturedSupplierSession[];
 }) {
   const selectedDashboard =
     activeDashboard === "overview"
@@ -1240,7 +1246,7 @@ export function DashboardPlatform({
               <DashboardDetail dashboard={selectedDashboard} />
             </DashboardAccessGate>
           ) : (
-            <OverviewDashboard />
+            <OverviewDashboard featuredSupplierSessions={featuredSupplierSessions} />
           )}
         </div>
       </div>
@@ -1364,17 +1370,136 @@ function Topbar({ activeDashboard }: { activeDashboard: string }) {
   );
 }
 
-function OverviewDashboard() {
+function OverviewDashboard({
+  featuredSupplierSessions,
+}: {
+  featuredSupplierSessions: FeaturedSupplierSession[];
+}) {
   return (
     <section className="px-4 py-6 sm:px-6 lg:px-8">
       <PublicHero />
       <BrowseCategories />
       <LiveNow />
+      <FeaturedSupplierSessions sessions={featuredSupplierSessions} />
       <PinnedLives />
       <ViewerSubscriptions />
       <HowItWorks />
       <ConnectedPlatform />
     </section>
+  );
+}
+
+const featuredSupplierCategories: FeaturedSupplierCategory[] = [
+  "Recommended",
+  "Popular",
+  "Nearby",
+  "Sponsored",
+  "New verified suppliers",
+];
+
+function FeaturedSupplierSessions({
+  sessions,
+}: {
+  sessions: FeaturedSupplierSession[];
+}) {
+  return (
+    <section id="featured-supplier-sessions" className="py-8">
+      <div className="rounded-3xl border border-[#d6cbb6] bg-[#e9dfcb] p-5 shadow-sm sm:p-6">
+        <div className="mb-5 flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
+          <div>
+            <p className="text-sm font-semibold text-[#6f7f4f]">
+              Supplier discovery
+            </p>
+            <h2 className="mt-1 font-serif text-3xl leading-tight">
+              Featured Supplier Sessions
+            </h2>
+            <p className="mt-3 max-w-2xl text-sm leading-6 text-[#675f50]">
+              Curated supplier lives from Buyamia demo data. No recommendation algorithm, just visible editorial buckets for procurement buyers.
+            </p>
+          </div>
+          <Link href="/live?category=supplier" className="w-fit rounded-full bg-[#1e2419] px-5 py-3 text-sm font-bold text-[#fffaf0] transition hover:bg-[#596540]">
+            View supplier lives
+          </Link>
+        </div>
+
+        <div className="mb-5 flex gap-2 overflow-x-auto pb-1">
+          {featuredSupplierCategories.map((category) => (
+            <a
+              key={category}
+              href={`#featured-${category.toLowerCase().replace(/\s+/g, "-")}`}
+              className="min-w-fit rounded-full bg-[#fffaf0] px-3.5 py-2 text-xs font-bold text-[#596540] shadow-sm transition hover:bg-white"
+            >
+              {category}
+            </a>
+          ))}
+        </div>
+
+        {sessions.length ? (
+          <div className="grid gap-4 md:grid-cols-2 2xl:grid-cols-5">
+            {sessions.map((session) => (
+              <FeaturedSupplierCard key={`${session.featureCategory}-${session.id}`} session={session} />
+            ))}
+          </div>
+        ) : (
+          <p className="rounded-2xl bg-[#fffaf0] p-4 text-sm font-semibold text-[#675f50]">
+            Supplier sessions will appear here after supplier live records are seeded.
+          </p>
+        )}
+      </div>
+    </section>
+  );
+}
+
+function FeaturedSupplierCard({
+  session,
+}: {
+  session: FeaturedSupplierSession;
+}) {
+  return (
+    <article
+      id={`featured-${session.featureCategory.toLowerCase().replace(/\s+/g, "-")}`}
+      className="flex min-h-full flex-col rounded-2xl border border-[#d6cbb6] bg-[#fffaf0] p-4 shadow-sm"
+    >
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <p className="text-[11px] font-bold uppercase tracking-[.16em] text-[#6f7f4f]">
+            {session.featureCategory}
+          </p>
+          <h3 className="mt-2 text-lg font-semibold leading-tight">
+            {session.providerName}
+          </h3>
+        </div>
+        <StatusChip label={session.featureBadge} tone={badgeTone(session)} compact />
+      </div>
+
+      <p className="mt-3 text-sm font-semibold text-[#596540]">
+        {formatPublicLabel(session.providerRole)} - {session.category}
+      </p>
+      <p className="mt-2 text-sm leading-6 text-[#675f50]">
+        {session.title}
+      </p>
+
+      <div className="mt-4 flex flex-wrap gap-2">
+        <StatusChip label={`Trust ${session.trustScore.score}`} tone="dark" compact />
+        <StatusChip label={formatPublicLabel(session.status)} tone={session.status === "live" ? "live" : "default"} compact />
+        <StatusChip label={pinBadgeLabel(session)} tone={session.pinReason === "sponsored" ? "live" : "default"} compact />
+        <StatusChip label={replayOrUpcomingLabel(session)} compact />
+        {session.specialistHost ? (
+          <StatusChip label={`Specialist host: ${session.specialistHost.hostType}`} tone="dark" compact />
+        ) : null}
+      </div>
+
+      <p className="mt-3 text-xs leading-5 text-[#675f50]">
+        {session.featureReason}
+      </p>
+
+      <Link
+        href={`/live/${session.id}`}
+        className="mt-auto inline-flex w-full justify-center rounded-full bg-[#1e2419] px-4 py-3 text-sm font-bold text-[#fffaf0] transition hover:bg-[#596540]"
+      >
+        View live
+      </Link>
+    </article>
   );
 }
 
@@ -1723,6 +1848,8 @@ function DashboardDetail({ dashboard }: { dashboard: Dashboard }) {
       <DashboardApiPanels dashboardType={dashboardType} title={dashboard.name} />
 
       {dashboard.kind === "hotel" && <HotelAudienceSplit />}
+      {dashboard.kind === "procurement" && <ProcurementAgentCTA />}
+      {dashboard.kind === "supplier" && <SupplierPreparationCenterCTA />}
       {dashboard.kind === "services" && <ServicesProviderSetup />}
 
       <div className="mt-5 grid gap-5 2xl:grid-cols-[1.12fr_.88fr]">
@@ -1798,6 +1925,97 @@ function HotelAudienceSplit() {
           </article>
         ))}
       </div>
+    </section>
+  );
+}
+
+function ProcurementAgentCTA() {
+  const items: WorkItem[] = [
+    {
+      title: "Shareable live sessions",
+      detail: "Generate referral links for supplier lives and replay-heavy sessions.",
+      status: "Links",
+      tone: "live",
+    },
+    {
+      title: "Attribution tracking",
+      detail: "Clicks, referred sessions, RFQs, and orders roll into the B2B commission model.",
+      status: "Tracked",
+    },
+    {
+      title: "Commission controls",
+      detail: "Agent payouts stay separate from consumer tip or gifting mechanics.",
+      status: "B2B",
+      tone: "dark",
+    },
+  ];
+
+  return (
+    <section className="mt-5 grid gap-5 xl:grid-cols-[.92fr_1.08fr]">
+      <div className="rounded-3xl border border-[#d6cbb6] bg-[#fffaf0] p-5 shadow-sm">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+          <div>
+            <p className="text-[11px] font-bold uppercase tracking-[.16em] text-[#6f7f4f]">
+              Procurement affiliate ops
+            </p>
+            <h2 className="mt-1 text-2xl font-semibold">Procurement Agent Dashboard</h2>
+            <p className="mt-3 text-sm leading-7 text-[#675f50]">
+              Manage referral links, attributed RFQs, and commission estimates for agents and B2B affiliates.
+            </p>
+          </div>
+          <StatusChip label="Main-admin only" tone="warm" />
+        </div>
+        <Link href="/dashboard/procurement-agent" className="mt-5 inline-flex rounded-full bg-[#1e2419] px-5 py-3 text-sm font-bold text-[#fffaf0] transition hover:bg-[#596540]">
+          Open procurement agent dashboard
+        </Link>
+      </div>
+      <WorkflowPanel eyebrow="Referral model" title="What the dashboard tracks" items={items} />
+    </section>
+  );
+}
+
+function SupplierPreparationCenterCTA() {
+  const items: WorkItem[] = [
+    {
+      title: "Lighting and camera framing",
+      detail: "Check front light, workshop angle, product close-up, and buyer-readable product labels.",
+      status: "Setup",
+      tone: "live",
+    },
+    {
+      title: "Script and RFQ handoff",
+      detail: "Prepare introduction, product proof, MOQ, shipping, Q&A, and sample request prompts.",
+      status: "Ready",
+    },
+    {
+      title: "Product demo checklist",
+      detail: "Stage hero SKU, proof materials, certifications, packaging, and shipping explanation.",
+      status: "Checklist",
+      tone: "warm",
+    },
+  ];
+
+  return (
+    <section className="mt-5 grid gap-5 xl:grid-cols-[.92fr_1.08fr]">
+      <div className="rounded-3xl border border-[#d6cbb6] bg-[#fffaf0] p-5 shadow-sm">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+          <div>
+            <p className="text-[11px] font-bold uppercase tracking-[.16em] text-[#6f7f4f]">
+              Supplier readiness
+            </p>
+            <h2 className="mt-1 text-2xl font-semibold">Live Preparation Center</h2>
+            <p className="mt-3 text-sm leading-7 text-[#675f50]">
+              Prepare a supplier live before buyers arrive: lighting, framing,
+              scripts, product proof, MOQ, shipping, and RFQ call-to-action.
+            </p>
+          </div>
+          <StatusChip label="Local checklist" tone="warm" />
+        </div>
+        <Link href="/dashboard/supplier/live-prep" className="mt-5 inline-flex rounded-full bg-[#1e2419] px-5 py-3 text-sm font-bold text-[#fffaf0] transition hover:bg-[#596540]">
+          Open preparation center
+        </Link>
+      </div>
+      <WorkflowPanel eyebrow="Prep modules" title="Before the live" items={items} />
     </section>
   );
 }
@@ -2202,6 +2420,7 @@ function quickActionHref(action: string) {
     "open services dashboard": "/dashboard/services",
     "open supplier dashboard": "/dashboard/supplier",
     "open ai procurement": "/dashboard/main",
+    "open procurement agent dashboard": "/dashboard/procurement-agent",
     "compare hotels": "/dashboard/viewer",
     "update wishlist": "/dashboard/viewer",
     "check booking": "/dashboard/viewer",
@@ -2209,6 +2428,7 @@ function quickActionHref(action: string) {
     "extend replay availability": "/dashboard/services",
     "request pinned placement": "/dashboard/services",
     "set up a live for my service": "/dashboard/services",
+    "live preparation center": "/dashboard/supplier/live-prep",
     "create booking push": "/dashboard/hotel",
     "schedule stream": "/dashboard/hotel",
     "generate review brief": "/dashboard/hotel",
@@ -2253,6 +2473,63 @@ function MiniItem({ item }: { item: WorkItem }) {
       <p className="mt-2 text-xs leading-5 text-[#675f50]">{item.detail}</p>
     </article>
   );
+}
+
+function badgeTone(session: FeaturedSupplierSession): Tone {
+  if (session.pinReason === "sponsored") {
+    return "live";
+  }
+
+  if (session.featureCategory === "New verified suppliers") {
+    return "dark";
+  }
+
+  if (session.featureCategory === "Nearby") {
+    return "warm";
+  }
+
+  return "default";
+}
+
+function pinBadgeLabel(session: FeaturedSupplierSession) {
+  if (!session.isPinned) {
+    return "Curated";
+  }
+
+  if (session.pinReason === "sponsored") {
+    return "Sponsored";
+  }
+
+  return session.pinReason
+    ? formatPublicLabel(session.pinReason)
+    : "Pinned";
+}
+
+function replayOrUpcomingLabel(session: FeaturedSupplierSession) {
+  if (session.status === "scheduled") {
+    return `Upcoming ${formatPublicDate(session.startsAt)}`;
+  }
+
+  if (session.status === "replay") {
+    return session.replay.status === "expired"
+      ? "Replay expired"
+      : `Replay ${session.replay.daysRemaining}d left`;
+  }
+
+  return "Live now";
+}
+
+function formatPublicLabel(value: string) {
+  return value
+    .replace(/_/g, " ")
+    .replace(/\b\w/g, (letter) => letter.toUpperCase());
+}
+
+function formatPublicDate(value: string) {
+  return new Intl.DateTimeFormat("en-US", {
+    month: "short",
+    day: "numeric",
+  }).format(new Date(value));
 }
 
 function StatusChip({

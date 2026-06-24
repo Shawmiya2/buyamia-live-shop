@@ -1,5 +1,13 @@
 import { DashboardPlatform } from "./dashboard-platform";
+import { getFeaturedSupplierSessions } from "@/lib/backend/live-service";
 
-export default function Home() {
-  return <DashboardPlatform activeDashboard="overview" />;
+export default async function Home() {
+  const featuredSupplierSessions = await getFeaturedSupplierSessions();
+
+  return (
+    <DashboardPlatform
+      activeDashboard="overview"
+      featuredSupplierSessions={featuredSupplierSessions}
+    />
+  );
 }

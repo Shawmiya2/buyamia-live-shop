@@ -2,6 +2,8 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import type { ReactNode } from "react";
+import { LiveIntentCommercePanels } from "@/app/live/intent-commerce-panels";
+import { ReplayTranscriptPanel } from "@/app/live/replay-transcript-panel";
 import { requireRole } from "@/lib/backend/auth-context";
 import { ApiError } from "@/lib/backend/errors";
 import { getLiveDetailsById } from "@/lib/backend/live-service";
@@ -49,8 +51,10 @@ export default async function MainLiveDetailPage({ params }: { params: Promise<{
           <div className="flex flex-wrap gap-2">
             <Badge>{formatLabel(live.status)}</Badge>
             <Badge>{live.category}</Badge>
+            <Badge>Trust {live.trustScore.score}</Badge>
             <Badge>{live.isPinned ? `Pinned: ${formatLabel(live.pinReason ?? "featured_by_buyamia")}` : "Not pinned"}</Badge>
             <Badge>{replayExpirationLabel(live)}</Badge>
+            {live.specialistHost ? <Badge>Specialist host: {live.specialistHost.hostType}</Badge> : null}
           </div>
           <dl className="mt-5 grid gap-3 sm:grid-cols-2">
             <Detail label="Provider name" value={live.providerName} />
@@ -61,6 +65,7 @@ export default async function MainLiveDetailPage({ params }: { params: Promise<{
             <Detail label="Viewer count" value={formatNumber(live.viewerCount)} />
             <Detail label="Replay views" value={formatNumber(live.replayViews)} />
             <Detail label="Conversion intent" value={`${live.conversionIntent}%`} />
+            <Detail label="Supplier trust" value={`${live.trustScore.score}/100`} />
             <Detail label="Replay expiration" value={replayExpirationLabel(live)} />
             <Detail label="Replay status" value={formatLabel(live.replay.status)} />
             <Detail label="Pinned state" value={live.isPinned ? "Pinned" : "Not pinned"} />
@@ -68,6 +73,9 @@ export default async function MainLiveDetailPage({ params }: { params: Promise<{
           </dl>
           <LiveAdminActions live={live} />
         </section>
+
+        <LiveIntentCommercePanels live={live} showQuestions={live.status !== "replay"} />
+        <ReplayTranscriptPanel transcript={live.transcript} status={live.status} />
       </section>
     </main>
   );

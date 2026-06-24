@@ -4,9 +4,15 @@ import type {
   MockUser,
   ProfileType,
   Provider,
+  ReplayTranscriptSegment,
   Subscription,
   VerificationDocumentMetadata,
 } from "./types";
+import {
+  createDemoCommerceData,
+  createDemoLiveQuestions,
+  createDemoSpecialistHost,
+} from "./live-service";
 import {
   createMockReplayWindow,
   defaultReplayAvailabilityDays,
@@ -33,11 +39,92 @@ export const dashboardRoleMap: Record<DashboardType, ProfileType> = {
 // In-memory demo data only. These arrays intentionally model the future service
 // boundary without providing production authentication, persistence, or payments.
 const now = new Date("2026-06-04T12:00:00.000Z");
+const demoTrustScore = {
+  score: 92,
+  label: "Verified Trust Score",
+  completedOrders: 84,
+  responseRate: 94,
+  averageResponseMinutes: 28,
+  certifications: ["Demo verified", "Local proof"],
+  bImpactScore: 82,
+  completedLiveSessions: 4,
+  certifiedReviews: 41,
+  breakdown: [
+    {
+      label: "Verification",
+      value: "verified",
+      points: 20,
+      maxPoints: 20,
+      detail: "Demo provider verification signal.",
+    },
+  ],
+};
 
 function daysFromNow(days: number) {
   const date = new Date(now);
   date.setUTCDate(date.getUTCDate() + days);
   return date.toISOString();
+}
+
+function transcriptForDemoLive(liveId: string, providerName: string, title: string): ReplayTranscriptSegment[] {
+  return [
+    {
+      id: `${liveId}-transcript-1`,
+      timestamp: "0:00",
+      seconds: 0,
+      speaker: providerName,
+      text: `Welcome to ${title}. We will cover product proof, MOQ, shipping, pricing, and RFQ follow-up.`,
+      tags: ["product"],
+    },
+    {
+      id: `${liveId}-transcript-2`,
+      timestamp: "1:18",
+      seconds: 78,
+      speaker: "Buyamia AI",
+      text: "Key product moment saved for replay buyers and supplier comparison.",
+      tags: ["product"],
+    },
+    {
+      id: `${liveId}-transcript-3`,
+      timestamp: "2:12",
+      seconds: 132,
+      speaker: providerName,
+      text: "MOQ can be split across related items when the buyer sends a combined RFQ.",
+      tags: ["MOQ", "RFQ"],
+    },
+    {
+      id: `${liveId}-transcript-4`,
+      timestamp: "3:38",
+      seconds: 218,
+      speaker: providerName,
+      text: "Shipping can be quoted as FOB or CIF with export packing and lead-time confirmation.",
+      tags: ["shipping"],
+    },
+    {
+      id: `${liveId}-transcript-5`,
+      timestamp: "5:01",
+      seconds: 301,
+      speaker: "Buyer",
+      text: "Please show finish quality, material thickness, and sample proof before quote approval.",
+      tags: ["quality"],
+    },
+    {
+      id: `${liveId}-transcript-6`,
+      timestamp: "6:12",
+      seconds: 372,
+      speaker: providerName,
+      text: "Pricing depends on order tier, packaging, and route assumptions.",
+      tags: ["pricing"],
+    },
+    {
+      id: `${liveId}-transcript-7`,
+      timestamp: "7:43",
+      seconds: 463,
+      speaker: "Buyamia AI",
+      text: "RFQ and sample request fields are ready with MOQ, shipping, pricing, and quality notes.",
+      tags: ["RFQ", "MOQ", "shipping", "pricing", "quality"],
+    },
+  ];
 }
 
 export const users: MockUser[] = [
@@ -143,6 +230,25 @@ export const lives: LiveEvent[] = [
     pinReason: "featured_by_buyamia",
     pinExpiresAt: daysFromNow(2),
     priorityScore: 96,
+    trustScore: demoTrustScore,
+    transcript: transcriptForDemoLive("live_hotel_ocean_suite", "Sanur Wellness Hotel", "Ocean suite sunset walkthrough"),
+    specialistHost: createDemoSpecialistHost({
+      providerName: "Sanur Wellness Hotel",
+      providerCategory: "hotel",
+      category: "Hotels",
+      title: "Ocean suite sunset walkthrough",
+    }),
+    commerceData: createDemoCommerceData({
+      providerName: "Sanur Wellness Hotel",
+      category: "hotel",
+      title: "Ocean suite sunset walkthrough",
+    }),
+    intentQuestions: createDemoLiveQuestions({
+      liveId: "live_hotel_ocean_suite",
+      providerName: "Sanur Wellness Hotel",
+      category: "Hotels",
+      title: "Ocean suite sunset walkthrough",
+    }),
     replay: createMockReplayWindow({
       availableFrom: daysFromNow(-1),
       now,
@@ -165,6 +271,25 @@ export const lives: LiveEvent[] = [
     pinReason: "most_watched",
     pinExpiresAt: daysFromNow(1),
     priorityScore: 92,
+    trustScore: demoTrustScore,
+    transcript: transcriptForDemoLive("live_restaurant_tasting", "Seminyak Chef Table", "Chef tasting and table availability"),
+    specialistHost: createDemoSpecialistHost({
+      providerName: "Seminyak Chef Table",
+      providerCategory: "restaurant",
+      category: "Food & Brunch",
+      title: "Chef tasting and table availability",
+    }),
+    commerceData: createDemoCommerceData({
+      providerName: "Seminyak Chef Table",
+      category: "restaurant",
+      title: "Chef tasting and table availability",
+    }),
+    intentQuestions: createDemoLiveQuestions({
+      liveId: "live_restaurant_tasting",
+      providerName: "Seminyak Chef Table",
+      category: "Food & Brunch",
+      title: "Chef tasting and table availability",
+    }),
     replay: createMockReplayWindow({
       availableFrom: daysFromNow(-3),
       now,
@@ -187,6 +312,25 @@ export const lives: LiveEvent[] = [
     pinReason: "sponsored",
     pinExpiresAt: daysFromNow(3),
     priorityScore: 98,
+    trustScore: demoTrustScore,
+    transcript: transcriptForDemoLive("live_supplier_factory", "Bali Rattan Works", "Factory audit and rattan lounge set RFQ"),
+    specialistHost: createDemoSpecialistHost({
+      providerName: "Bali Rattan Works",
+      providerCategory: "supplier",
+      category: "Facilities",
+      title: "Factory audit and rattan lounge set RFQ",
+    }),
+    commerceData: createDemoCommerceData({
+      providerName: "Bali Rattan Works",
+      category: "supplier",
+      title: "Factory audit and rattan lounge set RFQ",
+    }),
+    intentQuestions: createDemoLiveQuestions({
+      liveId: "live_supplier_factory",
+      providerName: "Bali Rattan Works",
+      category: "Facilities",
+      title: "Factory audit and rattan lounge set RFQ",
+    }),
     replay: createMockReplayWindow({
       availableFrom: daysFromNow(-2),
       now,
@@ -210,6 +354,25 @@ export const lives: LiveEvent[] = [
     pinReason: "nearby",
     pinExpiresAt: daysFromNow(1),
     priorityScore: 74,
+    trustScore: demoTrustScore,
+    transcript: transcriptForDemoLive("live_service_arrival", "Private Arrival Service", "Airport transfer arrival walkthrough"),
+    specialistHost: createDemoSpecialistHost({
+      providerName: "Private Arrival Service",
+      providerCategory: "service_provider",
+      category: "Services",
+      title: "Airport transfer arrival walkthrough",
+    }),
+    commerceData: createDemoCommerceData({
+      providerName: "Private Arrival Service",
+      category: "service_provider",
+      title: "Airport transfer arrival walkthrough",
+    }),
+    intentQuestions: createDemoLiveQuestions({
+      liveId: "live_service_arrival",
+      providerName: "Private Arrival Service",
+      category: "Services",
+      title: "Airport transfer arrival walkthrough",
+    }),
     replay: createMockReplayWindow({
       availableFrom: daysFromNow(-6),
       now,

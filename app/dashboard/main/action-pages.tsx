@@ -3,6 +3,8 @@
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { DashboardAccessGate } from "../../dashboard-access-gate";
+import { CurrencyEstimatePanel } from "@/app/live/currency-estimate-panel";
+import type { SupplierTrustScore } from "@/lib/backend/types";
 
 type Envelope<T> = { success: true; data: T } | { success: false; error: { message: string; fields?: Record<string, string> } };
 type Rfq = {
@@ -28,7 +30,27 @@ type SupplierRank = {
   followers: number;
   lives: number;
   replayViews: number;
+  trustScore: SupplierTrustScore;
   detailHref: string;
+};
+type SupplierDetail = {
+  id: string;
+  displayName: string;
+  category: string;
+  location?: string | null;
+  description?: string | null;
+  completedOrders: number;
+  responseRate: number;
+  responseMinutes: number;
+  bImpactScore: number;
+  certifiedReviews: number;
+  trustScore: SupplierTrustScore;
+  user?: {
+    verificationStatus: string;
+  };
+  followers?: unknown[];
+  lives?: { id: string; title: string; status: string }[];
+  liveRequests?: { id: string; title: string; status: string }[];
 };
 type Negotiation = {
   id: string;
@@ -224,12 +246,22 @@ export function RfqDetailPage({ id }: { id: string }) {
   return (
     <Shell title={rfq?.title ?? "RFQ details"} eyebrow="RFQ detail">
       {!rfq ? <p className="rounded-2xl bg-[#fffaf0] p-4 font-semibold">Loading RFQ...</p> : (
-        <section className="rounded-3xl border border-[#d6cbb6] bg-[#fffaf0] p-5">
-          <p className="text-sm font-bold text-[#6f7f4f]">{rfq.category} - {formatLabel(rfq.status)}</p>
-          <p className="mt-4 whitespace-pre-wrap text-sm leading-7 text-[#675f50]">{rfq.requirements}</p>
-          <p className="mt-4 text-sm font-semibold">Deadline: {formatDate(rfq.deadline)}</p>
-          <Link href="/dashboard/main/negotiations" className="mt-5 inline-flex rounded-full bg-[#1e2419] px-5 py-3 text-sm font-bold text-[#fffaf0]">Open negotiation workspace</Link>
-        </section>
+        <>
+          <section className="rounded-3xl border border-[#d6cbb6] bg-[#fffaf0] p-5">
+            <p className="text-sm font-bold text-[#6f7f4f]">{rfq.category} - {formatLabel(rfq.status)}</p>
+            <p className="mt-4 whitespace-pre-wrap text-sm leading-7 text-[#675f50]">{rfq.requirements}</p>
+            <p className="mt-4 text-sm font-semibold">Deadline: {formatDate(rfq.deadline)}</p>
+            <Link href="/dashboard/main/negotiations" className="mt-5 inline-flex rounded-full bg-[#1e2419] px-5 py-3 text-sm font-bold text-[#fffaf0]">Open negotiation workspace</Link>
+          </section>
+          <CurrencyEstimatePanel
+            title="RFQ landed cost estimate"
+            summaryLabel="This demo RFQ estimate uses a fixed IDR source snapshot and buyer-selected currency."
+            sourceLabel={rfq.title}
+            sourcePriceIdr={18600000}
+            quantity={1}
+            initialCurrency="USD"
+          />
+        </>
       )}
     </Shell>
   );
@@ -250,16 +282,19 @@ export function SupplierRankPage() {
         <select aria-label="Category filter" className={inputClass()} value={filters.category} onChange={(e) => setFilters({ ...filters, category: e.target.value })}>{roles.map((role) => <option key={role} value={role}>{formatLabel(role)}</option>)}</select>
         <select aria-label="Verification filter" className={inputClass()} value={filters.verification} onChange={(e) => setFilters({ ...filters, verification: e.target.value })}>{verificationStatuses.map((status) => <option key={status} value={status}>{formatLabel(status)}</option>)}</select>
         <select aria-label="Location filter" className={inputClass()} value={filters.location} onChange={(e) => setFilters({ ...filters, location: e.target.value })}>{locations.map((location) => <option key={location} value={location}>{formatLabel(location)}</option>)}</select>
-        <select aria-label="Sort suppliers" className={inputClass()} value={filters.sort} onChange={(e) => setFilters({ ...filters, sort: e.target.value })}>{["verification", "followers", "lives", "replayViews"].map((sort) => <option key={sort} value={sort}>{formatLabel(sort)}</option>)}</select>
+        <select aria-label="Sort suppliers" className={inputClass()} value={filters.sort} onChange={(e) => setFilters({ ...filters, sort: e.target.value })}>{["verification", "trustScore", "followers", "lives", "replayViews"].map((sort) => <option key={sort} value={sort}>{formatLabel(sort)}</option>)}</select>
       </div>
       <div className="mt-4 grid gap-3 md:grid-cols-2">
         {suppliers.map((supplier) => (
           <article key={supplier.id} className="rounded-2xl border border-[#d6cbb6] bg-[#fffaf0] p-4">
             <div className="flex items-start justify-between gap-3">
               <div><h2 className="font-semibold">{supplier.name}</h2><p className="text-sm text-[#675f50]">{formatLabel(supplier.category)} - {supplier.location || "No location"}</p></div>
-              <span className="rounded-full bg-[#edf2dd] px-3 py-1 text-xs font-bold">{formatLabel(supplier.verificationStatus)}</span>
+              <div className="flex flex-wrap justify-end gap-2">
+                <span className="rounded-full bg-[#1e2419] px-3 py-1 text-xs font-bold text-[#fffaf0]">Trust {supplier.trustScore.score}</span>
+                <span className="rounded-full bg-[#edf2dd] px-3 py-1 text-xs font-bold">{formatLabel(supplier.verificationStatus)}</span>
+              </div>
             </div>
-            <p className="mt-3 text-sm text-[#675f50]">Followers {supplier.followers} - lives {supplier.lives} - replay views {supplier.replayViews}</p>
+            <p className="mt-3 text-sm text-[#675f50]">Followers {supplier.followers} - lives {supplier.lives} - replay views {supplier.replayViews} - {supplier.trustScore.label}</p>
             <Link href={supplier.detailHref} className="mt-4 inline-flex rounded-full border border-[#cabda4] px-4 py-2 text-sm font-bold">Supplier details</Link>
           </article>
         ))}
@@ -269,11 +304,75 @@ export function SupplierRankPage() {
 }
 
 export function SupplierDetailPage({ id }: { id: string }) {
-  const [supplier, setSupplier] = useState<Record<string, any> | null>(null);
+  const [supplier, setSupplier] = useState<SupplierDetail | null>(null);
   useEffect(() => {
-    api<Record<string, any>>(`/api/suppliers/${id}`).then((result) => result.success && setSupplier(result.data));
+    api<SupplierDetail>(`/api/suppliers/${id}`).then((result) => result.success && setSupplier(result.data));
   }, [id]);
-  return <Shell title={supplier?.displayName ?? "Supplier details"} eyebrow="Provider record">{supplier ? <pre className="overflow-auto rounded-3xl bg-[#fffaf0] p-5 text-sm">{JSON.stringify({ category: supplier.category, location: supplier.location, verification: supplier.user?.verificationStatus, lives: supplier.lives?.length, liveRequests: supplier.liveRequests?.length }, null, 2)}</pre> : <p className="rounded-2xl bg-[#fffaf0] p-4 font-semibold">Loading supplier...</p>}</Shell>;
+  return (
+    <Shell title={supplier?.displayName ?? "Supplier details"} eyebrow="Provider record">
+      {supplier ? (
+        <div className="grid gap-5 lg:grid-cols-[.9fr_1.1fr]">
+          <section className="rounded-3xl border border-[#d6cbb6] bg-[#fffaf0] p-5">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+              <div>
+                <p className="text-sm font-bold text-[#6f7f4f]">{formatLabel(supplier.category)} - {supplier.location || "No location"}</p>
+                <h2 className="mt-2 text-2xl font-semibold">{supplier.trustScore.label}</h2>
+                <p className="mt-3 text-sm leading-7 text-[#675f50]">{supplier.description || "Local supplier profile."}</p>
+              </div>
+              <div className="rounded-3xl bg-[#1e2419] px-6 py-5 text-center text-[#fffaf0]">
+                <p className="text-xs font-bold uppercase tracking-[.16em] text-[#cbd8a7]">Verified Trust Score</p>
+                <p className="mt-2 text-5xl font-semibold">{supplier.trustScore.score}</p>
+                <p className="mt-1 text-xs text-[#ded8ca]">out of 100</p>
+              </div>
+            </div>
+            <div className="mt-5 grid gap-3 sm:grid-cols-2">
+              <TrustStat label="Completed orders" value={String(supplier.trustScore.completedOrders)} />
+              <TrustStat label="Response rate" value={`${supplier.trustScore.responseRate}%`} />
+              <TrustStat label="Average response" value={`${supplier.trustScore.averageResponseMinutes} min`} />
+              <TrustStat label="B-Impact score" value={String(supplier.trustScore.bImpactScore)} />
+              <TrustStat label="Completed lives" value={String(supplier.trustScore.completedLiveSessions)} />
+              <TrustStat label="Certified reviews" value={String(supplier.trustScore.certifiedReviews)} />
+            </div>
+            <div className="mt-5 flex flex-wrap gap-2">
+              {supplier.trustScore.certifications.map((certification) => (
+                <span key={certification} className="rounded-full bg-[#edf2dd] px-3 py-1 text-xs font-bold text-[#596540]">{certification}</span>
+              ))}
+            </div>
+          </section>
+
+          <section className="rounded-3xl border border-[#d6cbb6] bg-[#fffaf0] p-5">
+            <p className="text-[11px] font-bold uppercase tracking-[.16em] text-[#6f7f4f]">Trust breakdown</p>
+            <h2 className="mt-1 text-xl font-semibold">Why this supplier has Trust {supplier.trustScore.score}</h2>
+            <div className="mt-4 grid gap-3">
+              {supplier.trustScore.breakdown.map((item) => (
+                <div key={item.label} className="rounded-2xl bg-[#f3ecdc] p-4">
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <p className="font-semibold">{item.label}</p>
+                      <p className="mt-1 text-sm text-[#675f50]">{item.value}</p>
+                    </div>
+                    <span className="rounded-full bg-[#fffaf0] px-3 py-1 text-xs font-bold text-[#596540]">{item.points}/{item.maxPoints}</span>
+                  </div>
+                  <p className="mt-2 text-xs leading-5 text-[#675f50]">{item.detail}</p>
+                </div>
+              ))}
+            </div>
+          </section>
+        </div>
+      ) : (
+        <p className="rounded-2xl bg-[#fffaf0] p-4 font-semibold">Loading supplier...</p>
+      )}
+    </Shell>
+  );
+}
+
+function TrustStat({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-2xl bg-[#f3ecdc] p-4">
+      <p className="text-[11px] font-bold uppercase tracking-[.14em] text-[#6f7f4f]">{label}</p>
+      <p className="mt-2 text-xl font-semibold">{value}</p>
+    </div>
+  );
 }
 
 export function NegotiationsPage({ selectedId }: { selectedId?: string }) {

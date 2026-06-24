@@ -4,7 +4,21 @@ import { prisma } from "./prisma";
 import { ApiError } from "./errors";
 import { createAnalyticsEvent } from "./analytics-service";
 import { datePlusDays, defaultReplayAvailabilityDays, getReplayStatus } from "./replay-policy";
-import type { LiveEvent, LiveListResponse, PinReason, ReplayStatus } from "./types";
+import { calculateSupplierTrustScore } from "./trust-score-service";
+import type {
+  FeaturedSupplierCategory,
+  FeaturedSupplierSession,
+  LiveCommerceData,
+  LiveIntentCategory,
+  LiveIntentQuestion,
+  SpecialistHost,
+  LiveEvent,
+  LiveListResponse,
+  PinReason,
+  ReplayTranscriptSegment,
+  ReplayTranscriptTag,
+  ReplayStatus,
+} from "./types";
 
 const pinSchema = z.object({
   isPinned: z.boolean(),
@@ -18,7 +32,7 @@ const replaySchema = z.object({
 });
 
 type LiveWithProvider = Live & {
-  provider: ProviderProfile & { user: User };
+  provider: ProviderProfile & { user: User; lives?: Pick<Live, "id">[] };
 };
 
 const liveStatuses = ["scheduled", "active", "completed", "replay", "expired"] as const;
@@ -26,10 +40,45 @@ const providerRoles = ["hotel", "restaurant", "supplier", "service_provider"] as
 const pinReasons = ["sponsored", "nearby", "most_watched", "featured_by_buyamia"] as const;
 const replayStatuses = ["active", "expiring_soon", "expired"] as const;
 const sortOptions = ["important", "scheduled_desc", "scheduled_asc", "title_asc", "provider_asc", "replay_expiring"] as const;
+const liveProviderInclude = {
+  user: true,
+  lives: { where: { status: "completed" }, select: { id: true } },
+} satisfies Prisma.ProviderProfileInclude;
 
 type LiveListStatus = (typeof liveStatuses)[number];
-type ProviderRoleFilter = (typeof providerRoles)[number];
 type SortOption = (typeof sortOptions)[number];
+
+const featuredSupplierBuckets: {
+  category: FeaturedSupplierCategory;
+  badge: string;
+  reason: string;
+}[] = [
+  {
+    category: "Recommended",
+    badge: "Curated",
+    reason: "Selected from active supplier sessions and Buyamia-featured pins.",
+  },
+  {
+    category: "Popular",
+    badge: "Most watched",
+    reason: "Pulled from supplier sessions with stored viewer or replay engagement.",
+  },
+  {
+    category: "Nearby",
+    badge: "Nearby",
+    reason: "Uses supplier lives with a nearby pin when available.",
+  },
+  {
+    category: "Sponsored",
+    badge: "Sponsored",
+    reason: "Uses supplier lives marked with sponsored placement when available.",
+  },
+  {
+    category: "New verified suppliers",
+    badge: "Verified",
+    reason: "Highlights supplier sessions from verified provider accounts.",
+  },
+];
 
 export type ListLivesInput = {
   page?: unknown;
@@ -129,8 +178,469 @@ export function isPinActive(live: Pick<Live, "isPinned" | "pinExpiresAt">, now =
   return live.isPinned && (!live.pinExpiresAt || live.pinExpiresAt > now);
 }
 
+function transcriptForLive(live: Pick<Live, "id" | "title" | "category" | "transcript"> & { provider: Pick<ProviderProfile, "displayName"> }): ReplayTranscriptSegment[] {
+  const stored = parseStoredTranscript(live.transcript);
+
+  if (stored.length > 0) {
+    return stored;
+  }
+
+  return createDemoTranscript({
+    liveId: live.id,
+    title: live.title,
+    providerName: live.provider.displayName,
+    category: live.category,
+  });
+}
+
+function commerceDataForLive(
+  live: Pick<Live, "id" | "title" | "category" | "commerceData"> & { provider: Pick<ProviderProfile, "displayName"> },
+): LiveCommerceData {
+  const stored = parseCommerceData(live.commerceData);
+  if (stored) {
+    return stored;
+  }
+
+  return createDemoCommerceData({
+    title: live.title,
+    providerName: live.provider.displayName,
+    category: live.category,
+  });
+}
+
+function specialistHostForLive(
+  live: Pick<Live, "specialistHost" | "title" | "category"> & { provider: Pick<ProviderProfile, "displayName" | "category"> },
+): SpecialistHost {
+  const stored = parseSpecialistHost(live.specialistHost);
+  if (stored) {
+    return stored;
+  }
+
+  return createDemoSpecialistHost({
+    providerName: live.provider.displayName,
+    providerCategory: live.provider.category,
+    category: live.category,
+    title: live.title,
+  });
+}
+
+function questionsForLive(
+  live: Pick<Live, "id" | "intentQuestions" | "title" | "category"> & { provider: Pick<ProviderProfile, "displayName"> },
+): LiveIntentQuestion[] {
+  const stored = parseLiveQuestions(live.intentQuestions);
+  if (stored.length > 0) {
+    return stored;
+  }
+
+  return createDemoLiveQuestions({
+    liveId: live.id,
+    providerName: live.provider.displayName,
+    title: live.title,
+    category: live.category,
+  });
+}
+
+function parseStoredTranscript(value: Prisma.JsonValue | null): ReplayTranscriptSegment[] {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+
+  return value.flatMap((item, index) => {
+    if (!item || typeof item !== "object" || Array.isArray(item)) {
+      return [];
+    }
+
+    const timestamp = typeof item.timestamp === "string" ? item.timestamp : formatTranscriptTimestamp(Number(item.seconds) || index * 45);
+    const seconds = typeof item.seconds === "number" ? item.seconds : secondsFromTimestamp(timestamp);
+    const speaker = typeof item.speaker === "string" ? item.speaker : "Speaker";
+    const text = typeof item.text === "string" ? item.text : "";
+    const tags = Array.isArray(item.tags)
+      ? item.tags.filter((tag): tag is ReplayTranscriptTag => isTranscriptTag(tag))
+      : undefined;
+
+    if (!text.trim()) {
+      return [];
+    }
+
+    return [{
+      id: typeof item.id === "string" ? item.id : `segment-${index + 1}`,
+      timestamp,
+      seconds,
+      speaker,
+      text,
+      tags,
+    }];
+  });
+}
+
+function parseCommerceData(value: Prisma.JsonValue | null): LiveCommerceData | null {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return null;
+  }
+  const data = value as Record<string, unknown>;
+
+  const summary = typeof data.summary === "string" ? data.summary : "";
+  const products = Array.isArray(data.products)
+    ? data.products.flatMap((item) => {
+        if (!item || typeof item !== "object" || Array.isArray(item)) {
+          return [];
+        }
+        const product = item as Record<string, unknown>;
+
+        const name = typeof product.name === "string" ? product.name : "";
+        const variant = typeof product.variant === "string" ? product.variant : "";
+        const moq = typeof product.moq === "string" ? product.moq : "";
+        const inventory = typeof product.inventory === "string" ? product.inventory : "";
+        const shippingAvailability = typeof product.shippingAvailability === "string" ? product.shippingAvailability : "";
+        const serviceAvailability = typeof product.serviceAvailability === "string" ? product.serviceAvailability : "";
+        const policySummary = typeof product.policySummary === "string" ? product.policySummary : "";
+
+        if (!name || !variant) {
+          return [];
+        }
+
+        return [{
+          name,
+          variant,
+          moq,
+          inventory,
+          promotion: typeof product.promotion === "string" ? product.promotion : undefined,
+          shippingAvailability,
+          serviceAvailability,
+          policySummary,
+        }];
+      })
+    : [];
+  const policies = Array.isArray(data.policies)
+    ? data.policies.filter((policy): policy is string => typeof policy === "string")
+    : [];
+  const serviceAvailability = Array.isArray(data.serviceAvailability)
+    ? data.serviceAvailability.filter((entry): entry is string => typeof entry === "string")
+    : [];
+
+  if (!summary && products.length === 0) {
+    return null;
+  }
+
+  return { summary, products, policies, serviceAvailability };
+}
+
+function parseSpecialistHost(value: Prisma.JsonValue | null): SpecialistHost | null {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return null;
+  }
+  const data = value as Record<string, unknown>;
+
+  const hostType = typeof data.hostType === "string" ? data.hostType : "";
+  const expertiseArea = typeof data.expertiseArea === "string" ? data.expertiseArea : "";
+  const bio = typeof data.bio === "string" ? data.bio : "";
+  const verified = data.verified === true;
+
+  if (!hostType || !expertiseArea || !bio) {
+    return null;
+  }
+
+  return {
+    hostType: hostType as SpecialistHost["hostType"],
+    expertiseArea,
+    bio,
+    verified,
+  };
+}
+
+function parseLiveQuestions(value: Prisma.JsonValue | null): LiveIntentQuestion[] {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+
+  return value.flatMap((item, index) => {
+    if (!item || typeof item !== "object" || Array.isArray(item)) {
+      return [];
+    }
+    const questionData = item as Record<string, unknown>;
+
+    const question = typeof questionData.question === "string" ? questionData.question : "";
+    const buyerName = typeof questionData.buyerName === "string" ? questionData.buyerName : "Viewer";
+    const timestamp = typeof questionData.timestamp === "string" ? questionData.timestamp : formatTranscriptTimestamp(index * 45);
+    const status = isQuestionStatus(questionData.status) ? questionData.status : "unanswered";
+    const intentCategory = isIntentCategory(questionData.intentCategory) ? questionData.intentCategory : "availability";
+
+    if (!question.trim()) {
+      return [];
+    }
+
+    return [{
+      id: typeof questionData.id === "string" ? questionData.id : `question-${index + 1}`,
+      buyerName,
+      question,
+      timestamp,
+      status,
+      intentCategory,
+    }];
+  });
+}
+
+export function createDemoTranscript(input: {
+  liveId: string;
+  title: string;
+  providerName: string;
+  category: string;
+}): ReplayTranscriptSegment[] {
+  const productLabel =
+    input.category === "supplier"
+      ? "rattan lounge set"
+      : input.category === "restaurant"
+        ? "chef tasting package"
+        : input.category === "hotel"
+          ? "suite walkthrough"
+          : "service package";
+  const host = input.providerName;
+  const base = [
+    {
+      seconds: 0,
+      speaker: host,
+      text: `Welcome to ${input.title}. We will cover the product story, proof points, MOQ, shipping, and RFQ next steps.`,
+      tags: ["product"],
+    },
+    {
+      seconds: 54,
+      speaker: "Buyamia AI",
+      text: `Key product focus detected: ${productLabel}. Buyers are saving this moment for the replay brief.`,
+      tags: ["product"],
+    },
+    {
+      seconds: 132,
+      speaker: host,
+      text: "Minimum order quantity can be mixed across the hero product and companion items for a consolidated quote.",
+      tags: ["MOQ", "RFQ"],
+    },
+    {
+      seconds: 218,
+      speaker: host,
+      text: "For shipping, we can quote FOB and CIF options with export packing, carton marks, and lead-time confirmation.",
+      tags: ["shipping"],
+    },
+    {
+      seconds: 301,
+      speaker: "Buyer",
+      text: "Can you show the finish quality, material thickness, and warranty proof before we request samples?",
+      tags: ["quality"],
+    },
+    {
+      seconds: 372,
+      speaker: host,
+      text: "Pricing depends on quantity tiers, cushion or packaging selections, and the final shipping route.",
+      tags: ["pricing"],
+    },
+    {
+      seconds: 463,
+      speaker: "Buyamia AI",
+      text: "RFQ draft is ready with product specs, MOQ split, shipping assumptions, pricing notes, and sample request fields.",
+      tags: ["RFQ", "MOQ", "shipping", "pricing"],
+    },
+  ] satisfies Omit<ReplayTranscriptSegment, "id" | "timestamp">[];
+
+  return base.map((segment, index) => ({
+    id: `${input.liveId}-transcript-${index + 1}`,
+    timestamp: formatTranscriptTimestamp(segment.seconds),
+    ...segment,
+  }));
+}
+
+export function createDemoCommerceData(input: {
+  title: string;
+  providerName: string;
+  category: string;
+}): LiveCommerceData {
+  const productName =
+    input.category === "supplier"
+      ? "Rattan lounge collection"
+      : input.category === "restaurant"
+        ? "Chef tasting package"
+        : input.category === "hotel"
+          ? "Suite experience bundle"
+          : "Service bundle";
+
+  return {
+    summary: `Structured commerce data for ${input.title} with product variants, MOQ, inventory, and service coverage.`,
+    products: [
+      {
+        name: productName,
+        variant: "Signature finish",
+        moq: "MOQ 24",
+        inventory: "42 sets ready",
+        promotion: "Launch bundle: 8% off mixed orders",
+        shippingAvailability: "FOB / CIF available",
+        serviceAvailability: "Installation and sample coordination included",
+        policySummary: "24-hour quote lock, mixed-container policy, and sample hold available.",
+      },
+      {
+        name: `${input.providerName} companion item`,
+        variant: "Export grade",
+        moq: "MOQ 12",
+        inventory: "18 units in stock",
+        shippingAvailability: "Regional delivery only",
+        serviceAvailability: "White-glove handling on request",
+        policySummary: "Lead time confirmation required before reservation.",
+      },
+    ],
+    policies: [
+      "Sample hold window: 7 days",
+      "Quote validity: 14 days",
+      "Warranty: supplier-defined",
+    ],
+    serviceAvailability: [
+      "Sample booking",
+      "Shipping quote support",
+      "Installation or setup coordination",
+    ],
+  };
+}
+
+export function createDemoSpecialistHost(input: {
+  providerName: string;
+  providerCategory: string;
+  category: string;
+  title: string;
+}): SpecialistHost {
+  const hostType = demoHostType(input.providerCategory, input.category);
+
+  return {
+    hostType,
+    expertiseArea:
+      hostType === "supplier host"
+        ? "Factory proof, MOQ, and export packaging"
+        : hostType === "procurement specialist"
+          ? "Quote comparison and RFQ scoping"
+          : hostType === "interior designer"
+            ? "Finish selection and spatial fit"
+            : hostType === "hospitality consultant"
+              ? "Guest-ready service workflows"
+              : hostType === "product expert"
+                ? "Material and quality proof"
+                : "Sourcing coordination and buyer follow-up",
+    verified: true,
+    bio: `${input.providerName} is presenting ${input.title} as a B2B specialist host, keeping the session focused on procurement proof and buyer intent.`,
+  };
+}
+
+export function createDemoLiveQuestions(input: {
+  liveId: string;
+  providerName: string;
+  title: string;
+  category: string;
+}): LiveIntentQuestion[] {
+  const base = [
+    {
+      buyerName: "Aman Villas",
+      question: "Can you split MOQ across chair and daybed items?",
+      intentCategory: "MOQ",
+      status: "answered",
+    },
+    {
+      buyerName: "Villa Group",
+      question: "What is the CIF Bali shipping estimate for export packing?",
+      intentCategory: "shipping",
+      status: "answered",
+    },
+    {
+      buyerName: "Procurement Desk",
+      question: "How does the finish compare with the premium rattan line?",
+      intentCategory: "comparison",
+      status: "unanswered",
+    },
+    {
+      buyerName: "Hotel Buyer",
+      question: "Is there a bundle discount if we request samples and the full set together?",
+      intentCategory: "bundle_request",
+      status: "escalated",
+    },
+    {
+      buyerName: "Studio Lead",
+      question: "Can you confirm warranty and lead time before we proceed?",
+      intentCategory: "policy",
+      status: "answered",
+    },
+  ] satisfies Omit<LiveIntentQuestion, "id" | "timestamp">[];
+
+  return base.map((item, index) => ({
+    id: `${input.liveId}-question-${index + 1}`,
+    buyerName: item.buyerName,
+    question: item.question,
+    timestamp: formatTranscriptTimestamp(index * 67 + 18),
+    intentCategory: item.intentCategory,
+    status: item.status,
+  }));
+}
+
+function demoHostType(providerCategory: string, liveCategory: string): SpecialistHost["hostType"] {
+  if (providerCategory === "supplier") {
+    return "supplier host";
+  }
+  if (providerCategory === "service_provider") {
+    return "sourcing agent";
+  }
+  if (providerCategory === "restaurant") {
+    return "hospitality consultant";
+  }
+  if (providerCategory === "hotel") {
+    return "interior designer";
+  }
+
+  if (liveCategory.toLowerCase().includes("product")) {
+    return "product expert";
+  }
+
+  return "procurement specialist";
+}
+
+function isTranscriptTag(value: unknown): value is ReplayTranscriptTag {
+  return ["product", "MOQ", "shipping", "pricing", "quality", "RFQ"].includes(String(value));
+}
+
+function isQuestionStatus(value: unknown): value is LiveIntentQuestion["status"] {
+  return ["unanswered", "answered", "escalated"].includes(String(value));
+}
+
+function isIntentCategory(value: unknown): value is LiveIntentCategory {
+  return [
+    "MOQ",
+    "shipping",
+    "pricing",
+    "quality",
+    "comparison",
+    "hesitation",
+    "rejection",
+    "bundle_request",
+    "availability",
+    "policy",
+  ].includes(String(value));
+}
+
+function secondsFromTimestamp(timestamp: string) {
+  const parts = timestamp.split(":").map((part) => Number(part));
+
+  if (parts.some((part) => !Number.isFinite(part))) {
+    return 0;
+  }
+
+  return parts.reduce((total, part) => total * 60 + part, 0);
+}
+
+function formatTranscriptTimestamp(seconds: number) {
+  const safeSeconds = Math.max(0, Math.floor(seconds));
+  const minutes = Math.floor(safeSeconds / 60);
+  const remainingSeconds = safeSeconds % 60;
+
+  return `${minutes}:${String(remainingSeconds).padStart(2, "0")}`;
+}
+
 export function toLiveEvent(live: LiveWithProvider): LiveEvent {
   const replay = getReplayStatus(live.replayExpiresAt);
+  const completedLiveSessions = live.provider.lives?.length ?? 0;
+  const specialistHost = specialistHostForLive(live);
+  const commerceData = commerceDataForLive(live);
+  const intentQuestions = questionsForLive(live);
 
   return {
     id: live.id,
@@ -153,6 +663,11 @@ export function toLiveEvent(live: LiveWithProvider): LiveEvent {
     pinReason: live.pinReason ?? undefined,
     pinExpiresAt: live.pinExpiresAt?.toISOString(),
     priorityScore: live.priorityScore,
+    trustScore: calculateSupplierTrustScore(live.provider, completedLiveSessions),
+    transcript: transcriptForLive(live),
+    specialistHost,
+    commerceData,
+    intentQuestions,
     replay: {
       availableFrom: (live.endedAt ?? live.createdAt).toISOString(),
       expiresAt: live.replayExpiresAt?.toISOString() ?? "",
@@ -194,7 +709,7 @@ export function sortPinnedLives(input: LiveEvent[]) {
 export async function getLives(providerId?: string) {
   const lives = await prisma.live.findMany({
     where: providerId ? { providerId } : undefined,
-    include: { provider: { include: { user: true } } },
+    include: { provider: { include: liveProviderInclude } },
   });
 
   return sortPinnedLives(lives.map(toLiveEvent));
@@ -203,7 +718,7 @@ export async function getLives(providerId?: string) {
 export async function getLiveById(id: string) {
   const live = await prisma.live.findUnique({
     where: { id },
-    include: { provider: { include: { user: true } } },
+    include: { provider: { include: liveProviderInclude } },
   });
 
   if (!live) {
@@ -216,7 +731,7 @@ export async function getLiveById(id: string) {
 export async function getLiveDetailsById(id: string) {
   const live = await prisma.live.findUnique({
     where: { id },
-    include: { provider: { include: { user: true } } },
+    include: { provider: { include: liveProviderInclude } },
   });
 
   if (!live) {
@@ -228,6 +743,79 @@ export async function getLiveDetailsById(id: string) {
 
 export async function getPinnedLives(providerId?: string) {
   return (await getLives(providerId)).filter((live) => live.isPinned);
+}
+
+export async function getFeaturedSupplierSessions(): Promise<FeaturedSupplierSession[]> {
+  const lives = await prisma.live.findMany({
+    where: { provider: { category: "supplier" } },
+    include: { provider: { include: liveProviderInclude } },
+    orderBy: [
+      { isPinned: "desc" },
+      { priorityScore: "desc" },
+      { scheduledAt: "desc" },
+      { createdAt: "desc" },
+    ],
+    take: 12,
+  });
+
+  const records = await Promise.all(
+    lives.map(async (live) => ({
+      live,
+      event: await toLiveEventWithMetrics(live),
+    })),
+  );
+
+  if (records.length === 0) {
+    return [];
+  }
+
+  const usedIds = new Set<string>();
+  const pick = (category: FeaturedSupplierCategory, index: number) => {
+    const unused = (record: (typeof records)[number]) => !usedIds.has(record.event.id);
+    const available = records.filter(unused);
+    const pool = available.length ? available : records;
+
+    if (category === "Sponsored") {
+      return pool.find((record) => record.event.pinReason === "sponsored") ?? pool[index % pool.length];
+    }
+
+    if (category === "Nearby") {
+      return pool.find((record) => record.event.pinReason === "nearby") ?? pool[index % pool.length];
+    }
+
+    if (category === "Popular") {
+      return [...pool].sort(
+        (a, b) =>
+          b.event.viewerCount +
+          b.event.replayViews -
+          (a.event.viewerCount + a.event.replayViews),
+      )[0];
+    }
+
+    if (category === "New verified suppliers") {
+      return (
+        pool.find((record) => record.live.provider.user.verificationStatus === "verified") ??
+        pool[index % pool.length]
+      );
+    }
+
+    return (
+      pool.find((record) => record.event.pinReason === "featured_by_buyamia") ??
+      pool[0]
+    );
+  };
+
+  return featuredSupplierBuckets.map((bucket, index) => {
+    const record = pick(bucket.category, index);
+    usedIds.add(record.event.id);
+
+    return {
+      ...record.event,
+      featureCategory: bucket.category,
+      featureReason: bucket.reason,
+      featureBadge: bucket.badge,
+    };
+  });
 }
 
 export async function listLives(input: ListLivesInput = {}): Promise<LiveListResponse> {
@@ -285,7 +873,7 @@ export async function listLives(input: ListLivesInput = {}): Promise<LiveListRes
     prisma.live.count({ where: activePinWhere(now) }),
     prisma.live.findMany({
       where,
-      include: { provider: { include: { user: true } } },
+      include: { provider: { include: liveProviderInclude } },
       orderBy: orderByForSort(sort),
       skip: (page - 1) * pageSize,
       take: pageSize,
@@ -325,7 +913,7 @@ export async function extendReplayAvailability(input: {
   const updated = await prisma.live.update({
     where: { id: input.liveId },
     data: { replayExpiresAt: datePlusDays(baseDate, parsed.extensionDays) },
-    include: { provider: { include: { user: true } } },
+    include: { provider: { include: liveProviderInclude } },
   });
 
   await createAnalyticsEvent({
@@ -379,7 +967,7 @@ export async function updateLivePin(input: {
           pinExpiresAt: null,
           priorityScore: 0,
         },
-    include: { provider: { include: { user: true } } },
+    include: { provider: { include: liveProviderInclude } },
   });
 
   await createAnalyticsEvent({

@@ -25,12 +25,21 @@ import { getDashboardData, providerForCurrentUser } from "../../lib/backend/dash
 import { parseSignupInput } from "../../lib/backend/validation";
 import { submitVerificationMetadata, reviewVerification } from "../../lib/backend/verification-service";
 import { datePlusDays, getReplayStatus } from "../../lib/backend/replay-policy";
-import { extendReplayAvailability, getLiveDetailsById, getLives, listLives, updateLivePin } from "../../lib/backend/live-service";
+import {
+  extendReplayAvailability,
+  getFeaturedSupplierSessions,
+  getLiveDetailsById,
+  getLives,
+  listLives,
+  updateLivePin,
+} from "../../lib/backend/live-service";
 import { followProvider, getFollowedProviders, unfollowProvider } from "../../lib/backend/subscription-service";
 import { getMainAnalyticsSummary, getProviderAnalyticsSummary, getViewerAnalyticsSummary } from "../../lib/backend/analytics-service";
+import { buildReferralLink, getProcurementAgentDashboardData } from "../../lib/backend/procurement-agent-service";
 import {
   createNegotiation,
   createRfq,
+  getSupplierDetail,
   listCalendarEvents,
   listNegotiations,
   listRfqs,
@@ -337,6 +346,16 @@ describe("backend foundation", () => {
     const firstNormalIndex = lives.findIndex((live) => !live.isPinned);
     const laterPinnedIndex = lives.findIndex((live, index) => index > firstNormalIndex && live.isPinned);
     expect(laterPinnedIndex).toBe(-1);
+
+    const featured = await getFeaturedSupplierSessions();
+    expect(featured.map((item) => item.featureCategory)).toEqual([
+      "Recommended",
+      "Popular",
+      "Nearby",
+      "Sponsored",
+      "New verified suppliers",
+    ]);
+    expect(featured.every((item) => item.providerRole === "supplier")).toBe(true);
   });
 
   it("paginates, filters, mutates, counts active pins, and loads admin live details", async () => {
@@ -446,6 +465,17 @@ describe("backend foundation", () => {
     expect(details.providerName).toBeTruthy();
     expect(details.viewerCount).toBe(1);
     expect(details.replayViews).toBe(1);
+    expect(details.trustScore.score).toBeGreaterThanOrEqual(0);
+    expect(details.trustScore.score).toBeLessThanOrEqual(100);
+    expect(details.transcript.length).toBeGreaterThan(0);
+    expect(details.specialistHost?.hostType).toBeTruthy();
+    expect(details.commerceData?.products.length).toBeGreaterThan(0);
+    expect(details.intentQuestions?.length).toBeGreaterThan(0);
+    expect(details.transcript.some((segment) => segment.tags?.includes("MOQ"))).toBe(true);
+    expect(details.transcript.some((segment) => segment.tags?.includes("shipping"))).toBe(true);
+    expect(details.transcript.some((segment) => segment.tags?.includes("pricing"))).toBe(true);
+    expect(details.transcript.some((segment) => segment.tags?.includes("quality"))).toBe(true);
+    expect(details.transcript.some((segment) => segment.tags?.includes("RFQ"))).toBe(true);
   });
 
   it("supports follow, unfollow, duplicate prevention, and analytics calculations", async () => {
@@ -461,15 +491,54 @@ describe("backend foundation", () => {
     await followProvider({ viewerUserId: viewer.id, providerId });
     expect(await prisma.follow.count({ where: { viewerId: viewer.id, providerId } })).toBe(1);
     expect((await getFollowedProviders(viewer.id)).length).toBe(1);
+    await prisma.analyticsEvent.createMany({
+      data: [
+        {
+          userId: viewer.id,
+          providerId,
+          eventType: "conversion_intent",
+          conversionSource: "linkedin",
+          conversionIntent: "rfq",
+        },
+        {
+          userId: viewer.id,
+          providerId,
+          eventType: "conversion_intent",
+          conversionSource: "shared_link",
+          conversionIntent: "sample_request",
+        },
+      ],
+    });
 
     const providerAnalytics = await getProviderAnalyticsSummary(providerId);
     expect(providerAnalytics.followers).toBe(1);
+    expect(providerAnalytics.conversionAttribution.sources.find((source) => source.source === "linkedin")?.conversions).toBe(1);
+    expect(providerAnalytics.conversionAttribution.intentBySource.find((source) => source.source === "shared_link")?.intents[0]).toMatchObject({
+      intent: "sample_request",
+      conversions: 1,
+    });
+    expect(providerAnalytics.intentInsights.totalSignals).toBeGreaterThan(0);
     const viewerAnalytics = await getViewerAnalyticsSummary(viewer.id);
     expect(viewerAnalytics.followedProviders).toBe(1);
-    expect((await getMainAnalyticsSummary()).totalUsers).toBeGreaterThan(0);
+    expect(viewerAnalytics.intentInsights.totalSignals).toBeGreaterThan(0);
+    const mainAnalytics = await getMainAnalyticsSummary();
+    expect(mainAnalytics.totalUsers).toBeGreaterThan(0);
+    expect(mainAnalytics.intentInsights.topBuyerIntent.label).toBeTruthy();
 
     await unfollowProvider({ viewerUserId: viewer.id, providerId });
     expect(await prisma.follow.count({ where: { viewerId: viewer.id, providerId } })).toBe(0);
+  });
+
+  it("builds procurement agent referral data with live attribution and shareable links", async () => {
+    const dashboard = await getProcurementAgentDashboardData();
+    expect(dashboard.shareableSessions.length).toBeGreaterThan(0);
+    expect(dashboard.referredLives.length).toBeGreaterThan(0);
+    expect(dashboard.totalClicks).toBeGreaterThan(0);
+    expect(dashboard.estimatedCommission).toBeGreaterThan(0);
+    expect(dashboard.conversionAttribution.sources.length).toBeGreaterThan(0);
+    expect(dashboard.topPerformingLive?.referralLink).toContain("/live/");
+    expect(dashboard.referredLives.every((row) => row.referralLink.includes("/live/"))).toBe(true);
+    expect(buildReferralLink("live-demo", "agent-demo")).toContain("ref=procurement-agent");
   });
 
   it("creates and lists persistent RFQs", async () => {
@@ -496,6 +565,11 @@ describe("backend foundation", () => {
 
     expect(ranked.some((item) => item.id === providerId)).toBe(true);
     expect(ranked.every((item) => item.category === "supplier")).toBe(true);
+    expect(ranked.find((item) => item.id === providerId)?.trustScore.score).toBeGreaterThanOrEqual(0);
+
+    const detail = await getSupplierDetail(providerId);
+    expect(detail.trustScore.breakdown.map((item) => item.label)).toContain("Completed orders");
+    expect(detail.trustScore.breakdown.map((item) => item.label)).toContain("B-Impact score");
   });
 
   it("creates negotiations, stores messages, and updates status", async () => {

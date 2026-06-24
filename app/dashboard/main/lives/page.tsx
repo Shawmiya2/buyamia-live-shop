@@ -197,6 +197,7 @@ function LiveAdminCard({ live }: { live: LiveEvent }) {
         <Detail label="Viewer count" value={formatNumber(live.viewerCount)} />
         <Detail label="Replay views" value={formatNumber(live.replayViews)} />
         <Detail label="Conversion intent" value={`${live.conversionIntent}%`} />
+        <Detail label="Supplier trust" value={`${live.trustScore.score}/100`} />
         <Detail label="Replay expiration" value={replayExpirationLabel(live)} />
         <Detail label="Pinned state" value={live.isPinned ? "Pinned" : "Not pinned"} />
         <Detail label="Pin reason" value={live.pinReason ? formatLabel(live.pinReason) : "None"} />

@@ -1,6 +1,7 @@
 import Link from "next/link";
 import Image from "next/image";
 import { BusinessLiveSuite } from "../business-live-suite";
+import { CurrencyEstimatePanel } from "./currency-estimate-panel";
 import { CheckoutControls, LiveHeroActions } from "./live-room-controls";
 import { EngagementDiscountPanel } from "./engagement-discount";
 import { getLives } from "@/lib/backend/live-service";
@@ -584,6 +585,14 @@ function LiveDatabaseCatalog({
                   </span>
                 </div>
                 <div className="mt-4 flex flex-wrap gap-2">
+                  <span className="rounded-full bg-[#1f251a] px-3 py-1 text-xs font-black text-[#fffaf0]">
+                    Trust {live.trustScore.score}
+                  </span>
+                  {live.specialistHost && (
+                    <span className="rounded-full bg-[#edf2dd] px-3 py-1 text-xs font-black text-[#596540]">
+                      Specialist host
+                    </span>
+                  )}
                   {live.isPinned && (
                     <span className="rounded-full bg-[#b85438] px-3 py-1 text-xs font-black text-white">
                       {live.pinReason?.replace(/_/g, " ")}
@@ -794,12 +803,21 @@ function InstantCheckoutModal() {
                 </p>
               </div>
               <div className="w-fit rounded-2xl bg-[#efe5d2] px-4 py-3 text-left sm:text-right">
-                <p className="text-xs text-[#675f50]">Live price</p>
-                <p className="text-xl font-semibold">$68/unit</p>
+                <p className="text-xs text-[#675f50]">Source price</p>
+                <p className="text-xl font-semibold">IDR 1,080,000/unit</p>
+                <p className="mt-1 text-xs text-[#675f50]">Fixed IDR source price</p>
               </div>
             </div>
 
             <CheckoutControls />
+
+            <CurrencyEstimatePanel
+              title="Checkout and landed cost estimate"
+              summaryLabel="Estimate uses the buyer-selected currency and a fixed source-rate snapshot."
+              sourceLabel="Rattan lounge chair"
+              sourcePriceIdr={1080000}
+              quantity={24}
+            />
 
             <div className="mt-5 rounded-3xl bg-[#1f251a] p-4 text-[#fffaf0]">
               <div className="flex items-center justify-between gap-4">

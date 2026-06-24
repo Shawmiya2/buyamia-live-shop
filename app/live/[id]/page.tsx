@@ -1,6 +1,8 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getLiveById } from "@/lib/backend/live-service";
+import { LiveIntentCommercePanels } from "../intent-commerce-panels";
+import { ReplayTranscriptPanel } from "../replay-transcript-panel";
 import { LiveDetailActions } from "./live-detail-actions";
 
 export default async function LiveDetailPage({
@@ -49,10 +51,29 @@ export default async function LiveDetailPage({
             </div>
             <div className="bg-[#fffaf0] p-6 text-[#1e2419]">
               <p className="text-sm font-semibold text-[#6f7f4f]">{live.providerName}</p>
+              <div className="mt-3 flex flex-wrap gap-2">
+                <span className="rounded-full bg-[#1e2419] px-3 py-1 text-xs font-black text-[#fffaf0]">
+                  Trust {live.trustScore.score}
+                </span>
+                <span className="rounded-full bg-[#edf2dd] px-3 py-1 text-xs font-black text-[#596540]">
+                  {live.trustScore.label}
+                </span>
+              </div>
+              {live.specialistHost ? (
+                <div className="mt-3 flex flex-wrap gap-2">
+                  <span className="rounded-full bg-[#1e2419] px-3 py-1 text-xs font-black text-[#fffaf0]">
+                    Specialist host
+                  </span>
+                  <span className="rounded-full bg-[#edf2dd] px-3 py-1 text-xs font-black text-[#596540]">
+                    {live.specialistHost.hostType}
+                  </span>
+                </div>
+              ) : null}
               <h2 className="mt-2 font-serif text-3xl leading-tight">{live.title}</h2>
               <dl className="mt-6 grid gap-3 text-sm">
                 <Detail label="Category" value={live.category} />
                 <Detail label="Provider role" value={live.providerRole.replace(/_/g, " ")} />
+                <Detail label="Supplier trust" value={`${live.trustScore.score}/100`} />
                 <Detail label="Status" value={live.status} />
                 <Detail label="Pinned" value={live.isPinned ? `Yes: ${live.pinReason?.replace(/_/g, " ")}` : "No"} />
                 <Detail label="Pin expires" value={live.pinExpiresAt ? formatDate(live.pinExpiresAt) : "Not pinned"} />
@@ -61,6 +82,37 @@ export default async function LiveDetailPage({
                 <Detail label="Days remaining" value={String(live.replay.daysRemaining)} />
               </dl>
             </div>
+          </div>
+        </section>
+
+        <LiveIntentCommercePanels live={live} showQuestions={live.status !== "replay"} />
+        <ReplayTranscriptPanel transcript={live.transcript} status={live.status} />
+
+        <section className="mt-6 rounded-3xl border border-[#d6cbb6] bg-[#fffaf0] p-5 shadow-sm">
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+            <div>
+              <p className="text-[11px] font-bold uppercase tracking-[.16em] text-[#6f7f4f]">Supplier trust</p>
+              <h2 className="mt-1 text-xl font-semibold">Why this supplier has Trust {live.trustScore.score}</h2>
+            </div>
+            <span className="w-fit rounded-full bg-[#1e2419] px-3 py-1 text-xs font-black text-[#fffaf0]">
+              {live.trustScore.label}
+            </span>
+          </div>
+          <div className="mt-4 grid gap-3 md:grid-cols-2">
+            {live.trustScore.breakdown.map((item) => (
+              <div key={item.label} className="rounded-2xl bg-[#f3ecdc] p-4">
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <p className="font-semibold">{item.label}</p>
+                    <p className="mt-1 text-sm text-[#675f50]">{item.value}</p>
+                  </div>
+                  <span className="rounded-full bg-[#fffaf0] px-3 py-1 text-xs font-bold text-[#596540]">
+                    {item.points}/{item.maxPoints}
+                  </span>
+                </div>
+                <p className="mt-2 text-xs leading-5 text-[#675f50]">{item.detail}</p>
+              </div>
+            ))}
           </div>
         </section>
 

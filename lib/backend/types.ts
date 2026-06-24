@@ -103,6 +103,100 @@ export type LiveReplay = {
   priceLabel: string;
 };
 
+export type ReplayTranscriptTag =
+  | "product"
+  | "MOQ"
+  | "shipping"
+  | "pricing"
+  | "quality"
+  | "RFQ";
+
+export type LiveIntentQuestionStatus = "unanswered" | "answered" | "escalated";
+
+export type LiveIntentCategory =
+  | "MOQ"
+  | "shipping"
+  | "pricing"
+  | "quality"
+  | "comparison"
+  | "hesitation"
+  | "rejection"
+  | "bundle_request"
+  | "availability"
+  | "policy";
+
+export type SpecialistHostType =
+  | "supplier host"
+  | "procurement specialist"
+  | "interior designer"
+  | "hospitality consultant"
+  | "product expert"
+  | "sourcing agent";
+
+export type SpecialistHost = {
+  hostType: SpecialistHostType;
+  expertiseArea: string;
+  verified: boolean;
+  bio: string;
+};
+
+export type LiveCommerceProduct = {
+  name: string;
+  variant: string;
+  moq: string;
+  inventory: string;
+  promotion?: string;
+  shippingAvailability: string;
+  serviceAvailability: string;
+  policySummary: string;
+};
+
+export type LiveCommerceData = {
+  summary: string;
+  products: LiveCommerceProduct[];
+  policies: string[];
+  serviceAvailability: string[];
+};
+
+export type LiveIntentQuestion = {
+  id: string;
+  buyerName: string;
+  question: string;
+  timestamp: string;
+  intentCategory: LiveIntentCategory;
+  status: LiveIntentQuestionStatus;
+};
+
+export type ReplayTranscriptSegment = {
+  id: string;
+  timestamp: string;
+  seconds: number;
+  speaker: string;
+  text: string;
+  tags?: ReplayTranscriptTag[];
+};
+
+export type SupplierTrustBreakdownItem = {
+  label: string;
+  value: string;
+  points: number;
+  maxPoints: number;
+  detail: string;
+};
+
+export type SupplierTrustScore = {
+  score: number;
+  label: string;
+  completedOrders: number;
+  responseRate: number;
+  averageResponseMinutes: number;
+  certifications: string[];
+  bImpactScore: number;
+  completedLiveSessions: number;
+  certifiedReviews: number;
+  breakdown: SupplierTrustBreakdownItem[];
+};
+
 export type LiveEvent = {
   id: string;
   providerId: string;
@@ -119,6 +213,11 @@ export type LiveEvent = {
   pinReason?: PinReason;
   pinExpiresAt?: string;
   priorityScore: number;
+  trustScore: SupplierTrustScore;
+  transcript: ReplayTranscriptSegment[];
+  specialistHost?: SpecialistHost;
+  commerceData?: LiveCommerceData;
+  intentQuestions?: LiveIntentQuestion[];
   replay: LiveReplay;
 };
 
@@ -135,6 +234,19 @@ export type LiveListResponse = {
   items: LiveEvent[];
   pagination: LivePagination;
   activePinnedCount: number;
+};
+
+export type FeaturedSupplierCategory =
+  | "Recommended"
+  | "Popular"
+  | "Nearby"
+  | "Sponsored"
+  | "New verified suppliers";
+
+export type FeaturedSupplierSession = LiveEvent & {
+  featureCategory: FeaturedSupplierCategory;
+  featureReason: string;
+  featureBadge: string;
 };
 
 export type AssistantMode = "local" | "provider";
@@ -200,8 +312,110 @@ export type DemoAnalyticsEvent = {
   userId?: string;
   providerId?: string;
   liveId?: string;
+  conversionSource?: ConversionAttributionSource;
+  conversionIntent?: string;
   createdAt: string;
   metadata?: Record<string, string | number | boolean>;
+};
+
+export type ConversionAttributionSource =
+  | "live"
+  | "replay"
+  | "linkedin"
+  | "agent_referral"
+  | "highlight_video"
+  | "shared_link"
+  | "direct_dashboard";
+
+export type ConversionAttributionIntent = {
+  intent: string;
+  label: string;
+  conversions: number;
+};
+
+export type ConversionAttributionSourceSummary = {
+  source: ConversionAttributionSource;
+  label: string;
+  conversions: number;
+  conversionRate: number;
+  intentLabel: string;
+  assistedRevenueLabel: string;
+  changeLabel: string;
+};
+
+export type ConversionAttributionSummary = {
+  totalConversions: number;
+  topChannel: ConversionAttributionSourceSummary;
+  sources: ConversionAttributionSourceSummary[];
+  intentBySource: {
+    source: ConversionAttributionSource;
+    label: string;
+    totalConversions: number;
+    intents: ConversionAttributionIntent[];
+  }[];
+};
+
+export type IntentInsightsSummary = {
+  totalSignals: number;
+  topBuyerIntent: {
+    label: string;
+    count: number;
+    detail: string;
+  };
+  mostCommonHesitation: {
+    label: string;
+    count: number;
+    detail: string;
+  };
+  mostComparedProducts: {
+    label: string;
+    count: number;
+    detail: string;
+  };
+  bundleRequests: {
+    label: string;
+    count: number;
+    detail: string;
+  };
+  rejectedReasons: {
+    label: string;
+    count: number;
+  }[];
+  rfqSampleIntent: {
+    rfq: number;
+    sample: number;
+    detail: string;
+  };
+};
+
+export type ProcurementAgentReferralRow = {
+  liveId: string;
+  title: string;
+  providerName: string;
+  providerRole: Exclude<ProfileType, "main_admin" | "viewer">;
+  category: string;
+  sessionLabel: string;
+  referralSourceLabel: string;
+  referralLink: string;
+  clicks: number;
+  referredSessions: number;
+  attributedRfqs: number;
+  attributedOrders: number;
+  estimatedCommission: number;
+  conversionRate: number;
+};
+
+export type ProcurementAgentDashboardData = {
+  shareableSessions: Array<FeaturedSupplierSession & { referralLink: string }>;
+  totalClicks: number;
+  referredSessions: number;
+  attributedRfqs: number;
+  attributedOrders: number;
+  estimatedCommission: number;
+  conversionRate: number;
+  topPerformingLive: ProcurementAgentReferralRow | null;
+  referredLives: ProcurementAgentReferralRow[];
+  conversionAttribution: ConversionAttributionSummary;
 };
 
 export type LiveStats = {
@@ -223,6 +437,8 @@ export type ProviderAnalyticsSummary = {
   followers: number;
   conversionIntent: number;
   verificationStatus: VerificationStatus;
+  conversionAttribution: ConversionAttributionSummary;
+  intentInsights: IntentInsightsSummary;
 };
 
 export type ViewerAnalyticsSummary = {
@@ -230,6 +446,8 @@ export type ViewerAnalyticsSummary = {
   upcomingLives: number;
   availableReplays: number;
   watchedLives: number;
+  conversionAttribution: ConversionAttributionSummary;
+  intentInsights: IntentInsightsSummary;
 };
 
 export type MainAnalyticsSummary = {
@@ -239,6 +457,8 @@ export type MainAnalyticsSummary = {
   pinnedLives: number;
   pendingVerifications: number;
   expiringReplays: number;
+  conversionAttribution: ConversionAttributionSummary;
+  intentInsights: IntentInsightsSummary;
 };
 
 export type AnalyticsSummary =

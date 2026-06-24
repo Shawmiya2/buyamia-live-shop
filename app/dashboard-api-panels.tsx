@@ -4,8 +4,10 @@ import Link from "next/link";
 import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 import type {
   AnalyticsSummary,
+  ConversionAttributionSummary,
   DashboardResponse,
   DashboardType,
+  IntentInsightsSummary,
   LiveEvent,
   PinReason,
   Provider,
@@ -253,6 +255,8 @@ export function DashboardApiPanels({
         />
         <div className="grid gap-5">
           <AnalyticsSummaryPanel analytics={state.analytics} />
+          <ConversionAttributionPanel attribution={state.analytics.conversionAttribution} />
+          <IntentInsightsPanel insights={state.analytics.intentInsights} />
           <NextActionsPanel actions={state.dashboard.nextActions} />
         </div>
       </div>
@@ -444,6 +448,9 @@ function PinnedLivesPanel({
                 <span>{live.conversionIntent}% intent</span>
               </div>
               <div className="mt-3 flex flex-wrap gap-2">
+                <span className="rounded-full bg-[#1e2419] px-3 py-1 text-xs font-black text-[#fffaf0]">
+                  Trust {live.trustScore.score}
+                </span>
                 <span className="rounded-full bg-[#edf2dd] px-3 py-1 text-xs font-black text-[#596540]">
                   {replayExpirationLabel(live)}
                 </span>
@@ -1036,7 +1043,10 @@ function LiveRequestList({
 }
 
 function AnalyticsSummaryPanel({ analytics }: { analytics: AnalyticsSummary }) {
-  const rows = useMemo(() => Object.entries(analytics), [analytics]);
+  const rows = useMemo(
+    () => Object.entries(analytics).filter(([key]) => key !== "conversionAttribution" && key !== "intentInsights"),
+    [analytics],
+  );
 
   return (
     <section className="rounded-3xl border border-[#d6cbb6] bg-[#f3ecdc] p-4">
@@ -1053,6 +1063,186 @@ function AnalyticsSummaryPanel({ analytics }: { analytics: AnalyticsSummary }) {
             </span>
           </div>
         ))}
+      </div>
+    </section>
+  );
+}
+
+function ConversionAttributionPanel({
+  attribution,
+}: {
+  attribution: ConversionAttributionSummary;
+}) {
+  return (
+    <section className="rounded-3xl border border-[#d6cbb6] bg-[#fffaf0] p-4 shadow-sm">
+      <PanelHeader
+        eyebrow="conversionAttribution"
+        title="Conversion attribution"
+        badge={`Top: ${attribution.topChannel.label}`}
+      />
+
+      <div className="mt-4 grid gap-3 sm:grid-cols-2">
+        <DataCard
+          label="Top converting channel"
+          value={attribution.topChannel.label}
+          detail={`${attribution.topChannel.conversions} conversions - ${attribution.topChannel.conversionRate}% attributed share`}
+          tone="dark"
+        />
+        <DataCard
+          label="Tracked conversions"
+          value={formatNumber(attribution.totalConversions)}
+          detail="Demo/local conversion intent grouped by channel source."
+        />
+      </div>
+
+      <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+        {attribution.sources.map((source) => (
+          <article
+            key={source.source}
+            className="rounded-2xl border border-[#d6cbb6] bg-[#f3ecdc] p-4"
+          >
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <p className="text-sm font-semibold">{source.label}</p>
+                <p className="mt-1 text-xs font-bold uppercase tracking-[.14em] text-[#6f7f4f]">
+                  {source.intentLabel}
+                </p>
+              </div>
+              <span className="rounded-full bg-[#edf2dd] px-3 py-1 text-xs font-black text-[#596540]">
+                {source.conversionRate}%
+              </span>
+            </div>
+            <p className="mt-4 text-2xl font-semibold">{formatNumber(source.conversions)}</p>
+            <p className="mt-1 text-xs leading-5 text-[#675f50]">
+              {source.assistedRevenueLabel} assisted value - {source.changeLabel}
+            </p>
+          </article>
+        ))}
+      </div>
+
+      <div className="mt-4 overflow-hidden rounded-2xl border border-[#d6cbb6]">
+        <div className="grid grid-cols-[1.1fr_.8fr_1fr] gap-2 bg-[#1e2419] px-4 py-3 text-xs font-black uppercase tracking-[.12em] text-[#fffaf0]">
+          <span>Source</span>
+          <span>Conversions</span>
+          <span>Primary intent</span>
+        </div>
+        {attribution.sources.map((source) => (
+          <div
+            key={`${source.source}-row`}
+            className="grid grid-cols-[1.1fr_.8fr_1fr] gap-2 border-t border-[#d6cbb6] bg-[#fffaf0] px-4 py-3 text-sm"
+          >
+            <span className="font-semibold">{source.label}</span>
+            <span>{formatNumber(source.conversions)}</span>
+            <span className="text-[#675f50]">{source.intentLabel}</span>
+          </div>
+        ))}
+      </div>
+
+      <div className="mt-4 grid gap-3 md:grid-cols-2">
+        {attribution.intentBySource.map((source) => (
+          <div
+            key={`${source.source}-intent`}
+            className="rounded-2xl border border-[#d6cbb6] bg-[#f3ecdc] p-4"
+          >
+            <div className="flex items-center justify-between gap-3">
+              <p className="text-sm font-semibold">{source.label} intent</p>
+              <span className="rounded-full bg-[#fffaf0] px-3 py-1 text-xs font-black text-[#596540]">
+                {formatNumber(source.totalConversions)}
+              </span>
+            </div>
+            <div className="mt-3 grid gap-2">
+              {source.intents.length > 0 ? (
+                source.intents.map((intent) => (
+                  <div
+                    key={`${source.source}-${intent.intent}`}
+                    className="flex items-center justify-between gap-3 rounded-xl bg-[#fffaf0] px-3 py-2 text-xs"
+                  >
+                    <span className="font-semibold">{intent.label}</span>
+                    <span className="font-black text-[#596540]">
+                      {formatNumber(intent.conversions)}
+                    </span>
+                  </div>
+                ))
+              ) : (
+                <p className="rounded-xl bg-[#fffaf0] px-3 py-2 text-xs text-[#675f50]">
+                  No intent events for this source yet.
+                </p>
+              )}
+            </div>
+          </div>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+function IntentInsightsPanel({
+  insights,
+}: {
+  insights: IntentInsightsSummary;
+}) {
+  return (
+    <section className="rounded-3xl border border-[#d6cbb6] bg-[#f3ecdc] p-4 shadow-sm">
+      <PanelHeader
+        eyebrow="intentInsights"
+        title="Intent insights"
+        badge={`${insights.totalSignals} signals`}
+      />
+
+      <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+        <DataCard
+          label="Top buyer intent"
+          value={insights.topBuyerIntent.label}
+          detail={`${insights.topBuyerIntent.count} captured signals - live questions and replay reuse`}
+          tone="dark"
+        />
+        <DataCard
+          label="Most common hesitation"
+          value={insights.mostCommonHesitation.label}
+          detail={`${insights.mostCommonHesitation.count} signals - ${insights.mostCommonHesitation.detail}`}
+        />
+        <DataCard
+          label="Most compared product"
+          value={insights.mostComparedProducts.label}
+          detail={`${insights.mostComparedProducts.count} signals - ${insights.mostComparedProducts.detail}`}
+        />
+      </div>
+
+      <div className="mt-4 grid gap-3 sm:grid-cols-2">
+        <article className="rounded-2xl border border-[#d6cbb6] bg-[#fffaf0] p-4">
+          <p className="text-sm font-semibold">Bundle requests</p>
+          <p className="mt-2 text-2xl font-semibold">{formatNumber(insights.bundleRequests.count)}</p>
+          <p className="mt-1 text-xs leading-5 text-[#675f50]">{insights.bundleRequests.detail}</p>
+        </article>
+        <article className="rounded-2xl border border-[#d6cbb6] bg-[#fffaf0] p-4">
+          <p className="text-sm font-semibold">RFQ and sample intent</p>
+          <p className="mt-2 text-2xl font-semibold">
+            {formatNumber(insights.rfqSampleIntent.rfq)} / {formatNumber(insights.rfqSampleIntent.sample)}
+          </p>
+          <p className="mt-1 text-xs leading-5 text-[#675f50]">{insights.rfqSampleIntent.detail}</p>
+        </article>
+      </div>
+
+      <div className="mt-4 overflow-hidden rounded-2xl border border-[#d6cbb6]">
+        <div className="grid grid-cols-[1.2fr_.6fr] gap-2 bg-[#1e2419] px-4 py-3 text-xs font-black uppercase tracking-[.12em] text-[#fffaf0]">
+          <span>Rejected reason</span>
+          <span>Signals</span>
+        </div>
+        {insights.rejectedReasons.length ? (
+          insights.rejectedReasons.map((reason) => (
+            <div
+              key={reason.label}
+              className="grid grid-cols-[1.2fr_.6fr] gap-2 border-t border-[#d6cbb6] bg-[#fffaf0] px-4 py-3 text-sm"
+            >
+              <span className="font-semibold">{reason.label}</span>
+              <span>{formatNumber(reason.count)}</span>
+            </div>
+          ))
+        ) : (
+          <div className="bg-[#fffaf0] px-4 py-3 text-sm text-[#675f50]">
+            No rejected reasons captured yet.
+          </div>
+        )}
       </div>
     </section>
   );
