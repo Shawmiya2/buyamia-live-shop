@@ -253,6 +253,19 @@
   },
   "serviceLiveSetupRequests": [
     {
+      "id": "service_request_1781506195104",
+      "providerId": "provider_service_arrival",
+      "ownerUserId": "user_services_mock",
+      "serviceName": "Lola",
+      "serviceCategory": "Cafe",
+      "shortDescription": "xxxxxxx",
+      "documentVerificationPlaceholder": "Document metadata received",
+      "paymentPlaceholder": "Payment placeholder: not connected",
+      "preferredLiveDate": "2026-12-01",
+      "status": "pending_verification",
+      "createdAt": "2026-06-15T06:49:55.104Z"
+    },
+    {
       "id": "service_request_1781501851083",
       "providerId": "provider_demo_service_provider_1781501816302",
       "ownerUserId": "user_demo_1781501816302_7",
@@ -412,6 +425,16 @@
       },
       "id": "event_1781502025844_01e7c821dd4098",
       "createdAt": "2026-06-15T05:40:25.844Z"
+    },
+    {
+      "type": "service_live_requested",
+      "userId": "user_services_mock",
+      "providerId": "provider_service_arrival",
+      "metadata": {
+        "status": "pending_verification"
+      },
+      "id": "event_1781506195104_5d8785564b7c98",
+      "createdAt": "2026-06-15T06:49:55.104Z"
     }
   ]
 }
