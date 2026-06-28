@@ -1558,10 +1558,11 @@ function BrowseCategories() {
         </p>
       </div>
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-        {publicCategories.map((category) => (
+        {publicCategories.map((category, index) => (
           <Link
             key={category}
             href={`/live?category=${encodeURIComponent(category)}`}
+            aria-label={`Browse category ${index + 1}`}
             className="rounded-full border border-[#d6cbb6] bg-[#fffaf0] px-4 py-3 text-center text-sm font-bold shadow-sm transition hover:-translate-y-0.5 hover:bg-white"
           >
             {category}
@@ -1586,10 +1587,11 @@ function LiveNow() {
       </div>
       <div className="mb-5 flex gap-2 overflow-x-auto pb-1">
         {["All", "Hotels", "Restaurants", "Services", "Nearby", "Live now", "Replays", "Pinned"].map(
-          (filter) => (
+          (filter, index) => (
             <Link
               key={filter}
               href={`/live${filter === "All" ? "" : `?status=${encodeURIComponent(filter.toLowerCase().replace(/\s+/g, "_"))}`}`}
+              aria-label={`Live filter ${index + 1}`}
               className="min-w-fit rounded-full bg-[#fffaf0] px-3.5 py-2 text-xs font-bold text-[#596540] shadow-sm transition hover:bg-white"
             >
               {filter}

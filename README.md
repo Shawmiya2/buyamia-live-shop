@@ -46,11 +46,30 @@ Run setup:
 npm run backend:setup
 ```
 
+Open Prisma Studio for manual database access:
+
+```bash
+npm run db:studio
+```
+
+Prisma Studio opens a browser UI where you can view every table, inspect rows,
+and edit local development data. Use it only for local development data. Do not
+manually edit `passwordHash`, `tokenHash`, real credentials, or session records
+unless you are intentionally invalidating local sessions. The project stores
+verification metadata only and should not be used to store real identity
+documents, real payments, or real streaming credentials.
+
 Reset only the local development database:
 
 ```bash
 BACKEND_RESET_CONFIRM=RESET_LOCAL_DATABASE npm run backend:reset
 npm run backend:setup
+```
+
+Reseed demo data without deleting the local database:
+
+```bash
+npm run db:seed
 ```
 
 Seeded demo users use `Password123!`:
@@ -122,6 +141,7 @@ the service boundaries.
 
 The live commerce strategy document is available at `docs/live-commerce-strategy.md`.
 Backend architecture is documented in `docs/backend-architecture.md`.
+Manual database editing is documented in `docs/database-guide.md`.
 Functional coverage and the dead-button/link inventory are documented in
 `docs/functional-matrix.md`.
 Manual verification steps are documented in `docs/manual-test-checklist.md`.

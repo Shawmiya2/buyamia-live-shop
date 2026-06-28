@@ -232,6 +232,7 @@ export async function scheduleApprovedLiveRequest(input: {
   const live = await prisma.live.create({
     data: {
       providerId: request.providerId,
+      liveRequestId: request.id,
       title: request.title,
       category: request.category,
       status: "scheduled",

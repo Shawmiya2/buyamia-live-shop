@@ -426,8 +426,8 @@ function PinnedLivesPanel({
         </div>
         <div className="mt-4 grid gap-2">
           {preview.length > 0 ? (
-            preview.map((live) => (
-              <article key={live.id} className="grid gap-3 rounded-2xl bg-[#fffaf0] p-3 md:grid-cols-[1.2fr_.8fr_.7fr_.7fr_.7fr_.45fr] md:items-center">
+            preview.map((live, index) => (
+              <article key={`${live.id}-preview-${index}`} className="grid gap-3 rounded-2xl bg-[#fffaf0] p-3 md:grid-cols-[1.2fr_.8fr_.7fr_.7fr_.7fr_.45fr] md:items-center">
                 <div>
                   <p className="text-sm font-black leading-5">{live.title}</p>
                   <p className="mt-1 text-xs font-semibold text-[#675f50]">{live.providerName}</p>
@@ -475,7 +475,7 @@ function PinnedLivesPanel({
       <div className="mt-4 grid gap-3">
         {lives.length > 0 ? (
           lives.map((live, index) => (
-            <article key={live.id} className="rounded-2xl bg-[#fffaf0] p-4">
+            <article key={`${live.id}-pinned-${index}`} className="rounded-2xl bg-[#fffaf0] p-4">
               <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
                 <div>
                   <p className="font-semibold">{live.title}</p>
@@ -721,8 +721,8 @@ function LiveFeed({ title, lives }: { title: string; lives: LiveEvent[] }) {
       <p className="text-sm font-bold">{title}</p>
       <div className="mt-3 grid gap-2">
         {lives.length ? (
-          lives.map((live) => (
-            <div key={live.id} className="rounded-xl bg-[#f3ecdc] p-3">
+          lives.map((live, index) => (
+            <div key={`${live.id}-feed-${index}`} className="rounded-xl bg-[#f3ecdc] p-3">
               <p className="text-sm font-semibold">{live.title}</p>
               <p className="mt-1 text-xs text-[#675f50]">
                 {live.providerName} - {formatStatus(live.status)}

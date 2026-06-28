@@ -432,12 +432,12 @@ export default async function LivePage({
           </div>
 
           <div className="grid gap-3 lg:grid-cols-3">
-            {scheduledLives.length ? scheduledLives.slice(0, 3).map((live) => {
+            {scheduledLives.length ? scheduledLives.slice(0, 3).map((live, index) => {
               const startsAt = new Date(live.startsAt);
 
               return (
               <article
-                key={live.id}
+                key={`${live.id}-scheduled-${index}`}
                 className="rounded-2xl border border-[#d6cbb6] bg-[#fffaf0]/84 p-4 shadow-sm backdrop-blur"
               >
                 <div className="flex items-start justify-between gap-3">
@@ -516,8 +516,8 @@ function LiveDatabaseCatalog({
 
         <div className="mt-5 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
           {previewLives.length ? (
-            previewLives.map((live) => (
-              <article key={live.id} className="rounded-2xl border border-[#d6cbb6] bg-[#f3ecdc] p-4">
+            previewLives.map((live, index) => (
+              <article key={`${live.id}-preview-${index}`} className="rounded-2xl border border-[#d6cbb6] bg-[#f3ecdc] p-4">
                 <div className="flex items-start justify-between gap-2">
                   <div>
                     <p className="text-xs font-bold uppercase tracking-[.16em] text-[#6f7f4f]">{live.category}</p>

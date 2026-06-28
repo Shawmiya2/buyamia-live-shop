@@ -776,9 +776,9 @@ export function toLiveEvent(live: LiveWithProvider): LiveEvent {
           ? "replay"
           : "scheduled",
     startsAt: (live.scheduledAt ?? live.startedAt ?? live.createdAt).toISOString(),
-    viewerCount: 0,
-    replayViews: 0,
-    conversionIntent: 0,
+    viewerCount: live.viewerCount,
+    replayViews: live.replayViews,
+    conversionIntent: live.conversionIntent,
     isPinned: isPinActive(live),
     pinReason: live.pinReason ?? undefined,
     pinExpiresAt: live.pinExpiresAt?.toISOString(),
@@ -811,9 +811,12 @@ async function toLiveEventWithMetrics(live: LiveWithProvider): Promise<LiveEvent
 
   return {
     ...event,
-    viewerCount,
-    replayViews,
-    conversionIntent: viewerCount > 0 ? Math.min(100, Math.round((intentCount / viewerCount) * 100)) : 0,
+    viewerCount: Math.max(event.viewerCount, viewerCount),
+    replayViews: Math.max(event.replayViews, replayViews),
+    conversionIntent: Math.max(
+      event.conversionIntent,
+      viewerCount > 0 ? Math.min(100, Math.round((intentCount / viewerCount) * 100)) : 0,
+    ),
   };
 }
 

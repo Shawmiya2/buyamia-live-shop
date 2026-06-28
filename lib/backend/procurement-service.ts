@@ -82,6 +82,7 @@ export async function createRfq(adminId: string, input: unknown) {
       budgetMax: parsed.budgetMax,
       deadline: new Date(parsed.deadline),
       supplierType: parsed.supplierType as Role | undefined,
+      adminId,
       createdById: adminId,
     },
   });
@@ -213,11 +214,12 @@ export async function createNegotiation(adminId: string, input: unknown) {
   const created = await prisma.negotiation.create({
     data: {
       title: parsed.title,
+      adminId,
       providerId: parsed.providerId,
       rfqId: parsed.rfqId,
       createdById: adminId,
       messages: parsed.message
-        ? { create: { authorId: adminId, body: parsed.message } }
+        ? { create: { authorId: adminId, body: parsed.message, message: parsed.message } }
         : undefined,
     },
     include: negotiationInclude,
@@ -231,7 +233,7 @@ export async function updateNegotiation(adminId: string, id: string, input: unkn
 
   if (parsed.message) {
     await prisma.negotiationMessage.create({
-      data: { negotiationId: id, authorId: adminId, body: parsed.message },
+      data: { negotiationId: id, authorId: adminId, body: parsed.message, message: parsed.message },
     });
   }
 
@@ -336,7 +338,10 @@ export async function recordRiskDecision(adminId: string, input: unknown) {
       riskLevel: parsed.riskLevel,
       indicators: parsed.indicators as Prisma.InputJsonValue,
       reviewStatus: parsed.reviewStatus,
+      status: parsed.reviewStatus,
       adminNote: parsed.adminNote,
+      note: parsed.adminNote,
+      adminId,
       reviewerId: adminId,
       reviewedAt: new Date(),
     },

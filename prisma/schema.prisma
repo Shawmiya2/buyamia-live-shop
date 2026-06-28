@@ -40,7 +40,7 @@ enum LiveRequestStatus {
   canceled
 }
 
-enum DocumentStatus {
+enum DocumentsStatus {
   not_started
   pending
   verified
@@ -59,6 +59,8 @@ enum PaymentStatus {
 enum LiveStatus {
   scheduled
   active
+  replay
+  expired
   completed
   canceled
 }
@@ -95,6 +97,29 @@ enum RiskReviewStatus {
   reviewed
   escalated
   dismissed
+}
+
+enum AnalyticsEventType {
+  account_created
+  provider_followed
+  provider_unfollowed
+  watched_live
+  live_viewed
+  replay_viewed
+  conversion_intent
+  live_request_submitted
+  live_request_approved
+  live_request_rejected
+  stream_scheduled
+  replay_extended
+  replay_visibility_updated
+  live_pinned
+  live_unpinned
+  verification_submitted
+  verification_reviewed
+  question_answered
+  live_question_submitted
+  live_intent_signal
 }
 
 enum SellerApplicationStatus {
@@ -186,6 +211,7 @@ model ProviderProfile {
   category        Role
   description     String?
   location        String?
+  website         String?
   completedOrders Int              @default(0)
   responseRate    Int              @default(0)
   responseMinutes Int              @default(0)
@@ -227,6 +253,8 @@ model VerificationRequest {
   reviewNote       String?
   submittedAt      DateTime           @default(now())
   reviewedAt       DateTime?
+  createdAt        DateTime           @default(now())
+  updatedAt        DateTime           @updatedAt
   user             User               @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
@@ -238,17 +266,19 @@ model LiveRequest {
   description     String
   preferredDate   DateTime
   status          LiveRequestStatus @default(draft)
-  documentsStatus DocumentStatus    @default(not_started)
+  documentsStatus DocumentsStatus   @default(not_started)
   paymentStatus   PaymentStatus     @default(placeholder)
   adminNote       String?
   createdAt       DateTime          @default(now())
   updatedAt       DateTime          @updatedAt
   provider        ProviderProfile   @relation(fields: [providerId], references: [id], onDelete: Cascade)
+  live            Live?
 }
 
 model Live {
   id              String           @id @default(cuid())
   providerId      String
+  liveRequestId   String?          @unique
   title           String
   category        String
   status          LiveStatus       @default(scheduled)
@@ -260,6 +290,9 @@ model Live {
   pinReason       PinReason?
   pinExpiresAt    DateTime?
   priorityScore   Int              @default(0)
+  viewerCount     Int              @default(0)
+  replayViews     Int              @default(0)
+  conversionIntent Int             @default(0)
   transcript      Json?
   specialistHost  Json?
   commerceData    Json?
@@ -267,6 +300,7 @@ model Live {
   createdAt       DateTime         @default(now())
   updatedAt       DateTime         @updatedAt
   provider        ProviderProfile  @relation(fields: [providerId], references: [id], onDelete: Cascade)
+  liveRequest     LiveRequest?     @relation(fields: [liveRequestId], references: [id], onDelete: SetNull)
   analyticsEvents AnalyticsEvent[]
 }
 
@@ -309,6 +343,7 @@ model AdminActivity {
 
 model Rfq {
   id            String        @id @default(cuid())
+  adminId       String?
   title         String
   category      String
   requirements  String
@@ -327,6 +362,7 @@ model Rfq {
 
 model Negotiation {
   id          String               @id @default(cuid())
+  adminId     String?
   title       String
   status      NegotiationStatus    @default(open)
   providerId  String?
@@ -345,6 +381,7 @@ model NegotiationMessage {
   negotiationId String
   authorId      String
   body          String
+  message       String?
   createdAt     DateTime     @default(now())
   negotiation   Negotiation  @relation(fields: [negotiationId], references: [id], onDelete: Cascade)
   author        User         @relation("NegotiationMessageAuthor", fields: [authorId], references: [id], onDelete: Cascade)
@@ -352,13 +389,16 @@ model NegotiationMessage {
 
 model RiskReview {
   id           String           @id @default(cuid())
+  adminId      String?
   targetType   String
   providerId   String?
   rfqId        String?
   riskLevel    RiskLevel
   indicators   Json
   reviewStatus RiskReviewStatus @default(pending)
+  status       RiskReviewStatus?
   adminNote    String?
+  note         String?
   reviewerId   String?
   reviewedAt   DateTime?
   createdAt    DateTime         @default(now())
