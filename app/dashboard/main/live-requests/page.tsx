@@ -1,7 +1,8 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import type { ReactNode } from "react";
-import { requireRole } from "@/lib/backend/auth-context";
+import { AdminAccessDenied } from "@/app/admin-access-denied";
+import { getCurrentUser, requireRole } from "@/lib/backend/auth-context";
 import { listLiveRequestCatalogue, listLiveRequestCategories } from "@/lib/backend/live-request-service";
 import type { ServiceLiveSetupRequest } from "@/lib/backend/types";
 import { LiveRequestCatalogueActions } from "./live-request-catalogue-actions";
@@ -31,6 +32,10 @@ const providerRoles = [
 type SearchParams = Promise<Record<string, string | string[] | undefined>>;
 
 export default async function MainLiveRequestsPage({ searchParams }: { searchParams: SearchParams }) {
+  const user = await getCurrentUser();
+  if (user?.role !== "main_admin") {
+    return <AdminAccessDenied user={user} />;
+  }
   await requireRole("main_admin");
   const params = await searchParams;
   const result = await listLiveRequestCatalogue({

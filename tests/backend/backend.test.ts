@@ -928,6 +928,111 @@ describe("backend foundation", () => {
     expect(dashboard.liveCatalog?.every((live) => live.title && live.providerName && live.category)).toBe(true);
   });
 
+  it("keeps the main admin live controls as a global three-item preview without limiting providers", async () => {
+    const adminUser = await admin();
+    const hotel = await provider("hotel");
+    const restaurant = await provider("restaurant");
+    const supplier = await provider("supplier");
+    const service = await provider("service_provider");
+    const owners = [hotel, restaurant, supplier, service];
+    const prefix = `Admin preview ${Date.now()}`;
+
+    for (let index = 0; index < owners.length; index += 1) {
+      await prisma.live.create({
+        data: {
+          providerId: owners[index].providerId,
+          title: `${prefix} ${index}`,
+          category: ["Hotel", "Restaurant", "Furniture", "Services"][index],
+          status: index < 3 ? "active" : "completed",
+          scheduledAt: datePlusDays(new Date(), index + 1),
+          startedAt: index < 3 ? datePlusDays(new Date(), -1) : null,
+          endedAt: index >= 3 ? datePlusDays(new Date(), -1) : null,
+          replayExpiresAt: datePlusDays(new Date(), 7),
+          viewerCount: 1000000 - index,
+          replayViews: 1000000 - index,
+          isPinned: true,
+          pinReason: "featured_by_buyamia",
+          priorityScore: 1000,
+        },
+      });
+    }
+
+    const adminDashboard = await getDashboardData("main", safeUser(adminUser));
+    expect(adminDashboard.liveCatalog?.length ?? 0).toBeLessThanOrEqual(3);
+
+    const fullCatalogue = await listLives({ search: prefix, pageSize: 10 });
+    expect(fullCatalogue.items).toHaveLength(4);
+    expect(new Set(fullCatalogue.items.map((live) => live.providerRole))).toEqual(
+      new Set(["hotel", "restaurant", "supplier", "service_provider"]),
+    );
+
+    const providerDashboard = await getDashboardData("services", safeUser(service.user));
+    expect(providerDashboard.liveCatalog?.length).toBeGreaterThan(0);
+    expect(providerDashboard.liveCatalog?.length ?? 0).toBeLessThanOrEqual(3);
+    expect(providerDashboard.liveCatalog?.every((live) => live.providerId === service.providerId)).toBe(true);
+  });
+
+  it("keeps every dashboard live catalogue preview capped and role-scoped", async () => {
+    const adminUser = await admin();
+    const roleCases = [
+      { dashboardType: "hotel", providerRole: "hotel", category: "Hotel" },
+      { dashboardType: "restaurant", providerRole: "restaurant", category: "Restaurant" },
+      { dashboardType: "supplier", providerRole: "supplier", category: "Furniture" },
+      { dashboardType: "services", providerRole: "service_provider", category: "Services" },
+    ] as const;
+
+    for (const roleCase of roleCases) {
+      const owner = await provider(roleCase.providerRole);
+      const prefix = `Dashboard preview ${roleCase.providerRole} ${Date.now()}`;
+
+      for (let index = 0; index < 4; index += 1) {
+        await prisma.live.create({
+          data: {
+            providerId: owner.providerId,
+            title: `${prefix} ${index}`,
+            category: roleCase.category,
+            status: index === 0 ? "active" : index === 1 ? "scheduled" : "completed",
+            scheduledAt: datePlusDays(new Date(), index + 1),
+            endedAt: index >= 2 ? datePlusDays(new Date(), -1) : null,
+            replayExpiresAt: datePlusDays(new Date(), 7),
+            viewerCount: 1000 - index,
+            replayViews: 500 - index,
+            isPinned: true,
+            pinReason: "featured_by_buyamia",
+            priorityScore: 900 - index,
+          },
+        });
+      }
+
+      const adminDashboard = await getDashboardData(roleCase.dashboardType, safeUser(adminUser));
+      expect(adminDashboard.liveStats.totalLives).toBeGreaterThanOrEqual(4);
+      expect(adminDashboard.liveCatalog?.length ?? 0).toBeLessThanOrEqual(3);
+      expect(adminDashboard.liveCatalog?.every((live) => live.providerRole === roleCase.providerRole)).toBe(true);
+      expect(adminDashboard.auth?.currentRole).toBe("main_admin");
+
+      const providerDashboard = await getDashboardData(roleCase.dashboardType, safeUser(owner.user));
+      expect(providerDashboard.liveStats.totalLives).toBeGreaterThanOrEqual(4);
+      expect(providerDashboard.liveCatalog?.length ?? 0).toBeLessThanOrEqual(3);
+      expect(providerDashboard.liveCatalog?.every((live) => live.providerId === owner.providerId)).toBe(true);
+
+      const fullCatalogue = await listLives({
+        search: prefix,
+        providerRole: roleCase.providerRole,
+        pageSize: 10,
+      });
+      expect(fullCatalogue.items).toHaveLength(4);
+    }
+
+    const viewer = await signupUser({
+      name: "Three Item Viewer",
+      email: uniqueEmail("three-item-viewer"),
+      password: "Password123!",
+      role: "viewer",
+    });
+    const viewerDashboard = await getDashboardData("viewer", safeUser(viewer));
+    expect(viewerDashboard.liveCatalog?.length ?? 0).toBeLessThanOrEqual(3);
+  });
+
   it("lets service providers manage their own replay availability", async () => {
     const service = await provider("service_provider");
     const hotel = await provider("hotel");

@@ -16,6 +16,7 @@ import type {
   LiveEvent,
   LiveListResponse,
   PinReason,
+  ProfileType,
   ReplayTranscriptSegment,
   ReplayTranscriptTag,
   ReplayStatus,
@@ -838,6 +839,60 @@ export async function getLives(providerId?: string) {
   return sortPinnedLives(lives.map(toLiveEvent));
 }
 
+export async function getDashboardLiveSummary(input: {
+  providerId?: string;
+  providerRole?: Exclude<ProfileType, "main_admin" | "viewer">;
+  previewLimit?: number;
+} = {}) {
+  const now = new Date();
+  const whereParts: Prisma.LiveWhereInput[] = [];
+
+  if (input.providerId) {
+    whereParts.push({ providerId: input.providerId });
+  }
+  if (input.providerRole) {
+    whereParts.push({ provider: { category: input.providerRole } });
+  }
+
+  const where: Prisma.LiveWhereInput = whereParts.length ? { AND: whereParts } : {};
+  const replayAvailableWhere: Prisma.LiveWhereInput = {
+    AND: [where, { status: "completed", replayExpiresAt: { gt: now } }],
+  };
+  const replayExpiringWhere: Prisma.LiveWhereInput = {
+    AND: [where, { status: "completed", replayExpiresAt: { gt: now, lte: datePlusDays(now, 2) } }],
+  };
+  const preview = await listLives({
+    providerId: input.providerId,
+    providerRole: input.providerRole,
+    page: 1,
+    pageSize: input.previewLimit ?? 3,
+    sort: "important",
+  });
+  const [totalLives, activeLives, scheduledLives, replayViews, availableReplays, expiringReplays] =
+    await Promise.all([
+      prisma.live.count({ where }),
+      prisma.live.count({ where: { AND: [where, { status: "active" }] } }),
+      prisma.live.count({ where: { AND: [where, { status: "scheduled" }] } }),
+      prisma.live.aggregate({ where, _sum: { replayViews: true } }),
+      prisma.live.count({ where: replayAvailableWhere }),
+      prisma.live.count({ where: replayExpiringWhere }),
+    ]);
+
+  return {
+    liveStats: {
+      totalLives,
+      activeLives,
+      scheduledLives,
+    },
+    replayStats: {
+      replayViews: replayViews._sum.replayViews ?? 0,
+      availableReplays,
+      expiringReplays,
+    },
+    liveCatalog: preview.items,
+  };
+}
+
 export async function createScheduledStream(providerId: string, input: unknown) {
   const provider = await prisma.providerProfile.findUnique({ where: { id: providerId } });
   if (!provider) {
@@ -934,6 +989,34 @@ export async function getLiveDetailsById(id: string) {
 
 export async function getPinnedLives(providerId?: string) {
   return (await getLives(providerId)).filter((live) => live.isPinned);
+}
+
+export async function getAdminLivePreview(limit = 3) {
+  const lives = await prisma.live.findMany({
+    include: { provider: { include: liveProviderInclude } },
+  });
+  const events = await Promise.all(lives.map(toLiveEventWithMetrics));
+
+  return events.sort(compareLivePreviewPriority).slice(0, Math.max(0, limit));
+}
+
+function compareLivePreviewPriority(a: LiveEvent, b: LiveEvent) {
+  const rank = (live: LiveEvent) => {
+    if (live.isPinned) return 0;
+    if (live.status === "live") return 1;
+    if (live.status === "scheduled") return 2;
+    return 3;
+  };
+  const rankDelta = rank(a) - rank(b);
+  if (rankDelta !== 0) return rankDelta;
+
+  const priorityDelta = b.priorityScore - a.priorityScore;
+  if (priorityDelta !== 0) return priorityDelta;
+
+  const engagementDelta = (b.viewerCount + b.replayViews) - (a.viewerCount + a.replayViews);
+  if (engagementDelta !== 0) return engagementDelta;
+
+  return new Date(b.startsAt).getTime() - new Date(a.startsAt).getTime();
 }
 
 export async function getFeaturedSupplierSessions(): Promise<FeaturedSupplierSession[]> {
