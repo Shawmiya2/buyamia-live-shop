@@ -962,13 +962,27 @@ function MainLiveRequestPanel({
   runAction: (label: string, request: () => Promise<Response>, successMessage?: string) => Promise<void>;
 }) {
   const requests = dashboard.pendingLiveRequests ?? [];
+  const previewRequests = requests.slice(0, 4);
 
   return (
     <section id="pending-live-requests" className="mt-5 rounded-3xl border border-[#d6cbb6] bg-[#f3ecdc] p-4">
-      <PanelHeader eyebrow="main admin review" title="Pending live requests" badge={`${requests.length}`} />
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+        <PanelHeader eyebrow="main admin review" title="Pending live requests" badge={`${requests.length}`} />
+        <Link
+          href="/dashboard/main/live-requests"
+          className="w-fit rounded-full bg-[#1e2419] px-4 py-2 text-sm font-bold text-[#fffaf0] transition hover:bg-[#596540]"
+        >
+          View full catalogue
+        </Link>
+      </div>
+      {requests.length > previewRequests.length && (
+        <p className="mt-3 text-sm font-semibold text-[#675f50]">
+          Showing {previewRequests.length} of {requests.length} pending requests.
+        </p>
+      )}
       <div className="mt-4 grid gap-3">
-        {requests.length ? (
-          requests.map((request) => (
+        {previewRequests.length ? (
+          previewRequests.map((request) => (
             <article key={request.id} className="rounded-2xl bg-[#fffaf0] p-4">
               <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
                 <div>

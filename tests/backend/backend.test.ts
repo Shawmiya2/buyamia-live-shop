@@ -1378,7 +1378,7 @@ describe("backend foundation", () => {
       role: "viewer",
     }));
     const coreCommands = [
-      ["Open calendar", "/dashboard/main/calendar"],
+      ["Open calendar", "/live/calendar"],
       ["Generate an RFQ", "/dashboard/main/rfqs/new"],
       ["Show RFQs", "/dashboard/main/rfqs"],
       ["Rank suppliers", "/dashboard/main/suppliers/rank"],
@@ -1439,11 +1439,12 @@ describe("backend foundation", () => {
     expect(unknown.suggestions.length).toBeGreaterThan(0);
   });
 
-  it("keeps procurement quick actions away from generic live routing", () => {
+  it("uses explicit procurement quick action routes", () => {
     const source = readFileSync("app/dashboard-platform.tsx", "utf8");
-    for (const label of ["Generate RFQ", "Rank suppliers", "Open negotiation", "Review risk", "View calendar"]) {
+    for (const label of ["Generate RFQ", "Rank suppliers", "Open negotiation", "Review risk"]) {
       expect(source).toContain(`"${label.toLowerCase()}": "/dashboard/main/`);
     }
+    expect(source).toContain('"view calendar": "/live/calendar"');
   });
 
   it("protects new main-admin action APIs with role authorization", () => {

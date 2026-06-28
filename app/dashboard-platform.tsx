@@ -3,10 +3,13 @@ import Link from "next/link";
 import { DashboardAccessGate } from "./dashboard-access-gate";
 import { DashboardApiPanels } from "./dashboard-api-panels";
 import { BuyamiaAssistant } from "./buyamia-assistant";
+import { getCurrentUser } from "@/lib/backend/auth-context";
+import { getDashboardForRole } from "@/lib/backend/role-guard";
 import type {
   DashboardType,
   FeaturedSupplierCategory,
   FeaturedSupplierSession,
+  SafeUser,
 } from "@/lib/backend/types";
 
 type DashboardKind =
@@ -1221,13 +1224,14 @@ const connectedWorkflows: WorkItem[] = [
   },
 ];
 
-export function DashboardPlatform({
+export async function DashboardPlatform({
   activeDashboard,
   featuredSupplierSessions = [],
 }: {
   activeDashboard: DashboardKind;
   featuredSupplierSessions?: FeaturedSupplierSession[];
 }) {
+  const currentUser = await getCurrentUser();
   const selectedDashboard =
     activeDashboard === "overview"
       ? undefined
@@ -1238,7 +1242,7 @@ export function DashboardPlatform({
       <div className="grid min-h-dvh grid-rows-[auto_1fr] lg:grid-cols-[284px_minmax(0,1fr)] lg:grid-rows-1">
         <Sidebar activeDashboard={activeDashboard} />
         <div className="min-h-0 min-w-0 overflow-y-auto">
-          <Topbar activeDashboard={selectedDashboard?.name ?? "Discover"} />
+          <Topbar activeDashboard={selectedDashboard?.name ?? "Discover"} currentUser={currentUser} />
           {selectedDashboard ? (
             <DashboardAccessGate
               dashboardType={getDashboardApiType(selectedDashboard.kind)}
@@ -1246,7 +1250,7 @@ export function DashboardPlatform({
               <DashboardDetail dashboard={selectedDashboard} />
             </DashboardAccessGate>
           ) : (
-            <OverviewDashboard featuredSupplierSessions={featuredSupplierSessions} />
+            <OverviewDashboard featuredSupplierSessions={featuredSupplierSessions} currentUser={currentUser} />
           )}
         </div>
       </div>
@@ -1336,8 +1340,9 @@ function Sidebar({ activeDashboard }: { activeDashboard: DashboardKind }) {
   );
 }
 
-function Topbar({ activeDashboard }: { activeDashboard: string }) {
+function Topbar({ activeDashboard, currentUser }: { activeDashboard: string; currentUser: SafeUser | null }) {
   const isPublicHome = activeDashboard === "Discover";
+  const dashboardHref = currentUser ? getDashboardForRole(currentUser.role) : "/login";
 
   return (
     <header className="sticky top-0 z-20 border-b border-[#d6cbb6] bg-[#f3ecdc]/90 px-4 py-3 backdrop-blur-xl sm:px-6 lg:px-8">
@@ -1359,11 +1364,23 @@ function Topbar({ activeDashboard }: { activeDashboard: string }) {
             Explore live streams
           </Link>
           <Link
-            href="/signup"
-            className="rounded-full bg-[#6f7f4f] px-4 py-2 text-sm font-bold text-white transition hover:bg-[#596540]"
+            href={isPublicHome && currentUser ? dashboardHref : "/signup"}
+            className={`rounded-full px-4 py-2 text-sm font-bold transition ${
+              isPublicHome && currentUser
+                ? "border border-[#cabda4] bg-[#fffaf0]/76 text-[#1e2419] hover:bg-white"
+                : "bg-[#6f7f4f] text-white hover:bg-[#596540]"
+            }`}
           >
-            {isPublicHome ? "Create account" : "Create account"}
+            {isPublicHome && currentUser ? "Go to dashboard" : "Create account"}
           </Link>
+          {isPublicHome && !currentUser && (
+            <Link
+              href={dashboardHref}
+              className="rounded-full bg-[#1e2419] px-4 py-2 text-sm font-bold text-[#fffaf0] transition hover:bg-[#596540]"
+            >
+              Login
+            </Link>
+          )}
         </div>
       </div>
     </header>
@@ -1372,12 +1389,14 @@ function Topbar({ activeDashboard }: { activeDashboard: string }) {
 
 function OverviewDashboard({
   featuredSupplierSessions,
+  currentUser,
 }: {
   featuredSupplierSessions: FeaturedSupplierSession[];
+  currentUser: SafeUser | null;
 }) {
   return (
     <section className="px-4 py-6 sm:px-6 lg:px-8">
-      <PublicHero />
+      <PublicHero currentUser={currentUser} />
       <BrowseCategories />
       <LiveNow />
       <FeaturedSupplierSessions sessions={featuredSupplierSessions} />
@@ -1503,7 +1522,9 @@ function FeaturedSupplierCard({
   );
 }
 
-function PublicHero() {
+function PublicHero({ currentUser }: { currentUser: SafeUser | null }) {
+  const dashboardHref = currentUser ? getDashboardForRole(currentUser.role) : "/login";
+
   return (
     <section className="relative overflow-hidden rounded-3xl border border-[#d6cbb6] bg-[#1e2419] p-5 text-[#fffaf0] shadow-xl shadow-[#8a7d61]/12 sm:p-8">
       <div
@@ -1538,6 +1559,12 @@ function PublicHero() {
             >
               Create account
             </a>
+            <Link
+              href={dashboardHref}
+              className="rounded-full border border-white/20 bg-[#1e2419]/80 px-6 py-3 text-center text-sm font-bold text-[#fffaf0] backdrop-blur-xl transition hover:bg-[#596540]"
+            >
+              {currentUser ? "Go to dashboard" : "Login"}
+            </Link>
           </div>
         </div>
       </div>
@@ -2417,7 +2444,7 @@ function quickActionHref(action: string) {
     "rank suppliers": "/dashboard/main/suppliers/rank",
     "open negotiation": "/dashboard/main/negotiations",
     "review risk": "/dashboard/main/risk",
-    "view calendar": "/dashboard/main/calendar",
+    "view calendar": "/live/calendar",
     "open hotel dashboard": "/dashboard/hotel",
     "open services dashboard": "/dashboard/services",
     "open supplier dashboard": "/dashboard/supplier",

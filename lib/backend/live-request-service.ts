@@ -1,5 +1,5 @@
 import { z } from "zod";
-import type { LiveRequestStatus } from "@prisma/client";
+import type { LiveRequestStatus, Prisma, Role } from "@prisma/client";
 import { prisma } from "./prisma";
 import { ApiError, ValidationApiError } from "./errors";
 import { createAnalyticsEvent } from "./analytics-service";
@@ -143,12 +143,93 @@ export async function listLiveRequests(options: { providerId?: string; pendingOn
   });
 }
 
+export async function listLiveRequestCatalogue(options: {
+  page?: string;
+  pageSize?: string;
+  search?: string;
+  status?: string;
+  providerRole?: string;
+  category?: string;
+} = {}) {
+  const page = positiveInt(options.page, 1);
+  const pageSize = Math.min(positiveInt(options.pageSize, 10), 50);
+  const where: Prisma.LiveRequestWhereInput = {};
+  const search = options.search?.trim();
+
+  if (search) {
+    where.OR = [
+      { title: { contains: search } },
+      { provider: { displayName: { contains: search } } },
+      { provider: { user: { name: { contains: search } } } },
+    ];
+  }
+
+  if (isLiveRequestStatus(options.status)) {
+    where.status = options.status;
+  }
+
+  if (isProviderRole(options.providerRole)) {
+    where.provider = { ...(where.provider as Prisma.ProviderProfileWhereInput | undefined), category: options.providerRole };
+  }
+
+  if (options.category?.trim()) {
+    where.category = options.category.trim();
+  }
+
+  const [items, totalItems] = await prisma.$transaction([
+    prisma.liveRequest.findMany({
+      where,
+      orderBy: { createdAt: "desc" },
+      include: liveRequestInclude,
+      skip: (page - 1) * pageSize,
+      take: pageSize,
+    }),
+    prisma.liveRequest.count({ where }),
+  ]);
+  const totalPages = Math.max(1, Math.ceil(totalItems / pageSize));
+
+  return {
+    items,
+    pagination: {
+      page,
+      pageSize,
+      totalItems,
+      totalPages,
+      hasPreviousPage: page > 1,
+      hasNextPage: page < totalPages,
+    },
+  };
+}
+
+export async function listLiveRequestCategories() {
+  const rows = await prisma.liveRequest.findMany({
+    select: { category: true },
+    distinct: ["category"],
+    orderBy: { category: "asc" },
+  });
+
+  return rows.map((row) => row.category).filter(Boolean);
+}
+
 export async function getLiveRequest(id: string) {
   const request = await prisma.liveRequest.findUnique({ where: { id }, include: liveRequestInclude });
   if (!request) {
     throw new ApiError("not_found", "Live request not found.", 404);
   }
   return request;
+}
+
+function positiveInt(value: string | undefined, fallback: number) {
+  const parsed = Number.parseInt(value ?? "", 10);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
+}
+
+function isLiveRequestStatus(value: string | undefined): value is LiveRequestStatus {
+  return Boolean(value && ["draft", "pending_review", "approved", "rejected", "scheduled", "active", "completed", "canceled"].includes(value));
+}
+
+function isProviderRole(value: string | undefined): value is Exclude<Role, "main_admin" | "viewer"> {
+  return Boolean(value && ["hotel", "restaurant", "supplier", "service_provider"].includes(value));
 }
 
 export async function updateLiveRequest(providerId: string, id: string, input: unknown) {
