@@ -538,7 +538,7 @@ function PinnedLivesPanel({
   return (
     <section className="rounded-3xl border border-[#d6cbb6] bg-[#f3ecdc] p-4">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-        <PanelHeader eyebrow="liveCatalog" title="Backend live controls" badge={`${pinnedCount} active pins`} />
+        <PanelHeader eyebrow="liveCatalog" title="Backend live controls" badge={`${lives.length} highlighted / ${pinnedCount} active pins`} />
         <Link
           href="/dashboard/main/lives"
           className="w-fit rounded-full bg-[#1e2419] px-4 py-2 text-sm font-bold text-[#fffaf0] transition hover:bg-[#596540]"
@@ -546,6 +546,11 @@ function PinnedLivesPanel({
           Manage all lives
         </Link>
       </div>
+      {lives.length > 0 && (
+        <p className="mt-3 text-sm font-semibold text-[#675f50]">
+          Showing {lives.length} highlighted lives from the global admin catalogue.
+        </p>
+      )}
       <div className="mt-4 grid gap-3">
         {lives.length > 0 ? (
           lives.map((live, index) => (
@@ -659,7 +664,7 @@ function PinnedLivesPanel({
           ))
         ) : (
           <p className="rounded-2xl bg-[#fffaf0] p-4 text-sm text-[#675f50]">
-            No pinned lives returned for this dashboard.
+            No lives are available yet. New scheduled, active, and replay lives will appear here.
           </p>
         )}
       </div>

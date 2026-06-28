@@ -936,6 +936,34 @@ export async function getPinnedLives(providerId?: string) {
   return (await getLives(providerId)).filter((live) => live.isPinned);
 }
 
+export async function getAdminLivePreview(limit = 3) {
+  const lives = await prisma.live.findMany({
+    include: { provider: { include: liveProviderInclude } },
+  });
+  const events = await Promise.all(lives.map(toLiveEventWithMetrics));
+
+  return events.sort(compareLivePreviewPriority).slice(0, Math.max(0, limit));
+}
+
+function compareLivePreviewPriority(a: LiveEvent, b: LiveEvent) {
+  const rank = (live: LiveEvent) => {
+    if (live.isPinned) return 0;
+    if (live.status === "live") return 1;
+    if (live.status === "scheduled") return 2;
+    return 3;
+  };
+  const rankDelta = rank(a) - rank(b);
+  if (rankDelta !== 0) return rankDelta;
+
+  const priorityDelta = b.priorityScore - a.priorityScore;
+  if (priorityDelta !== 0) return priorityDelta;
+
+  const engagementDelta = (b.viewerCount + b.replayViews) - (a.viewerCount + a.replayViews);
+  if (engagementDelta !== 0) return engagementDelta;
+
+  return new Date(b.startsAt).getTime() - new Date(a.startsAt).getTime();
+}
+
 export async function getFeaturedSupplierSessions(): Promise<FeaturedSupplierSession[]> {
   const lives = await prisma.live.findMany({
     where: { provider: { category: "supplier" } },

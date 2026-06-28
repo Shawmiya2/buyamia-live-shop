@@ -928,6 +928,54 @@ describe("backend foundation", () => {
     expect(dashboard.liveCatalog?.every((live) => live.title && live.providerName && live.category)).toBe(true);
   });
 
+  it("keeps the main admin live controls as a global three-item preview without limiting providers", async () => {
+    const adminUser = await admin();
+    const hotel = await provider("hotel");
+    const restaurant = await provider("restaurant");
+    const supplier = await provider("supplier");
+    const service = await provider("service_provider");
+    const owners = [hotel, restaurant, supplier, service];
+    const prefix = `Admin preview ${Date.now()}`;
+
+    for (let index = 0; index < owners.length; index += 1) {
+      await prisma.live.create({
+        data: {
+          providerId: owners[index].providerId,
+          title: `${prefix} ${index}`,
+          category: ["Hotel", "Restaurant", "Furniture", "Services"][index],
+          status: index === 0 ? "active" : index === 1 ? "scheduled" : "completed",
+          scheduledAt: datePlusDays(new Date(), index + 1),
+          startedAt: index === 0 ? datePlusDays(new Date(), -1) : null,
+          endedAt: index >= 2 ? datePlusDays(new Date(), -1) : null,
+          replayExpiresAt: datePlusDays(new Date(), 7),
+          viewerCount: 100000 - index,
+          replayViews: 100000 - index,
+          isPinned: true,
+          pinReason: "featured_by_buyamia",
+          priorityScore: 1000,
+        },
+      });
+    }
+
+    const adminDashboard = await getDashboardData("main", safeUser(adminUser));
+    expect(adminDashboard.liveCatalog?.length ?? 0).toBeLessThanOrEqual(3);
+    expect(adminDashboard.liveCatalog?.map((live) => live.title)).toEqual([
+      `${prefix} 0`,
+      `${prefix} 1`,
+      `${prefix} 2`,
+    ]);
+
+    const fullCatalogue = await listLives({ search: prefix, pageSize: 10 });
+    expect(fullCatalogue.items).toHaveLength(4);
+    expect(new Set(fullCatalogue.items.map((live) => live.providerRole))).toEqual(
+      new Set(["hotel", "restaurant", "supplier", "service_provider"]),
+    );
+
+    const providerDashboard = await getDashboardData("services", safeUser(service.user));
+    expect(providerDashboard.liveCatalog?.length).toBeGreaterThan(0);
+    expect(providerDashboard.liveCatalog?.every((live) => live.providerId === service.providerId)).toBe(true);
+  });
+
   it("lets service providers manage their own replay availability", async () => {
     const service = await provider("service_provider");
     const hotel = await provider("hotel");
