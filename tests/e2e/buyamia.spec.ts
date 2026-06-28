@@ -13,6 +13,7 @@ async function login(page: import("@playwright/test").Page, email: string, passw
 test("public homepage, category navigation, live details, and copy link work", async ({ page, context }) => {
   await page.goto("/");
   await expect(page.getByRole("heading", { name: /Buyamia live access/i })).toBeVisible();
+  await expect(page.getByRole("link", { name: "Login" }).first()).toHaveAttribute("href", "/login");
   await expect(page.getByRole("heading", { name: "Featured Supplier Sessions" })).toBeVisible();
   for (const category of ["Recommended", "Popular", "Nearby", "Sponsored", "New verified suppliers"]) {
     await expect(page.getByRole("link", { name: category })).toBeVisible();
@@ -87,6 +88,7 @@ test("provider live request persists and admin can review it", async ({ page }) 
   await page.getByRole("button", { name: "Logout" }).click();
   await login(page, "admin@example.test", "ChangeMe123!");
   await page.goto("/dashboard/main");
+  await expect(page.getByRole("link", { name: "View full catalogue" })).toHaveAttribute("href", "/dashboard/main/live-requests");
   const requestCard = page.locator("article").filter({ hasText: requestTitle }).first();
   await expect(requestCard).toBeVisible();
   await requestCard.getByRole("button", { name: "Approve" }).click();
@@ -118,6 +120,23 @@ test("main admin manages paginated lives with persistent filters and details", a
   await expect(page).toHaveURL(/\/dashboard\/main\/lives\/.+/);
   await expect(page.getByRole("heading", { name: /live/i })).toBeVisible();
   await expect(page.getByText("Replay expiration")).toBeVisible();
+});
+
+test("main admin live request catalogue renders and filters without crashing", async ({ page }) => {
+  await login(page, "admin@example.test", "ChangeMe123!");
+  await page.goto("/dashboard/main");
+  await page.getByRole("link", { name: "View full catalogue" }).click();
+  await expect(page).toHaveURL(/\/dashboard\/main\/live-requests/);
+  await expect(page.getByRole("heading", { name: "Live request catalogue" })).toBeVisible();
+
+  await page.getByLabel("Search").fill("suite");
+  await page.locator('select[name="status"]').selectOption("pending_review");
+  await page.getByLabel("Provider role").selectOption("hotel");
+  await page.getByRole("button", { name: "Apply filters" }).click();
+  await expect(page).toHaveURL(/search=suite/);
+  await expect(page).toHaveURL(/status=pending_review/);
+  await expect(page).toHaveURL(/providerRole=hotel/);
+  await expect(page.getByText(/Application error|Page not found/)).toHaveCount(0);
 });
 
 test("main admin submits an RFQ without runtime errors and sees it in the list", async ({ page }) => {
