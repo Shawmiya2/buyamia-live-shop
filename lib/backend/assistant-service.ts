@@ -21,7 +21,7 @@ type CommandDefinition = AssistantAction & {
 };
 
 export const assistantCommands: CommandDefinition[] = [
-  command("open_calendar", "Open calendar", "/dashboard/main/calendar", "Open the main admin operations calendar.", ["calendar", "view calendar", "show calendar", "operations calendar"], ["main_admin"]),
+  command("open_calendar", "Open calendar", "/live/calendar", "Open the live calendar.", ["calendar", "view calendar", "show calendar", "operations calendar"], ["main_admin"]),
   command("generate_rfq", "Generate an RFQ", "/dashboard/main/rfqs/new", "Create a new RFQ from the main admin dashboard.", ["generate rfq", "create rfq", "new rfq", "make an rfq", "generate an rfq"], ["main_admin"]),
   command("show_rfqs", "Show RFQs", "/dashboard/main/rfqs", "Open stored RFQs.", ["show rfqs", "open rfqs", "list rfqs", "rfq list"], ["main_admin"]),
   command("rank_suppliers", "Rank suppliers", "/dashboard/main/suppliers/rank", "Open supplier ranking and filters.", ["rank suppliers", "supplier ranking", "score suppliers", "find suppliers"], ["main_admin"]),

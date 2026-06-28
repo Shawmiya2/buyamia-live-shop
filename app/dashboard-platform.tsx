@@ -2444,7 +2444,7 @@ function quickActionHref(action: string) {
     "rank suppliers": "/dashboard/main/suppliers/rank",
     "open negotiation": "/dashboard/main/negotiations",
     "review risk": "/dashboard/main/risk",
-    "view calendar": "/dashboard/main/calendar",
+    "view calendar": "/live/calendar",
     "open hotel dashboard": "/dashboard/hotel",
     "open services dashboard": "/dashboard/services",
     "open supplier dashboard": "/dashboard/supplier",
