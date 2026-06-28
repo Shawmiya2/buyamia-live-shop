@@ -1,10 +1,11 @@
 import type { Live, Prisma, ProviderProfile, User } from "@prisma/client";
 import { z } from "zod";
 import { prisma } from "./prisma";
-import { ApiError } from "./errors";
+import { ApiError, ValidationApiError } from "./errors";
 import { createAnalyticsEvent } from "./analytics-service";
 import { datePlusDays, defaultReplayAvailabilityDays, getReplayStatus } from "./replay-policy";
 import { calculateSupplierTrustScore } from "./trust-score-service";
+import { fieldErrorsFromZod } from "./validation";
 import type {
   FeaturedSupplierCategory,
   FeaturedSupplierSession,
@@ -31,6 +32,67 @@ const replaySchema = z.object({
   extensionDays: z.number().int().positive().max(365).default(5),
 });
 
+const providerReplaySchema = z.object({
+  expirationDate: z.string().trim().optional(),
+  removeExpiration: z.coerce.boolean().optional(),
+  visibility: z.enum(["public", "private"]).optional(),
+}).superRefine((value, context) => {
+  if (value.removeExpiration) {
+    return;
+  }
+  if (value.expirationDate) {
+    const expiration = new Date(`${value.expirationDate}T23:59:59`);
+    if (Number.isNaN(expiration.getTime())) {
+      context.addIssue({ code: "custom", path: ["expirationDate"], message: "Please select a valid expiration date." });
+    }
+    if (expiration <= new Date()) {
+      context.addIssue({ code: "custom", path: ["expirationDate"], message: "Expiration date must be in the future." });
+    }
+  }
+});
+
+export const scheduleStreamFieldMessages = {
+  title: "Please enter a stream title.",
+  category: "Please select a category.",
+  scheduledAt: "Please select a valid scheduled date and time.",
+  scheduledAtPast: "The scheduled date and time must be in the future.",
+  providerType: "Please select the provider type for your account.",
+  duplicate: "A stream with this title is already scheduled at this time.",
+} as const;
+
+const scheduleProviderRoles = ["hotel", "restaurant", "supplier", "service_provider"] as const;
+
+function requiredString(message: string, max: number) {
+  return z.preprocess(
+    (value) => (typeof value === "string" ? value : ""),
+    z.string().trim().min(1, message).max(max),
+  );
+}
+
+const scheduleStreamSchema = z.object({
+  title: requiredString(scheduleStreamFieldMessages.title, 120),
+  category: requiredString(scheduleStreamFieldMessages.category, 80),
+  scheduledAt: requiredString(scheduleStreamFieldMessages.scheduledAt, 80),
+  providerType: z.enum(scheduleProviderRoles, scheduleStreamFieldMessages.providerType).optional(),
+  estimatedDurationMinutes: z.preprocess(
+    (value) => (value === "" || value === null || value === undefined ? undefined : Number(value)),
+    z.number().int().min(15).max(480).optional(),
+  ),
+  language: z.preprocess(
+    (value) => (typeof value === "string" && value.trim() ? value : undefined),
+    z.string().trim().max(60).optional(),
+  ),
+  thumbnailUrl: z.preprocess(
+    (value) => (typeof value === "string" && value.trim() ? value : undefined),
+    z.url("Please enter a valid thumbnail URL.").optional(),
+  ),
+  visibility: z.enum(["public", "private"]).default("public"),
+  description: z.preprocess(
+    (value) => (typeof value === "string" && value.trim() ? value : undefined),
+    z.string().trim().max(1000).optional(),
+  ),
+});
+
 type LiveWithProvider = Live & {
   provider: ProviderProfile & { user: User; lives?: Pick<Live, "id">[] };
 };
@@ -39,7 +101,7 @@ const liveStatuses = ["scheduled", "active", "completed", "replay", "expired"] a
 const providerRoles = ["hotel", "restaurant", "supplier", "service_provider"] as const;
 const pinReasons = ["sponsored", "nearby", "most_watched", "featured_by_buyamia"] as const;
 const replayStatuses = ["active", "expiring_soon", "expired"] as const;
-const sortOptions = ["important", "scheduled_desc", "scheduled_asc", "title_asc", "provider_asc", "replay_expiring"] as const;
+const sortOptions = ["important", "featured", "most_viewed", "scheduled_desc", "scheduled_asc", "title_asc", "provider_asc", "replay_expiring"] as const;
 const liveProviderInclude = {
   user: true,
   lives: { where: { status: "completed" }, select: { id: true } },
@@ -91,6 +153,8 @@ export type ListLivesInput = {
   pinned?: unknown;
   pinReason?: unknown;
   replayStatus?: unknown;
+  dateFrom?: unknown;
+  dateTo?: unknown;
   sort?: unknown;
 };
 
@@ -115,6 +179,18 @@ function numberParam(value: unknown, fallback: number, max?: number) {
 function enumParam<T extends readonly string[]>(value: unknown, options: T): T[number] | undefined {
   const current = optionalString(value);
   return current && options.includes(current) ? current : undefined;
+}
+
+function dateParam(value: unknown) {
+  const current = optionalString(value);
+  if (!current) {
+    return undefined;
+  }
+  const date = new Date(current);
+  if (Number.isNaN(date.getTime())) {
+    throw new ValidationApiError({ date: "Please enter a valid date." });
+  }
+  return date;
 }
 
 function replayWhere(status: ReplayStatus, now: Date): Prisma.LiveWhereInput {
@@ -176,6 +252,36 @@ function orderByForSort(sort: SortOption): Prisma.LiveOrderByWithRelationInput[]
 
 export function isPinActive(live: Pick<Live, "isPinned" | "pinExpiresAt">, now = new Date()) {
   return live.isPinned && (!live.pinExpiresAt || live.pinExpiresAt > now);
+}
+
+export function parseScheduledStreamDate(value: unknown, now = new Date()) {
+  if (typeof value !== "string" || !value.trim()) {
+    throw new ValidationApiError({ scheduledAt: scheduleStreamFieldMessages.scheduledAt });
+  }
+
+  const scheduledAt = new Date(value);
+  if (Number.isNaN(scheduledAt.getTime())) {
+    throw new ValidationApiError({ scheduledAt: scheduleStreamFieldMessages.scheduledAt });
+  }
+
+  if (scheduledAt <= now) {
+    throw new ValidationApiError({ scheduledAt: scheduleStreamFieldMessages.scheduledAtPast });
+  }
+
+  return scheduledAt;
+}
+
+function parseScheduleStreamInput(input: unknown, now = new Date()) {
+  const parsed = scheduleStreamSchema.safeParse(input);
+
+  if (!parsed.success) {
+    throw new ValidationApiError(fieldErrorsFromZod(parsed.error));
+  }
+
+  return {
+    ...parsed.data,
+    scheduledAt: parseScheduledStreamDate(parsed.data.scheduledAt, now),
+  };
 }
 
 function transcriptForLive(live: Pick<Live, "id" | "title" | "category" | "transcript"> & { provider: Pick<ProviderProfile, "displayName"> }): ReplayTranscriptSegment[] {
@@ -317,12 +423,26 @@ function parseCommerceData(value: Prisma.JsonValue | null): LiveCommerceData | n
   const serviceAvailability = Array.isArray(data.serviceAvailability)
     ? data.serviceAvailability.filter((entry): entry is string => typeof entry === "string")
     : [];
+  const rawSchedule = data.schedule && typeof data.schedule === "object" && !Array.isArray(data.schedule)
+    ? data.schedule as Record<string, unknown>
+    : undefined;
+  const schedule = rawSchedule
+    ? {
+        estimatedDurationMinutes: typeof rawSchedule.estimatedDurationMinutes === "number" ? rawSchedule.estimatedDurationMinutes : null,
+        language: typeof rawSchedule.language === "string" ? rawSchedule.language : null,
+        thumbnailUrl: typeof rawSchedule.thumbnailUrl === "string" ? rawSchedule.thumbnailUrl : null,
+        visibility: rawSchedule.visibility === "private" ? "private" as const : "public" as const,
+        providerType: providerRoles.includes(rawSchedule.providerType as (typeof providerRoles)[number])
+          ? rawSchedule.providerType as (typeof providerRoles)[number]
+          : undefined,
+      }
+    : undefined;
 
-  if (!summary && products.length === 0) {
+  if (!summary && products.length === 0 && !schedule) {
     return null;
   }
 
-  return { summary, products, policies, serviceAvailability };
+  return { summary, products, policies, serviceAvailability, schedule };
 }
 
 function parseSpecialistHost(value: Prisma.JsonValue | null): SpecialistHost | null {
@@ -715,6 +835,74 @@ export async function getLives(providerId?: string) {
   return sortPinnedLives(lives.map(toLiveEvent));
 }
 
+export async function createScheduledStream(providerId: string, input: unknown) {
+  const provider = await prisma.providerProfile.findUnique({ where: { id: providerId } });
+  if (!provider) {
+    throw new ApiError("not_found", "Provider not found.", 404);
+  }
+
+  const parsed = parseScheduleStreamInput(input);
+  if (parsed.providerType && parsed.providerType !== provider.category) {
+    throw new ValidationApiError({ providerType: scheduleStreamFieldMessages.providerType });
+  }
+
+  const duplicate = await prisma.live.findFirst({
+    where: {
+      providerId,
+      status: "scheduled",
+      title: parsed.title,
+      scheduledAt: parsed.scheduledAt,
+    },
+    select: { id: true },
+  });
+  if (duplicate) {
+    throw new ValidationApiError({ scheduledAt: scheduleStreamFieldMessages.duplicate });
+  }
+
+  const commerceData = {
+    summary: parsed.description ?? "",
+    products: [],
+    policies: [],
+    serviceAvailability: [],
+    schedule: {
+      estimatedDurationMinutes: parsed.estimatedDurationMinutes ?? null,
+      language: parsed.language ?? null,
+      thumbnailUrl: parsed.thumbnailUrl ?? null,
+      visibility: parsed.visibility,
+      providerType: provider.category,
+    },
+  } satisfies Prisma.InputJsonObject;
+
+  const live = await prisma.live.create({
+    data: {
+      providerId,
+      title: parsed.title,
+      category: parsed.category,
+      status: "scheduled",
+      scheduledAt: parsed.scheduledAt,
+      replayExpiresAt: datePlusDays(parsed.scheduledAt, defaultReplayAvailabilityDays),
+      commerceData,
+    },
+    include: { provider: { include: liveProviderInclude } },
+  });
+
+  await createAnalyticsEvent({
+    userId: provider.userId,
+    providerId,
+    liveId: live.id,
+    eventType: "stream_scheduled",
+    metadata: {
+      scheduledAt: parsed.scheduledAt.toISOString(),
+      source: "schedule_stream",
+      estimatedDurationMinutes: parsed.estimatedDurationMinutes,
+      language: parsed.language,
+      visibility: parsed.visibility,
+    },
+  });
+
+  return toLiveEvent(live);
+}
+
 export async function getLiveById(id: string) {
   const live = await prisma.live.findUnique({
     where: { id },
@@ -828,6 +1016,8 @@ export async function listLives(input: ListLivesInput = {}): Promise<LiveListRes
   const pinReason = enumParam(input.pinReason, pinReasons) as PinReason | undefined;
   const replayStatus = enumParam(input.replayStatus, replayStatuses) as ReplayStatus | undefined;
   const sort = enumParam(input.sort, sortOptions) ?? "important";
+  const dateFrom = dateParam(input.dateFrom);
+  const dateTo = dateParam(input.dateTo);
   const category = optionalString(input.category);
   const providerId = optionalString(input.providerId);
   const pinned = optionalString(input.pinned);
@@ -866,8 +1056,49 @@ export async function listLives(input: ListLivesInput = {}): Promise<LiveListRes
   if (replayStatus) {
     whereParts.push(replayWhere(replayStatus, now));
   }
+  if (dateFrom || dateTo) {
+    const range: Prisma.DateTimeFilter = {
+      gte: dateFrom,
+      lte: dateTo,
+    };
+    whereParts.push({
+      OR: [
+        { scheduledAt: range },
+        { startedAt: range },
+        { endedAt: range },
+        { createdAt: range },
+      ],
+    });
+  }
 
   const where: Prisma.LiveWhereInput = whereParts.length ? { AND: whereParts } : {};
+  if (sort === "most_viewed") {
+    const [totalItems, activePinnedCount, lives] = await Promise.all([
+      prisma.live.count({ where }),
+      prisma.live.count({ where: activePinWhere(now) }),
+      prisma.live.findMany({
+        where,
+        include: { provider: { include: liveProviderInclude } },
+      }),
+    ]);
+    const ranked = (await Promise.all(lives.map(toLiveEventWithMetrics)))
+      .sort((a, b) => (b.viewerCount + b.replayViews) - (a.viewerCount + a.replayViews));
+    const totalPages = Math.max(1, Math.ceil(totalItems / pageSize));
+
+    return {
+      items: ranked.slice((page - 1) * pageSize, page * pageSize),
+      pagination: {
+        page,
+        pageSize,
+        totalItems,
+        totalPages,
+        hasPreviousPage: page > 1,
+        hasNextPage: page < totalPages,
+      },
+      activePinnedCount,
+    };
+  }
+
   const [totalItems, activePinnedCount, lives] = await Promise.all([
     prisma.live.count({ where }),
     prisma.live.count({ where: activePinWhere(now) }),
@@ -934,6 +1165,122 @@ export async function extendReplayAvailability(input: {
       },
     });
   }
+
+  return toLiveEvent(updated);
+}
+
+export async function listProviderReplays(providerId: string, input: {
+  replayStatus?: unknown;
+  availability?: unknown;
+  createdAt?: unknown;
+  expiresAt?: unknown;
+  category?: unknown;
+  sort?: unknown;
+} = {}) {
+  const provider = await prisma.providerProfile.findUnique({ where: { id: providerId } });
+  if (!provider) {
+    throw new ApiError("not_found", "Provider not found.", 404);
+  }
+  if (provider.category !== "service_provider") {
+    throw new ApiError("forbidden", "Only service providers can manage replay availability.", 403);
+  }
+
+  const now = new Date();
+  const replayStatus = enumParam(input.replayStatus, replayStatuses) as ReplayStatus | undefined;
+  const availability = optionalString(input.availability);
+  const createdAt = dateParam(input.createdAt);
+  const expiresAt = dateParam(input.expiresAt);
+  const category = optionalString(input.category);
+  const sort = enumParam(input.sort, ["newest", "oldest", "expiring_soon", "most_viewed"] as const) ?? "expiring_soon";
+  const whereParts: Prisma.LiveWhereInput[] = [{ providerId, status: "completed" }];
+
+  if (replayStatus) {
+    whereParts.push(replayWhere(replayStatus, now));
+  }
+  if (availability === "available") {
+    whereParts.push({ replayExpiresAt: { gt: now } });
+  }
+  if (availability === "expired") {
+    whereParts.push({ OR: [{ replayExpiresAt: null }, { replayExpiresAt: { lte: now } }] });
+  }
+  if (createdAt) {
+    whereParts.push({ createdAt: { gte: new Date(createdAt.toDateString()), lt: datePlusDays(new Date(createdAt.toDateString()), 1) } });
+  }
+  if (expiresAt) {
+    whereParts.push({ replayExpiresAt: { gte: new Date(expiresAt.toDateString()), lt: datePlusDays(new Date(expiresAt.toDateString()), 1) } });
+  }
+  if (category) {
+    whereParts.push({ category });
+  }
+
+  const lives = await prisma.live.findMany({
+    where: { AND: whereParts },
+    include: { provider: { include: liveProviderInclude } },
+    orderBy:
+      sort === "oldest"
+        ? [{ createdAt: "asc" }]
+        : sort === "newest"
+          ? [{ createdAt: "desc" }]
+          : [{ replayExpiresAt: "asc" }, { createdAt: "desc" }],
+  });
+  const events = await Promise.all(lives.map(toLiveEventWithMetrics));
+  return sort === "most_viewed"
+    ? events.sort((a, b) => b.replayViews - a.replayViews)
+    : events;
+}
+
+export async function updateProviderReplayAvailability(providerId: string, liveId: string, input: unknown) {
+  const parsed = providerReplaySchema.safeParse(input);
+  if (!parsed.success) {
+    throw new ValidationApiError(fieldErrorsFromZod(parsed.error));
+  }
+
+  const live = await prisma.live.findFirst({
+    where: { id: liveId, providerId, status: "completed" },
+    include: { provider: { include: liveProviderInclude } },
+  });
+  if (!live) {
+    throw new ApiError("not_found", "Replay not found.", 404);
+  }
+  if (live.provider.category !== "service_provider") {
+    throw new ApiError("forbidden", "Only service providers can manage replay availability.", 403);
+  }
+
+  const commerceData = live.commerceData && typeof live.commerceData === "object" && !Array.isArray(live.commerceData)
+    ? { ...(live.commerceData as Prisma.JsonObject) }
+    : {};
+  const schedule = commerceData.schedule && typeof commerceData.schedule === "object" && !Array.isArray(commerceData.schedule)
+    ? { ...(commerceData.schedule as Prisma.JsonObject) }
+    : {};
+  if (parsed.data.visibility) {
+    schedule.visibility = parsed.data.visibility;
+    commerceData.schedule = schedule;
+  }
+
+  const replayExpiresAt = parsed.data.removeExpiration
+    ? null
+    : parsed.data.expirationDate
+      ? new Date(`${parsed.data.expirationDate}T23:59:59`)
+      : live.replayExpiresAt;
+
+  const updated = await prisma.live.update({
+    where: { id: live.id },
+    data: {
+      replayExpiresAt,
+      commerceData: commerceData as Prisma.InputJsonValue,
+    },
+    include: { provider: { include: liveProviderInclude } },
+  });
+
+  await createAnalyticsEvent({
+    providerId: updated.providerId,
+    liveId: updated.id,
+    eventType: parsed.data.visibility ? "replay_visibility_updated" : "replay_extended",
+    metadata: {
+      replayExpiresAt: updated.replayExpiresAt?.toISOString() ?? "none",
+      visibility: parsed.data.visibility ?? "",
+    },
+  });
 
   return toLiveEvent(updated);
 }

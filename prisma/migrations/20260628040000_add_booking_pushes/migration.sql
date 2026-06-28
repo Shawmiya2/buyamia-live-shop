@@ -1,0 +1,20 @@
+CREATE TABLE "BookingPush" (
+    "id" TEXT NOT NULL PRIMARY KEY,
+    "providerId" TEXT NOT NULL,
+    "status" TEXT NOT NULL DEFAULT 'scheduled',
+    "campaignTitle" TEXT NOT NULL,
+    "hotelName" TEXT NOT NULL,
+    "promotionDescription" TEXT NOT NULL,
+    "roomType" TEXT NOT NULL,
+    "bookingOffer" TEXT NOT NULL,
+    "discountPercentage" INTEGER,
+    "startDate" DATETIME NOT NULL,
+    "endDate" DATETIME NOT NULL,
+    "availableRooms" INTEGER NOT NULL,
+    "targetAudience" TEXT NOT NULL,
+    "featuredImageUrl" TEXT,
+    "callToActionText" TEXT NOT NULL,
+    "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" DATETIME NOT NULL,
+    CONSTRAINT "BookingPush_providerId_fkey" FOREIGN KEY ("providerId") REFERENCES "ProviderProfile" ("id") ON DELETE CASCADE ON UPDATE CASCADE
+);

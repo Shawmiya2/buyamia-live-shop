@@ -45,7 +45,8 @@ export async function getDashboardData(dashboardType: DashboardType, user: SafeU
   const role = dashboardRoleMap[dashboardType];
   const providerId =
     dashboardType === "main" || dashboardType === "viewer" ? undefined : user.providerId;
-  const allLives = await getLives(providerId);
+  const viewerLiveSummary = dashboardType === "viewer" ? await listLives({ page: 1, pageSize: 5, sort: "important" }) : undefined;
+  const allLives = viewerLiveSummary ? viewerLiveSummary.items : await getLives(providerId);
   const pinnedLives = await getPinnedLives(providerId);
   const replayStats = {
     replayViews: allLives.reduce((sum, live) => sum + live.replayViews, 0),
@@ -66,7 +67,7 @@ export async function getDashboardData(dashboardType: DashboardType, user: SafeU
       scheduledLives: allLives.filter((live) => live.status === "scheduled").length,
     },
     replayStats,
-    liveCatalog: mainLiveSummary?.items ?? allLives,
+    liveCatalog: viewerLiveSummary?.items ?? mainLiveSummary?.items ?? allLives,
     pinnedLives,
     analyticsSummary: await getAnalyticsSummary(dashboardType, user.id, providerId),
     nextActions: getNextActions(dashboardType),
@@ -74,10 +75,10 @@ export async function getDashboardData(dashboardType: DashboardType, user: SafeU
 
   if (dashboardType === "viewer") {
     response.subscriptions = {
-      followedProviders: await getFollowedProviders(user.id),
+      followedProviders: await getFollowedProviders(user.id, { limit: 5 }),
       replayFeed: await getViewerReplayFeed(user.id),
       upcomingLives: await getViewerUpcomingLives(user.id),
-      availableProviders: await getAvailableProvidersForViewer(user.id),
+      availableProviders: await getAvailableProvidersForViewer(user.id, { limit: 5 }),
     };
   }
 

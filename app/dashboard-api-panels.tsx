@@ -250,6 +250,7 @@ export function DashboardApiPanels({
         <PinnedLivesPanel
           lives={state.dashboard.liveCatalog ?? state.dashboard.pinnedLives}
           pinnedCount={state.dashboard.pinnedLives.length}
+          dashboardType={dashboardType}
           pendingAction={pendingAction}
           runAction={runAction}
         />
@@ -404,15 +405,61 @@ function DataCard({
 function PinnedLivesPanel({
   lives,
   pinnedCount,
+  dashboardType,
   pendingAction,
   runAction,
 }: {
   lives: LiveEvent[];
   pinnedCount: number;
+  dashboardType: DashboardType;
   pendingAction: string;
   runAction: (label: string, request: () => Promise<Response>, successMessage?: string) => Promise<void>;
 }) {
   const [selectedReasons, setSelectedReasons] = useState<Record<string, PinReason>>({});
+
+  if (dashboardType === "viewer") {
+    const preview = lives.slice(0, 5);
+    return (
+      <section className="rounded-3xl border border-[#d6cbb6] bg-[#f3ecdc] p-4">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+          <PanelHeader eyebrow="liveCatalog" title="Backend live controls" badge={`${preview.length} preview items`} />
+        </div>
+        <div className="mt-4 grid gap-2">
+          {preview.length > 0 ? (
+            preview.map((live) => (
+              <article key={live.id} className="grid gap-3 rounded-2xl bg-[#fffaf0] p-3 md:grid-cols-[1.2fr_.8fr_.7fr_.7fr_.7fr_.45fr] md:items-center">
+                <div>
+                  <p className="text-sm font-black leading-5">{live.title}</p>
+                  <p className="mt-1 text-xs font-semibold text-[#675f50]">{live.providerName}</p>
+                </div>
+                <span className="text-xs font-bold text-[#596540]">{live.category}</span>
+                <span className="rounded-full bg-[#edf2dd] px-3 py-1 text-center text-xs font-black text-[#596540]">
+                  {formatStatus(live.status)}
+                </span>
+                <span className="text-xs font-semibold text-[#675f50]">{formatDate(live.startsAt)}</span>
+                <span className="rounded-full bg-[#1e2419] px-3 py-1 text-center text-xs font-black text-[#fffaf0]">
+                  Trust {live.trustScore.score}
+                </span>
+                <Link href={`/live/${live.id}`} className="text-center text-xs font-black text-[#596540]">
+                  Open
+                </Link>
+              </article>
+            ))
+          ) : (
+            <p className="rounded-2xl bg-[#fffaf0] p-4 text-sm text-[#675f50]">
+              No live catalogue preview items are available.
+            </p>
+          )}
+        </div>
+        <Link
+          href="/live/catalogue"
+          className="mt-4 inline-flex rounded-full border border-[#cabda4] bg-[#fffaf0] px-5 py-3 text-sm font-bold text-[#1e2419] transition hover:bg-white"
+        >
+          View Full Catalogue
+        </Link>
+      </section>
+    );
+  }
 
   return (
     <section className="rounded-3xl border border-[#d6cbb6] bg-[#f3ecdc] p-4">
@@ -570,6 +617,8 @@ function ViewerFollowPanel({
           providers={followed}
           empty="No followed providers yet."
           actionLabel="Unfollow"
+          footerHref="/viewer/subscriptions#following"
+          footerLabel="View All Following"
           pendingAction={pendingAction}
           onProviderAction={(providerId) =>
             runAction("Unfollow provider", () =>
@@ -586,6 +635,8 @@ function ViewerFollowPanel({
           providers={available}
           empty="All providers are currently followed."
           actionLabel="Follow"
+          footerHref="/viewer/subscriptions#providers"
+          footerLabel="View All Providers"
           pendingAction={pendingAction}
           onProviderAction={(providerId) =>
             runAction("Follow provider", () =>
@@ -611,6 +662,8 @@ function ProviderList({
   providers,
   empty,
   actionLabel,
+  footerHref,
+  footerLabel,
   pendingAction,
   onProviderAction,
 }: {
@@ -618,6 +671,8 @@ function ProviderList({
   providers: Provider[];
   empty: string;
   actionLabel: string;
+  footerHref: string;
+  footerLabel: string;
   pendingAction: string;
   onProviderAction: (providerId: string) => void;
 }) {
@@ -629,13 +684,15 @@ function ProviderList({
           providers.map((provider) => (
             <div
               key={provider.id}
-              className="flex flex-col gap-2 rounded-xl bg-[#f3ecdc] p-3 sm:flex-row sm:items-center sm:justify-between"
+              className="grid gap-2 rounded-xl bg-[#f3ecdc] p-3 sm:grid-cols-[1fr_auto] sm:items-center"
             >
               <div>
                 <p className="text-sm font-semibold">{provider.name}</p>
-                <p className="text-xs text-[#675f50]">
-                  {formatStatus(provider.profileType)} - {formatStatus(provider.verificationStatus)}
-                </p>
+                <div className="mt-1 flex flex-wrap gap-2 text-xs font-bold text-[#675f50]">
+                  <span>{formatStatus(provider.profileType)}</span>
+                  <span>Trust {provider.trustScore ?? "n/a"}</span>
+                  <span>{actionLabel === "Unfollow" ? "Following" : "Available"}</span>
+                </div>
               </div>
               <button
                 type="button"
@@ -651,6 +708,9 @@ function ProviderList({
           <p className="rounded-xl bg-[#f3ecdc] p-3 text-sm text-[#675f50]">{empty}</p>
         )}
       </div>
+      <Link href={footerHref} className="mt-3 inline-flex rounded-full border border-[#cabda4] bg-[#fffaf0] px-4 py-2 text-xs font-black text-[#1e2419]">
+        {footerLabel}
+      </Link>
     </div>
   );
 }

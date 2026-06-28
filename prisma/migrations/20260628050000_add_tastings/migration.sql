@@ -1,0 +1,20 @@
+CREATE TABLE "Tasting" (
+    "id" TEXT NOT NULL PRIMARY KEY,
+    "providerId" TEXT NOT NULL,
+    "status" TEXT NOT NULL DEFAULT 'scheduled',
+    "title" TEXT NOT NULL,
+    "restaurantName" TEXT NOT NULL,
+    "description" TEXT NOT NULL,
+    "cuisineCategory" TEXT NOT NULL,
+    "tastingType" TEXT NOT NULL,
+    "scheduledAt" DATETIME NOT NULL,
+    "durationMinutes" INTEGER NOT NULL,
+    "maxParticipants" INTEGER NOT NULL,
+    "price" INTEGER,
+    "location" TEXT NOT NULL,
+    "featuredImageUrl" TEXT,
+    "additionalNotes" TEXT,
+    "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" DATETIME NOT NULL,
+    CONSTRAINT "Tasting_providerId_fkey" FOREIGN KEY ("providerId") REFERENCES "ProviderProfile" ("id") ON DELETE CASCADE ON UPDATE CASCADE
+);

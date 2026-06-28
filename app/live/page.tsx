@@ -15,17 +15,6 @@ type Product = {
   image: string;
 };
 
-type ScheduleItem = {
-  time: string;
-  date: string;
-  title: string;
-  supplier: string;
-  countdown: string;
-  expectedBuyers: string;
-  tags: string[];
-  image: string;
-};
-
 const products: Product[] = [
   {
     name: "Rattan lounge chair",
@@ -77,42 +66,6 @@ const emotionPeaks = [
   ["26:10", "checkout", 68],
 ];
 
-const schedule: ScheduleItem[] = [
-  {
-    time: "11:30",
-    date: "May 11, 2026",
-    title: "Jepara teak contract furniture",
-    supplier: "Java Teak Atelier",
-    countdown: "18h 12m",
-    expectedBuyers: "340 expected buyers",
-    tags: ["Teak", "Hospitality", "MOQ 12"],
-    image:
-      "https://images.unsplash.com/photo-1594026112284-02bb6f3352fe?auto=format&fit=crop&w=900&q=86",
-  },
-  {
-    time: "13:00",
-    date: "May 11, 2026",
-    title: "Lombok stone spa fixtures",
-    supplier: "Lombok Stone Studio",
-    countdown: "19h 42m",
-    expectedBuyers: "210 expected buyers",
-    tags: ["Stone", "Spa", "Export ready"],
-    image:
-      "https://images.unsplash.com/photo-1600607687920-4e2a09cf159d?auto=format&fit=crop&w=900&q=86",
-  },
-  {
-    time: "15:45",
-    date: "May 11, 2026",
-    title: "Ubud woven lighting showcase",
-    supplier: "Ubud Fiber House",
-    countdown: "22h 27m",
-    expectedBuyers: "185 expected buyers",
-    tags: ["Lighting", "Artisan", "Villa"],
-    image:
-      "https://images.unsplash.com/photo-1507473885765-e6ed057f782c?auto=format&fit=crop&w=900&q=86",
-  },
-];
-
 export default async function LivePage({
   searchParams,
 }: {
@@ -121,6 +74,9 @@ export default async function LivePage({
   const filters = await searchParams;
   const lives = await getLives();
   const filteredLives = filterLives(lives, filters);
+  const scheduledLives = lives
+    .filter((live) => live.status === "scheduled")
+    .sort((a, b) => new Date(a.startsAt).getTime() - new Date(b.startsAt).getTime());
 
   return (
     <main className="min-h-screen overflow-hidden bg-[#f3ecdc] text-[#1f251a]">
@@ -249,10 +205,10 @@ export default async function LivePage({
                     key={item}
                     href={
                       item === "AI sourcing"
-                        ? "#ai"
+                        ? "/ai-sourcing"
                         : item === "Schedule stream"
-                          ? "#schedule"
-                          : "#seller"
+                          ? "/live/schedule"
+                          : "/become-a-seller"
                     }
                     className="rounded-full px-4 py-2 text-xs font-bold text-[#5f584b] transition hover:bg-white/70 hover:text-[#1f251a]"
                   >
@@ -470,62 +426,46 @@ export default async function LivePage({
                 Minimal sourcing rooms, scheduled with intent.
               </h2>
             </div>
-            <Link href="/live?status=scheduled" className="w-full rounded-full bg-[#1f251a] px-4 py-2.5 text-center text-sm font-bold text-[#fffaf0] transition hover:bg-[#596540] focus:outline-none focus:ring-2 focus:ring-[#1f251a]/25 sm:w-fit">
+            <Link href="/live/calendar" className="w-full rounded-full bg-[#1f251a] px-4 py-2.5 text-center text-sm font-bold text-[#fffaf0] transition hover:bg-[#596540] focus:outline-none focus:ring-2 focus:ring-[#1f251a]/25 sm:w-fit">
               View calendar
             </Link>
           </div>
 
-          <div className="grid gap-4 lg:grid-cols-3">
-            {schedule.map((item, index) => (
+          <div className="grid gap-3 lg:grid-cols-3">
+            {scheduledLives.length ? scheduledLives.slice(0, 3).map((live) => {
+              const startsAt = new Date(live.startsAt);
+
+              return (
               <article
-                key={item.title}
-                className="group overflow-hidden rounded-[2rem] bg-[#fffaf0]/84 shadow-xl shadow-[#8a7d61]/8 backdrop-blur transition duration-500 hover:-translate-y-1 hover:shadow-2xl hover:shadow-[#8a7d61]/12"
-                style={{
-                  animation: `softLift ${4 + index * 0.45}s ease-in-out infinite`,
-                }}
+                key={live.id}
+                className="rounded-2xl border border-[#d6cbb6] bg-[#fffaf0]/84 p-4 shadow-sm backdrop-blur"
               >
-                <div
-                  className="h-52 bg-cover bg-center"
-                  style={{ backgroundImage: `url(${item.image})` }}
-                />
-                <div className="p-5">
-                  <div className="flex items-start justify-between gap-3">
-                    <div>
-                      <p className="text-sm font-bold text-[#6f7f4f]">
-                        {item.date} - {item.time}
-                      </p>
-                      <h3 className="mt-2 text-xl font-semibold">
-                        {item.title}
-                      </h3>
-                      <p className="mt-2 text-sm text-[#675f50]">
-                        {item.supplier}
-                      </p>
-                    </div>
-                    <span className="rounded-full bg-[#efe5d2] px-3 py-1.5 text-xs font-black text-[#596540] [animation:countdownBreath_4s_ease-in-out_infinite]">
-                      {item.countdown}
-                    </span>
-                  </div>
-                  <div className="mt-4 flex flex-wrap gap-2">
-                    {item.tags.map((tag) => (
-                      <span
-                        key={tag}
-                        className="rounded-full bg-[#f3ecdc] px-3 py-1 text-xs font-bold text-[#675f50]"
-                      >
-                        {tag}
-                      </span>
-                    ))}
-                  </div>
-                  <div className="mt-5 flex items-center justify-between gap-3">
-                    <p className="text-sm font-semibold text-[#675f50]">
-                      {item.expectedBuyers}
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <p className="text-sm font-bold text-[#6f7f4f]">
+                      {formatScheduleDate(startsAt)} - {formatScheduleTime(startsAt)}
                     </p>
-                    <Link href="/login" className="shrink-0 rounded-full bg-[#1f251a] px-4 py-2.5 text-sm font-bold text-white transition hover:bg-[#596540] focus:outline-none focus:ring-2 focus:ring-[#1f251a]/25">
-                      Remind me
-                    </Link>
+                    <h3 className="mt-2 text-lg font-semibold">
+                      {live.title}
+                    </h3>
+                    <p className="mt-1 text-sm text-[#675f50]">
+                      {live.providerName}
+                    </p>
                   </div>
+                  <span className="rounded-full bg-[#efe5d2] px-3 py-1.5 text-xs font-black text-[#596540]">
+                    {formatCountdown(startsAt)}
+                  </span>
                 </div>
+                <Link href={`/live/${live.id}`} className="mt-4 inline-flex rounded-full border border-[#cabda4] bg-[#f3ecdc] px-4 py-2 text-sm font-bold text-[#1f251a]">
+                  View details
+                </Link>
               </article>
-            ))}
+              );
+            }) : (
+              <p className="rounded-2xl bg-[#fffaf0] p-4 text-sm font-semibold text-[#675f50]">
+                No scheduled live streams are available yet.
+              </p>
+            )}
           </div>
         </div>
       </section>
@@ -541,6 +481,7 @@ function LiveDatabaseCatalog({
   filters: { category?: string; status?: string; q?: string };
 }) {
   const hasFilters = Boolean(filters.category || filters.status || filters.q);
+  const previewLives = lives.slice(0, 4);
 
   return (
     <section className="px-5 pb-14 sm:px-7 lg:px-8" aria-labelledby="live-catalog-heading">
@@ -567,14 +508,17 @@ function LiveDatabaseCatalog({
                 Clear filters
               </Link>
             )}
+            <Link href={catalogueHref(filters)} className="rounded-full bg-[#1f251a] px-3 py-2 text-xs font-bold text-[#fffaf0]">
+              Browse All Lives
+            </Link>
           </div>
         </div>
 
-        <div className="mt-5 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-          {lives.length ? (
-            lives.map((live) => (
-              <article key={live.id} className="rounded-3xl border border-[#d6cbb6] bg-[#f3ecdc] p-4">
-                <div className="flex items-start justify-between gap-3">
+        <div className="mt-5 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+          {previewLives.length ? (
+            previewLives.map((live) => (
+              <article key={live.id} className="rounded-2xl border border-[#d6cbb6] bg-[#f3ecdc] p-4">
+                <div className="flex items-start justify-between gap-2">
                   <div>
                     <p className="text-xs font-bold uppercase tracking-[.16em] text-[#6f7f4f]">{live.category}</p>
                     <h3 className="mt-2 text-lg font-semibold">{live.title}</h3>
@@ -584,15 +528,10 @@ function LiveDatabaseCatalog({
                     {live.status}
                   </span>
                 </div>
-                <div className="mt-4 flex flex-wrap gap-2">
+                <div className="mt-3 flex flex-wrap gap-2">
                   <span className="rounded-full bg-[#1f251a] px-3 py-1 text-xs font-black text-[#fffaf0]">
                     Trust {live.trustScore.score}
                   </span>
-                  {live.specialistHost && (
-                    <span className="rounded-full bg-[#edf2dd] px-3 py-1 text-xs font-black text-[#596540]">
-                      Specialist host
-                    </span>
-                  )}
                   {live.isPinned && (
                     <span className="rounded-full bg-[#b85438] px-3 py-1 text-xs font-black text-white">
                       {live.pinReason?.replace(/_/g, " ")}
@@ -601,16 +540,10 @@ function LiveDatabaseCatalog({
                   <span className="rounded-full bg-[#fffaf0] px-3 py-1 text-xs font-bold text-[#596540]">
                     Replay {live.replay.status.replace(/_/g, " ")}
                   </span>
-                  <span className="rounded-full bg-[#fffaf0] px-3 py-1 text-xs font-bold text-[#596540]">
-                    {live.replay.daysRemaining} days remaining
-                  </span>
                 </div>
-                <div className="mt-5 flex flex-wrap gap-2">
+                <div className="mt-4 flex flex-wrap gap-2">
                   <Link href={`/live/${live.id}`} className="rounded-full bg-[#1f251a] px-4 py-2.5 text-sm font-bold text-[#fffaf0]">
                     {live.status === "replay" ? "View replay" : "Watch live"}
-                  </Link>
-                  <Link href={`/live/${live.id}`} className="rounded-full border border-[#cabda4] bg-[#fffaf0] px-4 py-2.5 text-sm font-bold text-[#1f251a]">
-                    View details
                   </Link>
                 </div>
               </article>
@@ -621,9 +554,23 @@ function LiveDatabaseCatalog({
             </p>
           )}
         </div>
+        <div className="mt-5 flex justify-center">
+          <Link href={catalogueHref(filters)} className="rounded-full bg-[#1f251a] px-6 py-3 text-sm font-bold text-[#fffaf0] transition hover:bg-[#596540]">
+            View Full Catalogue
+          </Link>
+        </div>
       </div>
     </section>
   );
+}
+
+function catalogueHref(filters: { category?: string; status?: string; q?: string }) {
+  const params = new URLSearchParams();
+  if (filters.category) params.set("category", filters.category);
+  if (filters.status) params.set("status", filters.status);
+  if (filters.q) params.set("search", filters.q);
+  const query = params.toString();
+  return query ? `/live/catalogue?${query}` : "/live/catalogue";
 }
 
 function filterLives(lives: LiveEvent[], filters: { category?: string; status?: string; q?: string }) {
@@ -649,6 +596,39 @@ function filterLives(lives: LiveEvent[], filters: { category?: string; status?: 
 
     return categoryMatches && statusMatches && queryMatches;
   });
+}
+
+function formatScheduleDate(value: Date) {
+  return new Intl.DateTimeFormat("en-US", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  }).format(value);
+}
+
+function formatScheduleTime(value: Date) {
+  return new Intl.DateTimeFormat("en-US", {
+    hour: "2-digit",
+    minute: "2-digit",
+  }).format(value);
+}
+
+function formatCountdown(value: Date) {
+  const diff = value.getTime() - Date.now();
+  if (diff <= 0) {
+    return "Soon";
+  }
+
+  const totalMinutes = Math.floor(diff / 60000);
+  const days = Math.floor(totalMinutes / 1440);
+  const hours = Math.floor((totalMinutes % 1440) / 60);
+  const minutes = totalMinutes % 60;
+
+  if (days > 0) {
+    return `${days}d ${hours}h`;
+  }
+
+  return `${hours}h ${minutes}m`;
 }
 
 function AIOverlay() {

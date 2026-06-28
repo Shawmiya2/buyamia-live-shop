@@ -1,0 +1,21 @@
+CREATE TABLE "PinnedPlacementRequest" (
+    "id" TEXT NOT NULL PRIMARY KEY,
+    "providerId" TEXT NOT NULL,
+    "contentType" TEXT NOT NULL,
+    "contentId" TEXT NOT NULL,
+    "promotionTitle" TEXT NOT NULL,
+    "reason" TEXT NOT NULL,
+    "promotionPeriod" TEXT NOT NULL,
+    "preferredStartDate" DATETIME NOT NULL,
+    "preferredEndDate" DATETIME NOT NULL,
+    "targetAudience" TEXT NOT NULL,
+    "additionalNotes" TEXT,
+    "status" TEXT NOT NULL DEFAULT 'submitted',
+    "submittedAt" DATETIME,
+    "reviewedAt" DATETIME,
+    "publishedAt" DATETIME,
+    "expiresAt" DATETIME,
+    "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" DATETIME NOT NULL,
+    CONSTRAINT "PinnedPlacementRequest_providerId_fkey" FOREIGN KEY ("providerId") REFERENCES "ProviderProfile" ("id") ON DELETE CASCADE ON UPDATE CASCADE
+);

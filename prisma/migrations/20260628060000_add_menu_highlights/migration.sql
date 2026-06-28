@@ -1,0 +1,20 @@
+CREATE TABLE "MenuHighlight" (
+    "id" TEXT NOT NULL PRIMARY KEY,
+    "providerId" TEXT NOT NULL,
+    "dishName" TEXT NOT NULL,
+    "category" TEXT NOT NULL,
+    "shortDescription" TEXT NOT NULL,
+    "price" INTEGER NOT NULL,
+    "availabilityStatus" TEXT NOT NULL,
+    "featuredImageUrl" TEXT,
+    "featuredBadge" TEXT,
+    "priorityLevel" INTEGER NOT NULL,
+    "startDate" DATETIME NOT NULL,
+    "endDate" DATETIME NOT NULL,
+    "visibilityStatus" TEXT NOT NULL,
+    "isPinned" BOOLEAN NOT NULL DEFAULT false,
+    "status" TEXT NOT NULL DEFAULT 'scheduled',
+    "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" DATETIME NOT NULL,
+    CONSTRAINT "MenuHighlight_providerId_fkey" FOREIGN KEY ("providerId") REFERENCES "ProviderProfile" ("id") ON DELETE CASCADE ON UPDATE CASCADE
+);

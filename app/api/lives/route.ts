@@ -19,6 +19,8 @@ export async function GET(request: Request) {
         pinned: params.get("pinned"),
         pinReason: params.get("pinReason"),
         replayStatus: params.get("replayStatus"),
+        dateFrom: params.get("dateFrom"),
+        dateTo: params.get("dateTo"),
         sort: params.get("sort"),
       }),
     );

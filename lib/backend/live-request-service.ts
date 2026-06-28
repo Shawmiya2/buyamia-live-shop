@@ -3,6 +3,7 @@ import type { LiveRequestStatus } from "@prisma/client";
 import { prisma } from "./prisma";
 import { ApiError, ValidationApiError } from "./errors";
 import { createAnalyticsEvent } from "./analytics-service";
+import { parseScheduledStreamDate } from "./live-service";
 import { datePlusDays, defaultReplayAvailabilityDays } from "./replay-policy";
 import { fieldErrorsFromZod } from "./validation";
 
@@ -226,6 +227,7 @@ export async function scheduleApprovedLiveRequest(input: {
   if (request.status !== "approved") {
     throw new ApiError("invalid_state", "Only approved requests can be scheduled.", 400);
   }
+  const scheduledAt = parseScheduledStreamDate(input.scheduledAt);
 
   const live = await prisma.live.create({
     data: {
@@ -233,8 +235,8 @@ export async function scheduleApprovedLiveRequest(input: {
       title: request.title,
       category: request.category,
       status: "scheduled",
-      scheduledAt: new Date(input.scheduledAt),
-      replayExpiresAt: datePlusDays(new Date(input.scheduledAt), defaultReplayAvailabilityDays),
+      scheduledAt,
+      replayExpiresAt: datePlusDays(scheduledAt, defaultReplayAvailabilityDays),
     },
   });
 

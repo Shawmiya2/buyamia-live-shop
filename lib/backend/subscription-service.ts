@@ -1,7 +1,9 @@
 import { prisma } from "./prisma";
+import type { Prisma, VerificationStatus } from "@prisma/client";
 import { ApiError } from "./errors";
 import { createAnalyticsEvent } from "./analytics-service";
 import { getLives } from "./live-service";
+import { calculateSupplierTrustScore } from "./trust-score-service";
 import type { Provider } from "./types";
 
 function toProvider(input: {
@@ -9,7 +11,14 @@ function toProvider(input: {
   userId: string;
   displayName: string;
   category: string;
-  user: { verificationStatus: string };
+  completedOrders: number;
+  responseRate: number;
+  responseMinutes: number;
+  certifications: Prisma.JsonValue;
+  bImpactScore: number;
+  certifiedReviews: number;
+  lives?: { id: string }[];
+  user: { verificationStatus: VerificationStatus };
 }): Provider {
   return {
     id: input.id,
@@ -17,6 +26,7 @@ function toProvider(input: {
     name: input.displayName,
     profileType: input.category as Provider["profileType"],
     verificationStatus: input.user.verificationStatus as Provider["verificationStatus"],
+    trustScore: calculateSupplierTrustScore(input, input.lives?.length ?? 0).score,
   };
 }
 
@@ -62,11 +72,17 @@ export async function unfollowProvider(input: { viewerUserId: string; providerId
   return { viewerUserId: input.viewerUserId, providerId: input.providerId };
 }
 
-export async function getFollowedProviders(viewerUserId: string) {
+const providerInclude = {
+  user: true,
+  lives: { where: { status: "completed" }, select: { id: true } },
+} as const;
+
+export async function getFollowedProviders(viewerUserId: string, options: { limit?: number } = {}) {
   const follows = await prisma.follow.findMany({
     where: { viewerId: viewerUserId },
-    include: { provider: { include: { user: true } } },
+    include: { provider: { include: providerInclude } },
     orderBy: { createdAt: "desc" },
+    take: options.limit,
   });
 
   return follows.map((follow) => toProvider(follow.provider));
@@ -90,12 +106,17 @@ export async function getViewerUpcomingLives(viewerUserId: string) {
   return (await getLives()).filter((live) => ids.has(live.providerId) && live.status === "scheduled");
 }
 
-export async function getAvailableProvidersForViewer(viewerUserId: string) {
-  const followedIds = new Set((await getFollowedProviders(viewerUserId)).map((provider) => provider.id));
+export async function getAvailableProvidersForViewer(viewerUserId: string, options: { limit?: number } = {}) {
+  const followedIds = (await prisma.follow.findMany({
+    where: { viewerId: viewerUserId },
+    select: { providerId: true },
+  })).map((follow) => follow.providerId);
   const providers = await prisma.providerProfile.findMany({
-    include: { user: true },
+    where: { id: { notIn: followedIds } },
+    include: providerInclude,
     orderBy: { createdAt: "desc" },
+    take: options.limit,
   });
 
-  return providers.filter((provider) => !followedIds.has(provider.id)).map(toProvider);
+  return providers.map(toProvider);
 }

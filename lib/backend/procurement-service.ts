@@ -5,6 +5,7 @@ import { ApiError, ValidationApiError } from "./errors";
 import { fieldErrorsFromZod } from "./validation";
 import { getReplayStatus } from "./replay-policy";
 import { calculateSupplierTrustScore } from "./trust-score-service";
+import type { CalendarEvent, CalendarEventFilters, CalendarEventType } from "./types";
 
 const supplierRoles = ["hotel", "restaurant", "supplier", "service_provider"] as const;
 const negotiationStatuses = ["open", "awaiting_response", "paused", "closed"] as const;
@@ -342,14 +343,67 @@ export async function recordRiskDecision(adminId: string, input: unknown) {
   });
 }
 
-export async function listCalendarEvents(filters: { category?: string; role?: string; status?: string } = {}) {
+const calendarEventTypes = ["preferred_live_request", "scheduled_live", "replay_expiration", "verification_review"] as const;
+type CalendarEventRecord = Omit<CalendarEvent, "date" | "type"> & {
+  date: Date;
+  type: CalendarEventType;
+};
+
+function parseCalendarDate(value: string | undefined, field: "from" | "to") {
+  if (!value) {
+    return undefined;
+  }
+
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    throw new ValidationApiError({ [field]: `Please enter a valid ${field} date.` });
+  }
+
+  return date;
+}
+
+function parseCalendarType(value: string | undefined) {
+  if (!value || value === "all") {
+    return undefined;
+  }
+
+  if (!calendarEventTypes.includes(value as CalendarEventType)) {
+    throw new ValidationApiError({ type: "Please select a valid calendar event type." });
+  }
+
+  return value as CalendarEventType;
+}
+
+export async function listCalendarEvents(filters: CalendarEventFilters = {}): Promise<CalendarEvent[]> {
+  const type = parseCalendarType(filters.type);
+  const from = parseCalendarDate(filters.from, "from");
+  const to = parseCalendarDate(filters.to, "to");
+  const scheduledFrom = type === "scheduled_live" ? (from ?? new Date()) : undefined;
+  if (from && to && from > to) {
+    throw new ValidationApiError({ to: "The end date must be after the start date." });
+  }
+
   const [liveRequests, lives, verifications] = await Promise.all([
-    prisma.liveRequest.findMany({ include: { provider: true } }),
-    prisma.live.findMany({ include: { provider: true } }),
-    prisma.verificationRequest.findMany({ include: { user: { include: { providerProfile: true } } } }),
+    type && type !== "preferred_live_request"
+      ? Promise.resolve([])
+      : prisma.liveRequest.findMany({ include: { provider: true } }),
+    type && type !== "scheduled_live" && type !== "replay_expiration"
+      ? Promise.resolve([])
+      : prisma.live.findMany({
+          where: {
+            providerId: filters.providerId && filters.providerId !== "all" ? filters.providerId : undefined,
+            category: filters.category && filters.category !== "all" ? filters.category : undefined,
+            status: type === "scheduled_live" ? "scheduled" : undefined,
+            scheduledAt: type === "scheduled_live" ? { not: null, gte: scheduledFrom } : undefined,
+          },
+          include: { provider: true },
+        }),
+    type && type !== "verification_review"
+      ? Promise.resolve([])
+      : prisma.verificationRequest.findMany({ include: { user: { include: { providerProfile: true } } } }),
   ]);
 
-  const events = [
+  const events: CalendarEventRecord[] = [
     ...liveRequests.map((request) => ({
       id: `request:${request.id}`,
       title: `Preferred live request: ${request.title}`,
@@ -357,8 +411,10 @@ export async function listCalendarEvents(filters: { category?: string; role?: st
       category: request.category,
       role: request.provider.category,
       status: request.status,
-      type: "preferred_live_request",
+      type: "preferred_live_request" as const,
       detailHref: `/dashboard/main/calendar?focus=request:${request.id}`,
+      providerId: request.providerId,
+      providerName: request.provider.displayName,
     })),
     ...lives.flatMap((live) => {
       const rows = [];
@@ -370,11 +426,14 @@ export async function listCalendarEvents(filters: { category?: string; role?: st
           category: live.category,
           role: live.provider.category,
           status: live.status,
-          type: "scheduled_live",
+          type: "scheduled_live" as const,
           detailHref: `/live/${live.id}`,
+          liveId: live.id,
+          providerId: live.providerId,
+          providerName: live.provider.displayName,
         });
       }
-      if (live.replayExpiresAt) {
+      if (!type && live.replayExpiresAt) {
         rows.push({
           id: `replay:${live.id}`,
           title: `Replay expires: ${live.title}`,
@@ -382,8 +441,11 @@ export async function listCalendarEvents(filters: { category?: string; role?: st
           category: live.category,
           role: live.provider.category,
           status: getReplayStatus(live.replayExpiresAt).status,
-          type: "replay_expiration",
+          type: "replay_expiration" as const,
           detailHref: `/live/${live.id}`,
+          liveId: live.id,
+          providerId: live.providerId,
+          providerName: live.provider.displayName,
         });
       }
       return rows;
@@ -395,8 +457,10 @@ export async function listCalendarEvents(filters: { category?: string; role?: st
       category: "verification",
       role: verification.user.role,
       status: verification.status,
-      type: "verification_review",
+      type: "verification_review" as const,
       detailHref: "/dashboard/main/risk",
+      providerId: verification.user.providerProfile?.id,
+      providerName: verification.user.providerProfile?.displayName,
     })),
   ];
 
@@ -405,6 +469,10 @@ export async function listCalendarEvents(filters: { category?: string; role?: st
       if (filters.category && filters.category !== "all" && event.category !== filters.category) return false;
       if (filters.role && filters.role !== "all" && event.role !== filters.role) return false;
       if (filters.status && filters.status !== "all" && event.status !== filters.status) return false;
+      if (type && event.type !== type) return false;
+      if (filters.providerId && filters.providerId !== "all" && event.providerId !== filters.providerId) return false;
+      if (from && event.date < from) return false;
+      if (to && event.date > to) return false;
       return true;
     })
     .sort((a, b) => a.date.getTime() - b.date.getTime())

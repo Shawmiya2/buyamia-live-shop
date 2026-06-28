@@ -90,6 +90,7 @@ export type Provider = {
   name: string;
   profileType: Exclude<ProfileType, "main_admin" | "viewer">;
   verificationStatus: VerificationStatus;
+  trustScore?: number;
 };
 
 export type LiveReplay = {
@@ -156,6 +157,13 @@ export type LiveCommerceData = {
   products: LiveCommerceProduct[];
   policies: string[];
   serviceAvailability: string[];
+  schedule?: {
+    estimatedDurationMinutes?: number | null;
+    language?: string | null;
+    thumbnailUrl?: string | null;
+    visibility?: "public" | "private";
+    providerType?: Exclude<ProfileType, "main_admin" | "viewer">;
+  };
 };
 
 export type LiveIntentQuestion = {
@@ -234,6 +242,220 @@ export type LiveListResponse = {
   items: LiveEvent[];
   pagination: LivePagination;
   activePinnedCount: number;
+};
+
+export type ScheduleStreamInput = {
+  title: string;
+  category: string;
+  scheduledAt: string;
+  description?: string;
+  providerType?: Exclude<ProfileType, "main_admin" | "viewer">;
+  estimatedDurationMinutes?: number;
+  language?: string;
+  thumbnailUrl?: string;
+  visibility?: "public" | "private";
+};
+
+export type ScheduleStreamResult = LiveEvent;
+
+export type CalendarEventType =
+  | "preferred_live_request"
+  | "scheduled_live"
+  | "replay_expiration"
+  | "verification_review";
+
+export type CalendarEvent = {
+  id: string;
+  title: string;
+  date: string;
+  category: string;
+  role: ProfileType;
+  status: string;
+  type: CalendarEventType;
+  detailHref: string;
+  liveId?: string;
+  providerId?: string;
+  providerName?: string;
+};
+
+export type CalendarEventFilters = {
+  category?: string;
+  role?: string;
+  status?: string;
+  type?: string;
+  providerId?: string;
+  from?: string;
+  to?: string;
+};
+
+export type SellerApplicationStatus =
+  | "draft"
+  | "submitted"
+  | "under_review"
+  | "needs_more_information"
+  | "approved"
+  | "rejected";
+
+export type SellerApplicationDocumentMetadata = {
+  documentType: string;
+  fileName: string;
+  contentType?: string;
+  size?: number;
+  uploadedAt?: string;
+};
+
+export type SellerApplicationInput = {
+  businessName: string;
+  businessType: Exclude<ProfileType, "main_admin" | "viewer">;
+  country: string;
+  contactPerson: string;
+  businessEmail: string;
+  phoneNumber: string;
+  companyDescription: string;
+  categories: string[];
+  productsOrServices: string;
+  website?: string;
+  verificationDocuments: SellerApplicationDocumentMetadata[];
+  status?: SellerApplicationStatus;
+};
+
+export type AiSourcingRequestInput = {
+  productDescription: string;
+  productCategory: string;
+  quantity: number;
+  targetCountry: string;
+  preferredSupplierLocation?: string;
+  budget?: number;
+  moqPreference: string;
+  deliveryDeadline: string;
+  additionalRequirements?: string;
+};
+
+export type AiSourcingRecommendation = {
+  supplierId: string;
+  supplierName: string;
+  supplierType: string;
+  trustScore: number;
+  country: string;
+  productCategory: string;
+  estimatedResponseTime: string;
+  moq: string;
+  rfqAvailable: boolean;
+  suggestedNextAction: string;
+  supplierHref: string;
+  rfqHref: string;
+};
+
+export type BookingPushStatus =
+  | "draft"
+  | "scheduled"
+  | "active"
+  | "paused"
+  | "expired"
+  | "archived";
+
+export type BookingPushInput = {
+  campaignTitle: string;
+  hotelName: string;
+  promotionDescription: string;
+  roomType: string;
+  bookingOffer: string;
+  discountPercentage?: number;
+  startDate: string;
+  endDate: string;
+  availableRooms: number;
+  targetAudience: string;
+  featuredImageUrl?: string;
+  callToActionText: string;
+  status?: BookingPushStatus;
+};
+
+export type ReviewBriefInput = {
+  providerId?: string;
+  reviewPeriod: "last_7_days" | "last_30_days" | "last_90_days" | "year_to_date";
+  reviewSource: "all" | "verified_stays" | "live_replay" | "booking_channels";
+  language: string;
+};
+
+export type ReviewBriefReport = {
+  overallSentimentScore: number;
+  positiveReviewSummary: string;
+  negativeReviewSummary: string;
+  mostMentionedTopics: string[];
+  improvementOpportunities: string[];
+  recommendedManagementActions: string[];
+  managementSummary: string;
+  generatedAt: string;
+};
+
+export type TastingInput = {
+  title: string;
+  restaurantName: string;
+  description: string;
+  cuisineCategory: string;
+  tastingType: "in_person" | "live" | "hybrid";
+  date: string;
+  time: string;
+  durationMinutes: number;
+  maxParticipants: number;
+  price?: number;
+  location: string;
+  featuredImageUrl?: string;
+  additionalNotes?: string;
+  status?: "draft" | "scheduled" | "published" | "fully_booked" | "completed" | "cancelled";
+};
+
+export type ReservationInput = {
+  customerName: string;
+  date: string;
+  time: string;
+  partySize: number;
+  status?: "pending" | "confirmed" | "rescheduled" | "completed" | "cancelled" | "no_show";
+  bookingReference: string;
+  notes?: string;
+};
+
+export type ReservationUpdateInput = {
+  date?: string;
+  time?: string;
+  partySize?: number;
+  status?: "pending" | "confirmed" | "rescheduled" | "completed" | "cancelled" | "no_show";
+  notes?: string;
+};
+
+export type MenuHighlightInput = {
+  dishName: string;
+  category: string;
+  shortDescription: string;
+  price: number;
+  availabilityStatus: "available" | "limited" | "sold_out" | "seasonal";
+  featuredImageUrl?: string;
+  featuredBadge?: string;
+  priorityLevel: number;
+  startDate: string;
+  endDate: string;
+  visibilityStatus: "public" | "private" | "live_only";
+  isPinned?: boolean;
+  status?: "draft" | "scheduled" | "active" | "expired" | "archived";
+};
+
+export type ReplayAvailabilityUpdateInput = {
+  expirationDate?: string;
+  removeExpiration?: boolean;
+  visibility?: "public" | "private";
+};
+
+export type PinnedPlacementRequestInput = {
+  contentType: "service" | "live_stream" | "replay";
+  contentId: string;
+  promotionTitle: string;
+  reason: string;
+  promotionPeriod: string;
+  preferredStartDate: string;
+  preferredEndDate: string;
+  targetAudience: string;
+  additionalNotes?: string;
+  status?: "draft" | "submitted" | "under_review" | "approved" | "rejected" | "published" | "expired";
 };
 
 export type FeaturedSupplierCategory =

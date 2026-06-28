@@ -97,6 +97,66 @@ enum RiskReviewStatus {
   dismissed
 }
 
+enum SellerApplicationStatus {
+  draft
+  submitted
+  under_review
+  needs_more_information
+  approved
+  rejected
+}
+
+enum BookingPushStatus {
+  draft
+  scheduled
+  active
+  paused
+  expired
+  archived
+}
+
+enum TastingStatus {
+  draft
+  scheduled
+  published
+  fully_booked
+  completed
+  cancelled
+}
+
+enum ReservationStatus {
+  pending
+  confirmed
+  rescheduled
+  completed
+  cancelled
+  no_show
+}
+
+enum MenuHighlightStatus {
+  draft
+  scheduled
+  active
+  expired
+  archived
+}
+
+enum PinnedPlacementRequestStatus {
+  draft
+  submitted
+  under_review
+  approved
+  rejected
+  published
+  expired
+}
+
+enum PinnedPlacementContentType {
+  service
+  live_stream
+  replay
+}
+
 model User {
   id                   String                @id @default(cuid())
   name                 String
@@ -137,6 +197,12 @@ model ProviderProfile {
   user            User             @relation(fields: [userId], references: [id], onDelete: Cascade)
   liveRequests    LiveRequest[]
   lives           Live[]
+  bookingPushes   BookingPush[]
+  reviewBriefs    ReviewBrief[]
+  tastings        Tasting[]
+  reservations    Reservation[]
+  menuHighlights  MenuHighlight[]
+  pinnedPlacementRequests PinnedPlacementRequest[]
   followers       Follow[]         @relation("ProviderFollowers")
   analyticsEvents AnalyticsEvent[]
   negotiations    Negotiation[]
@@ -300,4 +366,152 @@ model RiskReview {
   provider     ProviderProfile? @relation(fields: [providerId], references: [id], onDelete: SetNull)
   rfq          Rfq?             @relation(fields: [rfqId], references: [id], onDelete: SetNull)
   reviewer     User?            @relation("RiskReviewReviewer", fields: [reviewerId], references: [id], onDelete: SetNull)
+}
+
+model SellerApplication {
+  id                       String                  @id @default(cuid())
+  status                   SellerApplicationStatus @default(submitted)
+  businessName             String
+  businessType             Role
+  country                  String
+  contactPerson            String
+  businessEmail            String
+  phoneNumber              String
+  companyDescription       String
+  categories               Json
+  productsOrServices       String
+  website                  String?
+  verificationDocuments    Json
+  submittedAt              DateTime?
+  reviewedAt               DateTime?
+  createdAt                DateTime                @default(now())
+  updatedAt                DateTime                @updatedAt
+}
+
+model AiSourcingRequest {
+  id                        String   @id @default(cuid())
+  productDescription        String
+  productCategory           String
+  quantity                  Int
+  targetCountry             String
+  preferredSupplierLocation String?
+  budget                    Float?
+  moqPreference             String
+  deliveryDeadline          DateTime
+  additionalRequirements    String?
+  recommendations           Json
+  createdAt                 DateTime @default(now())
+  updatedAt                 DateTime @updatedAt
+}
+
+model BookingPush {
+  id                   String            @id @default(cuid())
+  providerId           String
+  status               BookingPushStatus @default(scheduled)
+  campaignTitle        String
+  hotelName            String
+  promotionDescription String
+  roomType             String
+  bookingOffer         String
+  discountPercentage   Int?
+  startDate            DateTime
+  endDate              DateTime
+  availableRooms       Int
+  targetAudience       String
+  featuredImageUrl     String?
+  callToActionText     String
+  createdAt            DateTime          @default(now())
+  updatedAt            DateTime          @updatedAt
+  provider             ProviderProfile   @relation(fields: [providerId], references: [id], onDelete: Cascade)
+}
+
+model ReviewBrief {
+  id             String          @id @default(cuid())
+  providerId     String
+  reviewPeriod   String
+  reviewSource   String
+  language       String
+  report         Json
+  generatedAt    DateTime        @default(now())
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+  provider       ProviderProfile @relation(fields: [providerId], references: [id], onDelete: Cascade)
+}
+
+model Tasting {
+  id                  String          @id @default(cuid())
+  providerId          String
+  status              TastingStatus   @default(scheduled)
+  title               String
+  restaurantName      String
+  description         String
+  cuisineCategory     String
+  tastingType         String
+  scheduledAt         DateTime
+  durationMinutes     Int
+  maxParticipants     Int
+  price               Int?
+  location            String
+  featuredImageUrl    String?
+  additionalNotes     String?
+  createdAt           DateTime        @default(now())
+  updatedAt           DateTime        @updatedAt
+  provider            ProviderProfile @relation(fields: [providerId], references: [id], onDelete: Cascade)
+}
+
+model Reservation {
+  id               String            @id @default(cuid())
+  providerId       String
+  customerName     String
+  reservationAt    DateTime
+  partySize        Int
+  status           ReservationStatus @default(pending)
+  bookingReference String            @unique
+  notes            String?
+  createdAt        DateTime          @default(now())
+  updatedAt        DateTime          @updatedAt
+  provider         ProviderProfile   @relation(fields: [providerId], references: [id], onDelete: Cascade)
+}
+
+model MenuHighlight {
+  id                 String              @id @default(cuid())
+  providerId         String
+  dishName           String
+  category           String
+  shortDescription   String
+  price              Int
+  availabilityStatus String
+  featuredImageUrl   String?
+  featuredBadge      String?
+  priorityLevel      Int
+  startDate          DateTime
+  endDate            DateTime
+  visibilityStatus   String
+  isPinned           Boolean             @default(false)
+  status             MenuHighlightStatus @default(scheduled)
+  createdAt          DateTime            @default(now())
+  updatedAt          DateTime            @updatedAt
+  provider           ProviderProfile     @relation(fields: [providerId], references: [id], onDelete: Cascade)
+}
+
+model PinnedPlacementRequest {
+  id                 String                       @id @default(cuid())
+  providerId         String
+  contentType        PinnedPlacementContentType
+  contentId          String
+  promotionTitle     String
+  reason             String
+  promotionPeriod    String
+  preferredStartDate DateTime
+  preferredEndDate   DateTime
+  targetAudience     String
+  additionalNotes    String?
+  status             PinnedPlacementRequestStatus @default(submitted)
+  submittedAt        DateTime?
+  reviewedAt         DateTime?
+  publishedAt        DateTime?
+  expiresAt          DateTime?
+  createdAt          DateTime                     @default(now())
+  updatedAt          DateTime                     @updatedAt
+  provider           ProviderProfile              @relation(fields: [providerId], references: [id], onDelete: Cascade)
 }
