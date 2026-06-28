@@ -62,6 +62,70 @@ export function canAccessDashboard(
   return getAllowedRolesForDashboard(dashboardType).includes(profileType);
 }
 
+export function canSeeAdminControls(profileType: ProfileType | null | undefined) {
+  return profileType === "main_admin";
+}
+
+export function canSeeGlobalLiveControls(profileType: ProfileType | null | undefined) {
+  return canSeeAdminControls(profileType);
+}
+
+export function getVisibleDashboardSections(profileType: ProfileType | null | undefined) {
+  if (!profileType) {
+    return ["public_discovery"];
+  }
+
+  if (canSeeAdminControls(profileType)) {
+    return ["public_discovery", "main", "hotel", "restaurant", "supplier", "services", "viewer"];
+  }
+
+  return ["public_discovery", dashboardRoleMapKey(profileType)].filter(Boolean);
+}
+
+export function getDashboardNavigationForRole(profileType: ProfileType | null | undefined) {
+  const publicDiscovery = { label: "Public discovery", href: "/", kind: "overview" };
+
+  if (!profileType) {
+    return [publicDiscovery];
+  }
+
+  if (canSeeAdminControls(profileType)) {
+    return [
+      publicDiscovery,
+      { label: "Main dashboard", href: "/dashboard/main", kind: "procurement" },
+      { label: "Hotel dashboard", href: "/dashboard/hotel", kind: "hotel" },
+      { label: "Restaurant dashboard", href: "/dashboard/restaurant", kind: "restaurant" },
+      { label: "Supplier dashboard", href: "/dashboard/supplier", kind: "supplier" },
+      { label: "Services dashboard", href: "/dashboard/services", kind: "services" },
+      { label: "Viewer account", href: "/dashboard/viewer", kind: "traveler" },
+    ] as const;
+  }
+
+  const dashboardHref = getDashboardForRole(profileType);
+  const labels: Record<ProfileType, string> = {
+    main_admin: "Main dashboard",
+    hotel: "Hotel dashboard",
+    restaurant: "Restaurant dashboard",
+    supplier: "Supplier dashboard",
+    service_provider: "Services dashboard",
+    viewer: "Viewer dashboard",
+  };
+
+  const kinds: Record<ProfileType, string> = {
+    main_admin: "procurement",
+    hotel: "hotel",
+    restaurant: "restaurant",
+    supplier: "supplier",
+    service_provider: "services",
+    viewer: "traveler",
+  };
+
+  return [
+    publicDiscovery,
+    { label: labels[profileType], href: dashboardHref, kind: kinds[profileType] },
+  ] as const;
+}
+
 export function assertDashboardAccess(
   profileType: ProfileType,
   dashboardType: DashboardType,
@@ -87,4 +151,11 @@ export function isProviderRole(role: ProfileType) {
     role === "supplier" ||
     role === "service_provider"
   );
+}
+
+function dashboardRoleMapKey(profileType: ProfileType) {
+  if (profileType === "main_admin") return "main";
+  if (profileType === "service_provider") return "services";
+  if (profileType === "viewer") return "viewer";
+  return profileType;
 }

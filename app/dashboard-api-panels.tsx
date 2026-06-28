@@ -73,6 +73,8 @@ export function DashboardApiPanels({
   dashboardType,
   title,
 }: DashboardApiPanelsProps) {
+  const isMainAdminDashboard = dashboardType === "main";
+  const isProviderDashboard = providerDashboardTypes.includes(dashboardType);
   const [state, setState] = useState<ApiState>({ status: "loading" });
   const [actionMessage, setActionMessage] = useState("");
   const [actionError, setActionError] = useState("");
@@ -153,8 +155,8 @@ export function DashboardApiPanels({
     return (
       <section className="mt-5 rounded-3xl border border-[#d6cbb6] bg-[#fffaf0] p-5 shadow-sm">
         <PanelHeader
-          eyebrow="Backend data"
-          title={`${title} API snapshot`}
+          eyebrow={isMainAdminDashboard ? "Backend data" : "Dashboard data"}
+          title={isMainAdminDashboard ? `${title} API snapshot` : `${title} workspace data`}
           badge="Loading"
         />
         <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
@@ -178,8 +180,8 @@ export function DashboardApiPanels({
     return (
       <section className="mt-5 rounded-3xl border border-[#d9b2a3] bg-[#fff3ed] p-5 shadow-sm">
         <PanelHeader
-          eyebrow="Backend data"
-          title={`${title} API snapshot`}
+          eyebrow={isMainAdminDashboard ? "Backend data" : "Dashboard data"}
+          title={isMainAdminDashboard ? `${title} API snapshot` : `${title} workspace data`}
           badge="Unavailable"
         />
         <p className="mt-3 text-sm leading-6 text-[#8c3f2b]">{state.error}</p>
@@ -190,9 +192,9 @@ export function DashboardApiPanels({
   return (
     <section className="mt-5 rounded-3xl border border-[#d6cbb6] bg-[#fffaf0] p-5 shadow-sm">
       <PanelHeader
-        eyebrow="Backend data"
-        title={`${title} API snapshot`}
-        badge={`/api/dashboard/${dashboardType}`}
+        eyebrow={isMainAdminDashboard ? "Backend data" : "Dashboard data"}
+        title={isMainAdminDashboard ? `${title} API snapshot` : `${title} workspace data`}
+        badge={isMainAdminDashboard ? `/api/dashboard/${dashboardType}` : "Role scoped"}
       />
 
       {(actionMessage || actionError || pendingAction) && (
@@ -217,34 +219,42 @@ export function DashboardApiPanels({
 
       <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
         <DataCard
-          label="verificationStatus"
+          label="Verification status"
           value={formatStatus(state.dashboard.verificationStatus)}
-          detail={`Role: ${formatStatus(state.dashboard.role)} - local user: ${state.dashboard.currentUserId ?? "none"}`}
+          detail={
+            isMainAdminDashboard
+              ? `Role: ${formatStatus(state.dashboard.role)} - local user: ${state.dashboard.currentUserId ?? "none"}`
+              : `This ${formatStatus(state.dashboard.role)} account can view its own verification state.`
+          }
         />
         <DataCard
-          label="liveStats"
+          label={isProviderDashboard ? "Your lives" : "Live stats"}
           value={`${state.dashboard.liveStats.activeLives} live`}
           detail={`${state.dashboard.liveStats.totalLives} total, ${state.dashboard.liveStats.scheduledLives} scheduled`}
           tone="live"
         />
         <DataCard
-          label="replayStats"
+          label={isProviderDashboard ? "Your replays" : "Replay stats"}
           value={`${formatNumber(state.dashboard.replayStats.replayViews)} views`}
           detail={`${state.dashboard.replayStats.availableReplays} available, ${state.dashboard.replayStats.expiringReplays} expiring`}
         />
         <DataCard
-          label="subscriptions / followers"
+          label={dashboardType === "viewer" ? "Followed providers" : "Followers"}
           value={subscriptionValue(state.dashboard)}
           detail={subscriptionDetail(state.dashboard)}
           tone="dark"
         />
       </div>
 
-      <VerificationControls
-        dashboard={state.dashboard}
-        pendingAction={pendingAction}
-        runAction={runAction}
-      />
+      {isMainAdminDashboard ? (
+        <VerificationControls
+          dashboard={state.dashboard}
+          pendingAction={pendingAction}
+          runAction={runAction}
+        />
+      ) : (
+        <VerificationStatusPanel dashboard={state.dashboard} />
+      )}
 
       <div className="mt-5 grid gap-5 xl:grid-cols-[1.1fr_.9fr]">
         <PinnedLivesPanel
@@ -255,7 +265,7 @@ export function DashboardApiPanels({
           runAction={runAction}
         />
         <div className="grid gap-5">
-          <AnalyticsSummaryPanel analytics={state.analytics} />
+          <AnalyticsSummaryPanel analytics={state.analytics} dashboardType={dashboardType} />
           <ConversionAttributionPanel attribution={state.analytics.conversionAttribution} />
           <IntentInsightsPanel insights={state.analytics.intentInsights} />
           <NextActionsPanel actions={state.dashboard.nextActions} />
@@ -335,6 +345,20 @@ function VerificationControls({
           </button>
         ))}
       </div>
+    </div>
+  );
+}
+
+function VerificationStatusPanel({ dashboard }: { dashboard: DashboardResponse }) {
+  return (
+    <div id="verification" className="mt-4 rounded-2xl border border-[#d6cbb6] bg-[#f3ecdc] p-4">
+      <p className="text-sm font-bold text-[#596540]">Your verification status</p>
+      <p className="mt-2 text-sm leading-6 text-[#675f50]">
+        Status: <span className="font-bold text-[#1e2419]">{formatStatus(dashboard.verificationStatus)}</span>
+      </p>
+      <p className="mt-1 text-sm leading-6 text-[#675f50]">
+        Submit verification metadata from this dashboard and track review progress without admin review controls.
+      </p>
     </div>
   );
 }
@@ -422,7 +446,7 @@ function PinnedLivesPanel({
     return (
       <section className="rounded-3xl border border-[#d6cbb6] bg-[#f3ecdc] p-4">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-          <PanelHeader eyebrow="liveCatalog" title="Backend live controls" badge={`${preview.length} preview items`} />
+          <PanelHeader eyebrow="live discovery" title="Featured and upcoming lives" badge={`${preview.length} preview items`} />
         </div>
         <div className="mt-4 grid gap-2">
           {preview.length > 0 ? (
@@ -455,8 +479,58 @@ function PinnedLivesPanel({
           href="/live/catalogue"
           className="mt-4 inline-flex rounded-full border border-[#cabda4] bg-[#fffaf0] px-5 py-3 text-sm font-bold text-[#1e2419] transition hover:bg-white"
         >
-          View Full Catalogue
+          Browse live catalogue
         </Link>
+      </section>
+    );
+  }
+
+  if (providerDashboardTypes.includes(dashboardType)) {
+    return (
+      <section className="rounded-3xl border border-[#d6cbb6] bg-[#f3ecdc] p-4">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+          <PanelHeader eyebrow="your live catalogue" title="Your scheduled and replay lives" badge={`${lives.length} lives`} />
+          <Link
+            href="#create-live-request"
+            className="w-fit rounded-full bg-[#1e2419] px-4 py-2 text-sm font-bold text-[#fffaf0] transition hover:bg-[#596540]"
+          >
+            Create a live request
+          </Link>
+        </div>
+        <div className="mt-4 grid gap-3">
+          {lives.length > 0 ? (
+            lives.map((live, index) => (
+              <article key={`${live.id}-provider-${index}`} className="rounded-2xl bg-[#fffaf0] p-4">
+                <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+                  <div>
+                    <p className="font-semibold">{live.title}</p>
+                    <p className="mt-1 text-sm text-[#675f50]">
+                      {live.providerName} - {formatStatus(live.status)}
+                    </p>
+                  </div>
+                  <span className="w-fit rounded-full bg-[#edf2dd] px-3 py-1 text-xs font-black text-[#596540]">
+                    {replayExpirationLabel(live)}
+                  </span>
+                </div>
+                <div className="mt-3 grid gap-2 text-xs font-bold text-[#596540] sm:grid-cols-3">
+                  <span>{formatNumber(live.viewerCount)} viewers</span>
+                  <span>{formatNumber(live.replayViews)} replay views</span>
+                  <span>{live.conversionIntent}% intent</span>
+                </div>
+                <Link
+                  href={`/live/${live.id}`}
+                  className="mt-3 inline-flex rounded-full border border-[#cabda4] px-3 py-2 text-xs font-bold text-[#1e2419]"
+                >
+                  View live
+                </Link>
+              </article>
+            ))
+          ) : (
+            <p className="rounded-2xl bg-[#fffaf0] p-4 text-sm text-[#675f50]">
+              Your scheduled lives and replays will appear here after a live request is approved or scheduled.
+            </p>
+          )}
+        </div>
       </section>
     );
   }
@@ -843,7 +917,7 @@ function ProviderLiveRequestPanel({
   }
 
   return (
-    <section className="mt-5 grid gap-5 xl:grid-cols-[1fr_.9fr]">
+    <section id="create-live-request" className="mt-5 grid gap-5 xl:grid-cols-[1fr_.9fr]">
       <div className="rounded-3xl border border-[#d6cbb6] bg-[#f3ecdc] p-4">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
           <PanelHeader
@@ -1116,22 +1190,33 @@ function LiveRequestList({
   );
 }
 
-function AnalyticsSummaryPanel({ analytics }: { analytics: AnalyticsSummary }) {
+function AnalyticsSummaryPanel({
+  analytics,
+  dashboardType,
+}: {
+  analytics: AnalyticsSummary;
+  dashboardType: DashboardType;
+}) {
   const rows = useMemo(
     () => Object.entries(analytics).filter(([key]) => key !== "conversionAttribution" && key !== "intentInsights"),
     [analytics],
   );
+  const isMainAdminDashboard = dashboardType === "main";
 
   return (
     <section className="rounded-3xl border border-[#d6cbb6] bg-[#f3ecdc] p-4">
-      <PanelHeader eyebrow="analyticsSummary" title="API analytics" badge="/api/analytics" />
+      <PanelHeader
+        eyebrow={isMainAdminDashboard ? "platform analytics" : "your analytics"}
+        title={isMainAdminDashboard ? "API analytics" : dashboardType === "viewer" ? "Viewer activity" : "Provider analytics"}
+        badge={isMainAdminDashboard ? "/api/analytics" : "Role scoped"}
+      />
       <div className="mt-4 grid gap-2">
         {rows.map(([key, value]) => (
           <div
             key={key}
             className="flex items-center justify-between gap-3 rounded-2xl bg-[#fffaf0] p-3"
           >
-            <span className="text-sm font-semibold">{formatStatus(key)}</span>
+            <span className="text-sm font-semibold">{analyticsLabel(key, dashboardType)}</span>
             <span className="rounded-full bg-[#edf2dd] px-3 py-1 text-xs font-black text-[#596540]">
               {formatAnalyticsValue(value)}
             </span>
@@ -1379,6 +1464,43 @@ function formatAnalyticsValue(value: unknown) {
   }
 
   return String(value);
+}
+
+function analyticsLabel(key: string, dashboardType: DashboardType) {
+  const adminLabels: Record<string, string> = {
+    totalUsers: "Total users",
+    totalProviders: "Total providers",
+    activeLives: "Active lives",
+    pinnedLives: "Pinned lives",
+    pendingVerifications: "Pending verifications",
+    pendingLiveRequests: "Pending live requests",
+    expiringReplays: "Expiring replays",
+  };
+  const providerLabels: Record<string, string> = {
+    totalLives: "Your total lives",
+    activeLives: "Your active lives",
+    replayViews: "Your replay views",
+    followers: "Your followers",
+    pendingRequests: "Your pending requests",
+    conversionIntent: "Your conversion intent",
+    verificationStatus: "Your verification status",
+  };
+  const viewerLabels: Record<string, string> = {
+    followedProviders: "Followed providers",
+    upcomingLives: "Upcoming lives",
+    availableReplays: "Available replays",
+    watchedLives: "Watched lives",
+  };
+
+  if (dashboardType === "main") {
+    return adminLabels[key] ?? formatStatus(key);
+  }
+
+  if (dashboardType === "viewer") {
+    return viewerLabels[key] ?? formatStatus(key);
+  }
+
+  return providerLabels[key] ?? formatStatus(key);
 }
 
 function formatNumber(value: number) {

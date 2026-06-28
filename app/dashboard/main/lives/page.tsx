@@ -1,7 +1,8 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import type { ReactNode } from "react";
-import { requireRole } from "@/lib/backend/auth-context";
+import { AdminAccessDenied } from "@/app/admin-access-denied";
+import { getCurrentUser, requireRole } from "@/lib/backend/auth-context";
 import { listLives } from "@/lib/backend/live-service";
 import type { LiveEvent } from "@/lib/backend/types";
 import { LiveAdminActions } from "./live-admin-actions";
@@ -40,6 +41,10 @@ const replayStatuses = [
 type SearchParams = Promise<Record<string, string | string[] | undefined>>;
 
 export default async function MainLivesPage({ searchParams }: { searchParams: SearchParams }) {
+  const user = await getCurrentUser();
+  if (user?.role !== "main_admin") {
+    return <AdminAccessDenied user={user} />;
+  }
   await requireRole("main_admin");
   const params = await searchParams;
   const result = await listLives({

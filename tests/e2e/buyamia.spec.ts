@@ -122,6 +122,95 @@ test("main admin manages paginated lives with persistent filters and details", a
   await expect(page.getByText("Replay expiration")).toBeVisible();
 });
 
+test("non-admin dashboards hide admin controls and keep role-owned content", async ({ page }) => {
+  const cases = [
+    {
+      email: "service@example.test",
+      route: "/dashboard/services",
+      heading: /Services dashboard/i,
+      roleText: /service provider/i,
+    },
+    {
+      email: "hotel@example.test",
+      route: "/dashboard/hotel",
+      heading: /Hotel dashboard/i,
+      roleText: /hotel/i,
+    },
+    {
+      email: "restaurant@example.test",
+      route: "/dashboard/restaurant",
+      heading: /Restaurant dashboard/i,
+      roleText: /restaurant/i,
+    },
+    {
+      email: "supplier@example.test",
+      route: "/dashboard/supplier",
+      heading: /Supplier dashboard/i,
+      roleText: /supplier/i,
+    },
+  ];
+
+  for (const item of cases) {
+    await login(page, item.email);
+    await page.goto(item.route);
+    await expect(page.getByRole("heading", { name: item.heading })).toBeVisible();
+    await expect(page.getByText(item.roleText).first()).toBeVisible();
+    await expect(page.getByRole("link", { name: "Main dashboard" })).toHaveCount(0);
+    await expect(page.getByText("Backend live controls")).toHaveCount(0);
+    await expect(page.getByText("Manage all lives")).toHaveCount(0);
+    await expect(page.getByText("API analytics")).toHaveCount(0);
+    await expect(page.getByText("Main admin review")).toHaveCount(0);
+    await expect(page.getByText("Pending live requests")).toHaveCount(0);
+    await expect(page.getByRole("button", { name: "Pin live" })).toHaveCount(0);
+    await expect(page.getByRole("button", { name: "Unpin" })).toHaveCount(0);
+    await expect(page.getByRole("button", { name: "Extend replay by 5 days" })).toHaveCount(0);
+    await expect(page.getByRole("button", { name: "Approve" })).toHaveCount(0);
+    await expect(page.getByRole("button", { name: "Reject" })).toHaveCount(0);
+    await expect(page.getByRole("button", { name: "Request more information" })).toHaveCount(0);
+    await expect(page.getByRole("button", { name: "Schedule" })).toHaveCount(0);
+    await expect(page.getByText("Your live requests")).toBeVisible();
+    await expect(page.getByRole("button", { name: "Create a live request" })).toBeVisible();
+    await page.getByRole("button", { name: "Logout" }).click();
+  }
+});
+
+test("viewer dashboard hides provider and admin mutation controls", async ({ page }) => {
+  await login(page, "viewer@example.test");
+  await page.goto("/dashboard/viewer");
+  await expect(page.getByRole("heading", { name: /Traveler dashboard/i })).toBeVisible();
+  await expect(page.getByText("Followed providers and feeds")).toBeVisible();
+  await expect(page.getByText("Backend live controls")).toHaveCount(0);
+  await expect(page.getByText("Manage all lives")).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Create a live request" })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Pin live" })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Approve" })).toHaveCount(0);
+});
+
+test("main admin dashboard shows global admin controls", async ({ page }) => {
+  await login(page, "admin@example.test", "ChangeMe123!");
+  await page.goto("/dashboard/main");
+  await expect(page.getByText("Backend live controls")).toBeVisible();
+  await expect(page.getByText("Manage all lives")).toBeVisible();
+  await expect(page.getByText("Main admin review")).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Pending live requests" })).toBeVisible();
+  await expect(page.getByText("API analytics")).toBeVisible();
+  await expect(page.getByText("Review pending live requests")).toBeVisible();
+});
+
+test("direct admin dashboard and API access is denied for providers", async ({ page }) => {
+  await login(page, "supplier@example.test");
+
+  for (const route of ["/dashboard/main", "/dashboard/main/lives", "/dashboard/main/live-requests"]) {
+    await page.goto(route);
+    await expect(page.getByText(/Access denied|You are not allowed/i).first()).toBeVisible();
+  }
+
+  for (const route of ["/api/dashboard/main", "/api/analytics/main", "/api/admin/live-requests"]) {
+    const response = await page.request.get(route);
+    expect(response.status(), route).toBe(403);
+  }
+});
+
 test("main admin live request catalogue renders and filters without crashing", async ({ page }) => {
   await login(page, "admin@example.test", "ChangeMe123!");
   await page.goto("/dashboard/main");

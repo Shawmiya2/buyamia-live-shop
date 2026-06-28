@@ -4,7 +4,12 @@ import { DashboardAccessGate } from "./dashboard-access-gate";
 import { DashboardApiPanels } from "./dashboard-api-panels";
 import { BuyamiaAssistant } from "./buyamia-assistant";
 import { getCurrentUser } from "@/lib/backend/auth-context";
-import { getDashboardForRole } from "@/lib/backend/role-guard";
+import {
+  canAccessDashboard,
+  canSeeAdminControls,
+  getDashboardForRole,
+  getDashboardNavigationForRole,
+} from "@/lib/backend/role-guard";
 import type {
   DashboardType,
   FeaturedSupplierCategory,
@@ -1029,15 +1034,7 @@ const dashboards: Dashboard[] = [
   },
 ];
 
-const navItems = [
-  { label: "Public discovery", href: "/", kind: "overview" },
-  { label: "Main dashboard", href: "/dashboard/main", kind: "procurement" },
-  { label: "Hotel dashboard", href: "/dashboard/hotel", kind: "hotel" },
-  { label: "Restaurant dashboard", href: "/dashboard/restaurant", kind: "restaurant" },
-  { label: "Supplier dashboard", href: "/dashboard/supplier", kind: "supplier" },
-  { label: "Services dashboard", href: "/dashboard/services", kind: "services" },
-  { label: "Viewer account", href: "/dashboard/viewer", kind: "traveler" },
-] satisfies { label: string; href: string; kind: DashboardKind }[];
+type DashboardNavItem = { label: string; href: string; kind: DashboardKind };
 
 const platformModules: WorkItem[] = [
   {
@@ -1240,7 +1237,7 @@ export async function DashboardPlatform({
   return (
     <main className="min-h-dvh overflow-hidden bg-[#f3ecdc] text-[#1e2419]">
       <div className="grid min-h-dvh grid-rows-[auto_1fr] lg:grid-cols-[284px_minmax(0,1fr)] lg:grid-rows-1">
-        <Sidebar activeDashboard={activeDashboard} />
+        <Sidebar activeDashboard={activeDashboard} currentUser={currentUser} />
         <div className="min-h-0 min-w-0 overflow-y-auto">
           <Topbar activeDashboard={selectedDashboard?.name ?? "Discover"} currentUser={currentUser} />
           {selectedDashboard ? (
@@ -1258,7 +1255,16 @@ export async function DashboardPlatform({
   );
 }
 
-function Sidebar({ activeDashboard }: { activeDashboard: DashboardKind }) {
+function Sidebar({
+  activeDashboard,
+  currentUser,
+}: {
+  activeDashboard: DashboardKind;
+  currentUser: SafeUser | null;
+}) {
+  const navItems = getDashboardNavigationForRole(currentUser?.role) as DashboardNavItem[];
+  const adminVisible = canSeeAdminControls(currentUser?.role);
+
   return (
     <aside className="border-b border-[#d6cbb6] bg-[#fffaf0]/90 px-4 py-4 backdrop-blur-xl lg:sticky lg:top-0 lg:h-dvh lg:overflow-y-auto lg:border-b-0 lg:border-r lg:px-5 lg:py-6">
       <Link href="/" className="flex items-center gap-3">
@@ -1278,10 +1284,12 @@ function Sidebar({ activeDashboard }: { activeDashboard: DashboardKind }) {
 
       <div className="mt-5 rounded-2xl border border-[#d6cbb6] bg-[#f6efe2] p-3">
         <p className="text-[11px] font-bold uppercase tracking-[.16em] text-[#6f7f4f]">
-          Left side: back-end
+          {adminVisible ? "Admin workspace" : "Your workspace"}
         </p>
         <p className="mt-1 text-xs leading-5 text-[#766e5e]">
-          Main, hotel, restaurant, supplier, and services tools.
+          {adminVisible
+            ? "Main, hotel, restaurant, supplier, and services tools."
+            : "Public discovery plus the dashboard for this account."}
         </p>
       </div>
 
@@ -1306,6 +1314,7 @@ function Sidebar({ activeDashboard }: { activeDashboard: DashboardKind }) {
         ))}
       </nav>
 
+      {adminVisible && (
       <div className="mt-5 hidden rounded-2xl border border-[#d6cbb6] bg-[#f6efe2] p-4 lg:block">
         <div className="flex items-center justify-between gap-3">
           <p className="text-xs font-bold uppercase tracking-[.16em] text-[#6f7f4f]">
@@ -1320,6 +1329,7 @@ function Sidebar({ activeDashboard }: { activeDashboard: DashboardKind }) {
           Live rooms, RFQs, escrow, reviews, and analytics are operating normally.
         </p>
       </div>
+      )}
 
       <div className="mt-3 hidden rounded-2xl bg-[#1e2419] p-4 text-[#fffaf0] lg:block">
         <p className="text-xs font-bold uppercase tracking-[.16em] text-[#cbd8a7]">
@@ -1403,7 +1413,7 @@ function OverviewDashboard({
       <PinnedLives />
       <ViewerSubscriptions />
       <HowItWorks />
-      <ConnectedPlatform />
+      <ConnectedPlatform currentUser={currentUser} />
     </section>
   );
 }
@@ -1787,7 +1797,7 @@ function HowItWorks() {
   );
 }
 
-function ConnectedPlatform() {
+function ConnectedPlatform({ currentUser }: { currentUser: SafeUser | null }) {
   return (
     <section id="connected-platform" className="py-10">
       <div className="mb-7 max-w-3xl">
@@ -1811,7 +1821,7 @@ function ConnectedPlatform() {
       </div>
 
       <div className="mt-5 grid gap-5 xl:grid-cols-[1.05fr_.95fr]">
-        <RoleSwitcher />
+        <RoleSwitcher currentUser={currentUser} />
         <QuickActions
           title="Platform shortcuts"
           actions={[
@@ -1826,10 +1836,32 @@ function ConnectedPlatform() {
   );
 }
 
-function RoleSwitcher() {
+function RoleSwitcher({ currentUser }: { currentUser: SafeUser | null }) {
+  const visibleDashboards = dashboards.filter((dashboard) => {
+    if (!currentUser) {
+      return false;
+    }
+
+    return canAccessDashboard(currentUser.role, getDashboardApiType(dashboard.kind));
+  });
+
+  if (!visibleDashboards.length) {
+    return (
+      <section className="rounded-3xl border border-[#d6cbb6] bg-[#fffaf0] p-5 shadow-sm">
+        <p className="text-[11px] font-bold uppercase tracking-[.16em] text-[#6f7f4f]">
+          Account dashboard
+        </p>
+        <h2 className="mt-2 text-xl font-semibold">Login to open your dashboard</h2>
+        <Link href="/login" className="mt-4 inline-flex rounded-full bg-[#1e2419] px-5 py-3 text-sm font-bold text-[#fffaf0]">
+          Login
+        </Link>
+      </section>
+    );
+  }
+
   return (
     <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-1">
-      {dashboards.map((dashboard) => (
+      {visibleDashboards.map((dashboard) => (
         <Link
           key={dashboard.kind}
           href={dashboard.href}
@@ -1885,7 +1917,7 @@ function DashboardDetail({ dashboard }: { dashboard: Dashboard }) {
         <DashboardWorkbench dashboard={dashboard} />
         <div className="grid gap-5">
           <CompactAnalytics title={`${dashboard.name} analytics`} rows={dashboard.analytics} />
-          <QuickActions title="Quick actions" actions={dashboard.quickActions} />
+          <QuickActions title="Quick actions" actions={dashboard.quickActions} dashboardType={dashboardType} />
         </div>
       </div>
 
@@ -2408,7 +2440,20 @@ function CompactAnalytics({ title, rows }: { title: string; rows: Signal[] }) {
   );
 }
 
-function QuickActions({ title, actions }: { title: string; actions: string[] }) {
+function QuickActions({
+  title,
+  actions,
+  dashboardType,
+}: {
+  title: string;
+  actions: string[];
+  dashboardType?: DashboardType;
+}) {
+  const safeActions = actions.map((action) => ({
+    action,
+    href: quickActionHref(action, dashboardType),
+  }));
+
   return (
     <section className="rounded-3xl border border-[#d6cbb6] bg-[#e9dfcb] p-5 shadow-sm">
       <div className="mb-4 flex items-center justify-between gap-3">
@@ -2423,10 +2468,10 @@ function QuickActions({ title, actions }: { title: string; actions: string[] }) 
         </span>
       </div>
       <div className="grid gap-2 sm:grid-cols-2">
-        {actions.map((action) => (
+        {safeActions.map(({ action, href }) => (
           <Link
             key={action}
-            href={quickActionHref(action)}
+            href={href}
             className="rounded-full border border-[#cabda4] bg-[#fffaf0]/74 px-4 py-3 text-left text-sm font-bold text-[#1e2419] transition hover:bg-white"
           >
             {action}
@@ -2437,8 +2482,43 @@ function QuickActions({ title, actions }: { title: string; actions: string[] }) 
   );
 }
 
-function quickActionHref(action: string) {
+function quickActionHref(action: string, dashboardType?: DashboardType) {
   const normalized = action.toLowerCase();
+  const providerDashboardHref: Partial<Record<DashboardType, string>> = {
+    hotel: "/dashboard/hotel",
+    restaurant: "/dashboard/restaurant",
+    supplier: "/dashboard/supplier",
+    services: "/dashboard/services",
+    viewer: "/dashboard/viewer",
+  };
+
+  if (dashboardType && dashboardType !== "main") {
+    const roleSafeRoutes: Record<string, string> = {
+      "open hotel dashboard": "/dashboard/hotel",
+      "open restaurant dashboard": "/dashboard/restaurant",
+      "open services dashboard": "/dashboard/services",
+      "open supplier dashboard": "/dashboard/supplier",
+      "compare hotels": "/dashboard/viewer",
+      "update wishlist": "/dashboard/viewer",
+      "check booking": "/dashboard/viewer",
+      "extend replay availability": "/services/replay-availability",
+      "request pinned placement": "/services/pinned-placement",
+      "set up a live for my service": "/live/schedule",
+      "live preparation center": "/dashboard/supplier/live-prep",
+      "create booking push": "/hotel/booking-push",
+      "schedule stream": "/live/schedule",
+      "generate review brief": "/hotel/review-brief",
+      "pin menu highlight": "/restaurant/menu-highlights",
+      "create tasting": "/restaurant/create-tasting",
+      "adjust reservations": "/restaurant/reservations",
+      "open chef live": "/live",
+      "open live room": "/live",
+      "open sourcing stream": "/live",
+    };
+
+    return roleSafeRoutes[normalized] ?? providerDashboardHref[dashboardType] ?? "/live";
+  }
+
   const directRoutes: Record<string, string> = {
     "generate rfq": "/dashboard/main/rfqs/new",
     "rank suppliers": "/dashboard/main/suppliers/rank",
