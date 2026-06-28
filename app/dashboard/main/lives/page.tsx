@@ -104,7 +104,7 @@ export default async function MainLivesPage({ searchParams }: { searchParams: Se
           </div>
           <div className="mt-4 grid gap-3">
             {result.items.length ? (
-              result.items.map((live) => <LiveAdminCard key={live.id} live={live} />)
+              result.items.map((live, index) => <LiveAdminCard key={`${live.id}-admin-${index}`} live={live} />)
             ) : (
               <p className="rounded-2xl bg-[#f3ecdc] p-4 text-sm font-semibold text-[#675f50]">
                 No lives match the current filters.

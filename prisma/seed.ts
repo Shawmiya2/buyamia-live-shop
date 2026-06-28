@@ -125,8 +125,80 @@ async function main() {
 
   const providers = await prisma.providerProfile.findMany({ include: { user: true } });
   const now = new Date();
+  const adminUser = await prisma.user.findUnique({ where: { email: adminEmail.toLowerCase() } });
 
   for (const provider of providers) {
+    if (!provider.website) {
+      await prisma.providerProfile.update({
+        where: { id: provider.id },
+        data: { website: `https://${provider.displayName.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "")}.example.test` },
+      });
+    }
+
+    if ((await prisma.verificationRequest.count({ where: { userId: provider.userId } })) === 0) {
+      await prisma.verificationRequest.create({
+        data: {
+          userId: provider.userId,
+          status: provider.user.verificationStatus,
+          documentType: "business_registration_metadata",
+          documentMetadata: {
+            storage: "metadata_only",
+            note: "Seed placeholder. No real identity documents are stored.",
+          },
+          reviewNote: "Development metadata seeded for dashboard testing.",
+        },
+      });
+    }
+
+    const requestCount = await prisma.liveRequest.count({ where: { providerId: provider.id } });
+    if (requestCount === 0) {
+      await prisma.liveRequest.createMany({
+        data: [
+          {
+            providerId: provider.id,
+            title: `${provider.displayName} pending review`,
+            category: provider.category,
+            description: "Seed pending live request for admin review.",
+            preferredDate: datePlusDays(now, 4),
+            status: "pending_review",
+            documentsStatus: "pending",
+            paymentStatus: "placeholder",
+          },
+          {
+            providerId: provider.id,
+            title: `${provider.displayName} approved request`,
+            category: provider.category,
+            description: "Seed approved live request ready to schedule.",
+            preferredDate: datePlusDays(now, 5),
+            status: "approved",
+            documentsStatus: "verified",
+            paymentStatus: "not_required",
+          },
+          {
+            providerId: provider.id,
+            title: `${provider.displayName} scheduled request`,
+            category: provider.category,
+            description: "Seed scheduled live request.",
+            preferredDate: datePlusDays(now, 6),
+            status: "scheduled",
+            documentsStatus: "verified",
+            paymentStatus: "not_required",
+          },
+          {
+            providerId: provider.id,
+            title: `${provider.displayName} rejected request`,
+            category: provider.category,
+            description: "Seed rejected live request.",
+            preferredDate: datePlusDays(now, 7),
+            status: "rejected",
+            documentsStatus: "rejected",
+            paymentStatus: "placeholder",
+            adminNote: "Seed rejection note for local testing.",
+          },
+        ],
+      });
+    }
+
     const existing = await prisma.live.count({ where: { providerId: provider.id } });
     if (existing === 0) {
       await prisma.live.createMany({
@@ -199,6 +271,33 @@ async function main() {
               title: `${provider.displayName} replay`,
               category: provider.category,
             }) as Prisma.InputJsonValue,
+          },
+          {
+            providerId: provider.id,
+            title: `${provider.displayName} active live`,
+            category: provider.category,
+            status: "active",
+            scheduledAt: datePlusDays(now, -1),
+            startedAt: datePlusDays(now, -1),
+            replayExpiresAt: datePlusDays(now, 5),
+            viewerCount: 42,
+            replayViews: 12,
+            conversionIntent: 18,
+            priorityScore: 30,
+          },
+          {
+            providerId: provider.id,
+            title: `${provider.displayName} expired replay`,
+            category: provider.category,
+            status: "completed",
+            scheduledAt: datePlusDays(now, -9),
+            startedAt: datePlusDays(now, -9),
+            endedAt: datePlusDays(now, -9),
+            replayExpiresAt: datePlusDays(now, -1),
+            viewerCount: 18,
+            replayViews: 96,
+            conversionIntent: 11,
+            priorityScore: 5,
           },
         ],
       });
@@ -353,6 +452,69 @@ async function main() {
         };
       }),
     });
+  }
+
+  if (adminUser && (await prisma.rfq.count()) === 0) {
+    const rfq = await prisma.rfq.create({
+      data: {
+        adminId: adminUser.id,
+        createdById: adminUser.id,
+        title: "Seed outdoor procurement package",
+        category: "Furniture",
+        requirements: "Weatherproof seating, warranty terms, MOQ flexibility, CIF Bali pricing, and production lead time.",
+        budgetMin: 1500,
+        budgetMax: 6000,
+        deadline: datePlusDays(now, 14),
+        supplierType: "supplier",
+        status: "open",
+      },
+    });
+
+    const provider = providers.find((item) => item.category === "supplier") ?? providers[0];
+    if (provider) {
+      const negotiation = await prisma.negotiation.create({
+        data: {
+          adminId: adminUser.id,
+          createdById: adminUser.id,
+          providerId: provider.id,
+          rfqId: rfq.id,
+          title: "Seed supplier terms negotiation",
+          status: "awaiting_response",
+          messages: {
+            create: {
+              authorId: adminUser.id,
+              body: "Please confirm MOQ, production lead time, and CIF pricing.",
+              message: "Please confirm MOQ, production lead time, and CIF pricing.",
+            },
+          },
+        },
+      });
+
+      await prisma.riskReview.create({
+        data: {
+          adminId: adminUser.id,
+          reviewerId: adminUser.id,
+          targetType: "provider",
+          providerId: provider.id,
+          riskLevel: "medium",
+          indicators: ["Seed profile requires periodic verification review"],
+          reviewStatus: "pending",
+          status: "pending",
+          adminNote: "Seed risk review for local dashboard testing.",
+          note: "Seed risk review for local dashboard testing.",
+        },
+      });
+
+      await prisma.adminActivity.create({
+        data: {
+          adminId: adminUser.id,
+          action: "seed_database_foundation",
+          targetType: "negotiation",
+          targetId: negotiation.id,
+          message: "Seeded development RFQ, negotiation, and risk review.",
+        },
+      });
+    }
   }
 }
 
