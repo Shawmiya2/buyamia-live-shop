@@ -10,6 +10,7 @@ import type {
   IntentInsightsSummary,
   LiveEvent,
   PinReason,
+  ProfileType,
   Provider,
   ServiceLiveSetupRequest,
   VerificationStatus,
@@ -260,6 +261,8 @@ export function DashboardApiPanels({
         <PinnedLivesPanel
           lives={state.dashboard.liveCatalog ?? state.dashboard.pinnedLives}
           pinnedCount={state.dashboard.pinnedLives.length}
+          totalLives={state.dashboard.liveStats.totalLives}
+          currentRole={state.dashboard.auth?.currentRole}
           dashboardType={dashboardType}
           pendingAction={pendingAction}
           runAction={runAction}
@@ -429,28 +432,34 @@ function DataCard({
 function PinnedLivesPanel({
   lives,
   pinnedCount,
+  totalLives,
+  currentRole,
   dashboardType,
   pendingAction,
   runAction,
 }: {
   lives: LiveEvent[];
   pinnedCount: number;
+  totalLives: number;
+  currentRole?: ProfileType | null;
   dashboardType: DashboardType;
   pendingAction: string;
   runAction: (label: string, request: () => Promise<Response>, successMessage?: string) => Promise<void>;
 }) {
   const [selectedReasons, setSelectedReasons] = useState<Record<string, PinReason>>({});
+  const previewLimit = 3;
+  const previewLives = lives.slice(0, previewLimit);
+  const isMainAdmin = currentRole === "main_admin";
 
   if (dashboardType === "viewer") {
-    const preview = lives.slice(0, 5);
     return (
       <section className="rounded-3xl border border-[#d6cbb6] bg-[#f3ecdc] p-4">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-          <PanelHeader eyebrow="live discovery" title="Featured and upcoming lives" badge={`${preview.length} preview items`} />
+          <PanelHeader eyebrow="live discovery" title="Featured and upcoming lives" badge={previewBadge(previewLives.length, totalLives, "lives")} />
         </div>
         <div className="mt-4 grid gap-2">
-          {preview.length > 0 ? (
-            preview.map((live, index) => (
+          {previewLives.length > 0 ? (
+            previewLives.map((live, index) => (
               <article key={`${live.id}-preview-${index}`} className="grid gap-3 rounded-2xl bg-[#fffaf0] p-3 md:grid-cols-[1.2fr_.8fr_.7fr_.7fr_.7fr_.45fr] md:items-center">
                 <div>
                   <p className="text-sm font-black leading-5">{live.title}</p>
@@ -476,30 +485,47 @@ function PinnedLivesPanel({
           )}
         </div>
         <Link
-          href="/live/catalogue"
+          href={isMainAdmin ? "/dashboard/main/lives" : "/live/catalogue"}
           className="mt-4 inline-flex rounded-full border border-[#cabda4] bg-[#fffaf0] px-5 py-3 text-sm font-bold text-[#1e2419] transition hover:bg-white"
         >
-          Browse live catalogue
+          {isMainAdmin ? "View full catalogue" : "Browse live catalogue"}
         </Link>
       </section>
     );
   }
 
   if (providerDashboardTypes.includes(dashboardType)) {
+    const fullCatalogueHref = providerDashboardCatalogueHref(dashboardType);
+
     return (
       <section className="rounded-3xl border border-[#d6cbb6] bg-[#f3ecdc] p-4">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-          <PanelHeader eyebrow="your live catalogue" title="Your scheduled and replay lives" badge={`${lives.length} lives`} />
-          <Link
-            href="#create-live-request"
-            className="w-fit rounded-full bg-[#1e2419] px-4 py-2 text-sm font-bold text-[#fffaf0] transition hover:bg-[#596540]"
-          >
-            Create a live request
-          </Link>
+          <PanelHeader eyebrow="your live catalogue" title="Your scheduled and replay lives" badge={previewBadge(previewLives.length, totalLives, "lives")} />
+          <div className="flex flex-wrap gap-2">
+            {isMainAdmin && fullCatalogueHref && (
+              <Link
+                href={fullCatalogueHref}
+                className="w-fit rounded-full bg-[#1e2419] px-4 py-2 text-sm font-bold text-[#fffaf0] transition hover:bg-[#596540]"
+              >
+                View full catalogue
+              </Link>
+            )}
+            <Link
+              href="#create-live-request"
+              className="w-fit rounded-full border border-[#cabda4] bg-[#fffaf0] px-4 py-2 text-sm font-bold text-[#1e2419] transition hover:bg-white"
+            >
+              Create a live request
+            </Link>
+          </div>
         </div>
+        {totalLives > previewLives.length && (
+          <p className="mt-3 text-sm font-semibold text-[#675f50]">
+            Showing {previewLives.length} of {totalLives} lives.
+          </p>
+        )}
         <div className="mt-4 grid gap-3">
-          {lives.length > 0 ? (
-            lives.map((live, index) => (
+          {previewLives.length > 0 ? (
+            previewLives.map((live, index) => (
               <article key={`${live.id}-provider-${index}`} className="rounded-2xl bg-[#fffaf0] p-4">
                 <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
                   <div>
@@ -538,7 +564,7 @@ function PinnedLivesPanel({
   return (
     <section className="rounded-3xl border border-[#d6cbb6] bg-[#f3ecdc] p-4">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-        <PanelHeader eyebrow="liveCatalog" title="Backend live controls" badge={`${lives.length} highlighted / ${pinnedCount} active pins`} />
+        <PanelHeader eyebrow="liveCatalog" title="Backend live controls" badge={`${previewLives.length} preview / ${pinnedCount} active pins`} />
         <Link
           href="/dashboard/main/lives"
           className="w-fit rounded-full bg-[#1e2419] px-4 py-2 text-sm font-bold text-[#fffaf0] transition hover:bg-[#596540]"
@@ -546,14 +572,14 @@ function PinnedLivesPanel({
           Manage all lives
         </Link>
       </div>
-      {lives.length > 0 && (
+      {previewLives.length > 0 && (
         <p className="mt-3 text-sm font-semibold text-[#675f50]">
-          Showing {lives.length} highlighted lives from the global admin catalogue.
+          Showing {previewLives.length} of {totalLives} lives from the global admin catalogue.
         </p>
       )}
       <div className="mt-4 grid gap-3">
-        {lives.length > 0 ? (
-          lives.map((live, index) => (
+        {previewLives.length > 0 ? (
+          previewLives.map((live, index) => (
             <article key={`${live.id}-pinned-${index}`} className="rounded-2xl bg-[#fffaf0] p-4">
               <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
                 <div>
@@ -1469,6 +1495,24 @@ function formatAnalyticsValue(value: unknown) {
   }
 
   return String(value);
+}
+
+function previewBadge(previewCount: number, totalCount: number, label: string) {
+  return totalCount > previewCount
+    ? `${previewCount} of ${totalCount} ${label}`
+    : `${previewCount} ${label}`;
+}
+
+function providerDashboardCatalogueHref(dashboardType: DashboardType) {
+  const providerRoleFilters: Partial<Record<DashboardType, Exclude<ProfileType, "main_admin" | "viewer">>> = {
+    hotel: "hotel",
+    restaurant: "restaurant",
+    supplier: "supplier",
+    services: "service_provider",
+  };
+  const providerRole = providerRoleFilters[dashboardType];
+
+  return providerRole ? `/dashboard/main/lives?providerRole=${providerRole}` : "";
 }
 
 function analyticsLabel(key: string, dashboardType: DashboardType) {

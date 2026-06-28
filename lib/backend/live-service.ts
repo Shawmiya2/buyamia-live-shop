@@ -16,6 +16,7 @@ import type {
   LiveEvent,
   LiveListResponse,
   PinReason,
+  ProfileType,
   ReplayTranscriptSegment,
   ReplayTranscriptTag,
   ReplayStatus,
@@ -836,6 +837,60 @@ export async function getLives(providerId?: string) {
   });
 
   return sortPinnedLives(lives.map(toLiveEvent));
+}
+
+export async function getDashboardLiveSummary(input: {
+  providerId?: string;
+  providerRole?: Exclude<ProfileType, "main_admin" | "viewer">;
+  previewLimit?: number;
+} = {}) {
+  const now = new Date();
+  const whereParts: Prisma.LiveWhereInput[] = [];
+
+  if (input.providerId) {
+    whereParts.push({ providerId: input.providerId });
+  }
+  if (input.providerRole) {
+    whereParts.push({ provider: { category: input.providerRole } });
+  }
+
+  const where: Prisma.LiveWhereInput = whereParts.length ? { AND: whereParts } : {};
+  const replayAvailableWhere: Prisma.LiveWhereInput = {
+    AND: [where, { status: "completed", replayExpiresAt: { gt: now } }],
+  };
+  const replayExpiringWhere: Prisma.LiveWhereInput = {
+    AND: [where, { status: "completed", replayExpiresAt: { gt: now, lte: datePlusDays(now, 2) } }],
+  };
+  const preview = await listLives({
+    providerId: input.providerId,
+    providerRole: input.providerRole,
+    page: 1,
+    pageSize: input.previewLimit ?? 3,
+    sort: "important",
+  });
+  const [totalLives, activeLives, scheduledLives, replayViews, availableReplays, expiringReplays] =
+    await Promise.all([
+      prisma.live.count({ where }),
+      prisma.live.count({ where: { AND: [where, { status: "active" }] } }),
+      prisma.live.count({ where: { AND: [where, { status: "scheduled" }] } }),
+      prisma.live.aggregate({ where, _sum: { replayViews: true } }),
+      prisma.live.count({ where: replayAvailableWhere }),
+      prisma.live.count({ where: replayExpiringWhere }),
+    ]);
+
+  return {
+    liveStats: {
+      totalLives,
+      activeLives,
+      scheduledLives,
+    },
+    replayStats: {
+      replayViews: replayViews._sum.replayViews ?? 0,
+      availableReplays,
+      expiringReplays,
+    },
+    liveCatalog: preview.items,
+  };
 }
 
 export async function createScheduledStream(providerId: string, input: unknown) {

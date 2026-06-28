@@ -1,9 +1,9 @@
-import type { DashboardResponse, DashboardType } from "./types";
-import { dashboardRoleMap, isProviderRole } from "./role-guard";
+import type { DashboardResponse, DashboardType, ProfileType } from "./types";
+import { dashboardRoleMap, getAllowedRolesForDashboard, isProviderRole } from "./role-guard";
 import { prisma } from "./prisma";
 import { ApiError } from "./errors";
 import { getAnalyticsSummary } from "./analytics-service";
-import { getAdminLivePreview, getLives, getPinnedLives, listLives } from "./live-service";
+import { getAdminLivePreview, getDashboardLiveSummary, getPinnedLives } from "./live-service";
 import { listLiveRequests } from "./live-request-service";
 import {
   getAvailableProvidersForViewer,
@@ -43,31 +43,38 @@ function getNextActions(dashboardType: DashboardType) {
 
 export async function getDashboardData(dashboardType: DashboardType, user: SafeUser): Promise<DashboardResponse & { adminActivity?: unknown[]; pendingLiveRequests?: unknown[]; pendingVerifications?: unknown[] }> {
   const role = dashboardRoleMap[dashboardType];
+  const isAdminViewer = user.role === "main_admin";
+  const isProviderDashboard = dashboardType !== "main" && dashboardType !== "viewer";
   const providerId =
-    dashboardType === "main" || dashboardType === "viewer" ? undefined : user.providerId;
-  const viewerLiveSummary = dashboardType === "viewer" ? await listLives({ page: 1, pageSize: 5, sort: "important" }) : undefined;
-  const allLives = viewerLiveSummary ? viewerLiveSummary.items : await getLives(providerId);
-  const pinnedLives = await getPinnedLives(providerId);
-  const replayStats = {
-    replayViews: allLives.reduce((sum, live) => sum + live.replayViews, 0),
-    availableReplays: allLives.filter((live) => live.status === "replay" && live.replay.status !== "expired").length,
-    expiringReplays: allLives.filter((live) => live.replay.status === "expiring_soon").length,
-  };
-
+    isProviderDashboard && !isAdminViewer ? user.providerId : undefined;
+  const providerRole =
+    isProviderDashboard && isAdminViewer
+      ? role as Exclude<ProfileType, "main_admin" | "viewer">
+      : undefined;
+  const liveSummary = await getDashboardLiveSummary({
+    providerId,
+    providerRole,
+    previewLimit: 3,
+  });
+  const pinnedLives = dashboardType === "main" ? await getPinnedLives() : [];
   const mainLivePreview = dashboardType === "main" ? await getAdminLivePreview(3) : undefined;
   const response: DashboardResponse & { adminActivity?: unknown[]; pendingLiveRequests?: unknown[]; pendingVerifications?: unknown[] } = {
     dashboardType,
     role,
+    auth: {
+      authMode: "demo",
+      accessChecked: true,
+      allowedRoles: getAllowedRolesForDashboard(dashboardType),
+      currentRole: user.role,
+      currentUserId: user.id,
+      accessGranted: true,
+    },
     currentUserId: user.id,
     providerId,
     verificationStatus: user.verificationStatus,
-    liveStats: {
-      totalLives: allLives.length,
-      activeLives: allLives.filter((live) => live.status === "live").length,
-      scheduledLives: allLives.filter((live) => live.status === "scheduled").length,
-    },
-    replayStats,
-    liveCatalog: viewerLiveSummary?.items ?? mainLivePreview ?? allLives,
+    liveStats: liveSummary.liveStats,
+    replayStats: liveSummary.replayStats,
+    liveCatalog: mainLivePreview ?? liveSummary.liveCatalog,
     pinnedLives,
     analyticsSummary: await getAnalyticsSummary(dashboardType, user.id, providerId),
     nextActions: getNextActions(dashboardType),
