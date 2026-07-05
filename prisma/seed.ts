@@ -61,6 +61,113 @@ const trustProfiles: Record<
   },
 };
 
+const presenterToolSeeds = [
+  {
+    name: "Product card",
+    type: "product_card",
+    description: "Show a focused product or service card with an interest CTA during the live.",
+    defaultPayload: {
+      productName: "Featured Buyamia offer",
+      shortDescription: "A presenter-selected item from this live session.",
+      priceLabel: "Demo price on request",
+      ctaLabel: "I'm interested",
+      suggestedUseCase: "Use when viewers ask about a product, room, menu, package, or supplier SKU.",
+    },
+  },
+  {
+    name: "Limited-time offer banner",
+    type: "limited_offer",
+    description: "Display a time-boxed local demo offer without sending it to any streaming provider.",
+    defaultPayload: {
+      offerTitle: "Live-only demo offer",
+      expiryTime: datePlusDays(new Date(), 1).toISOString(),
+      ctaLabel: "View offer status",
+      suggestedUseCase: "Use when checkout interest or purchase intent rises during the live.",
+    },
+  },
+  {
+    name: "Countdown",
+    type: "countdown",
+    description: "Create urgency for a reveal, offer window, or Q&A segment.",
+    defaultPayload: {
+      title: "Next reveal",
+      endsAt: datePlusDays(new Date(), 1).toISOString(),
+      suggestedUseCase: "Use before a price reveal, room walkthrough, menu item, or product drop.",
+    },
+  },
+  {
+    name: "Live poll",
+    type: "poll",
+    description: "Ask viewers to choose between options and collect demo votes.",
+    defaultPayload: {
+      question: "What should we show next?",
+      options: ["Product detail", "Pricing", "Delivery options"],
+      suggestedUseCase: "Use when engagement is high and the presenter needs audience direction.",
+    },
+  },
+  {
+    name: "Q&A spotlight",
+    type: "question_spotlight",
+    description: "Highlight a viewer question and optional presenter response.",
+    defaultPayload: {
+      viewerQuestion: "Can you explain the delivery or booking steps?",
+      presenterResponse: "",
+      suggestedUseCase: "Use when a question is relevant to many viewers.",
+    },
+  },
+  {
+    name: "Applause burst",
+    type: "applause_burst",
+    description: "Celebrate follows, purchases, answers, and high-engagement moments.",
+    defaultPayload: {
+      message: "Thanks for the live engagement.",
+      suggestedUseCase: "Use after follow spikes, answered questions, or strong buying signals.",
+    },
+  },
+  {
+    name: "Trust badge",
+    type: "trust_badge",
+    description: "Show local verification proof such as verified provider, replay, or live status.",
+    defaultPayload: {
+      verifiedProvider: true,
+      verifiedReplay: true,
+      verifiedLive: true,
+      suggestedUseCase: "Use when viewers need confidence before making a booking or purchase inquiry.",
+    },
+  },
+  {
+    name: "Concierge assist prompt",
+    type: "concierge_prompt",
+    description: "Invite viewers to request help arranging delivery, booking, or additional services.",
+    defaultPayload: {
+      prompt: "Need help arranging delivery, booking or additional services?",
+      ctaLabel: "Open concierge demo",
+      conciergeHref: "/services-dashboard",
+      suggestedUseCase: "Use when viewers ask about logistics, transfers, delivery, or service add-ons.",
+    },
+  },
+  {
+    name: "Ambassador challenge",
+    type: "ambassador_challenge",
+    description: "Invite viewers to share, follow, or refer the live with a demo reward label.",
+    defaultPayload: {
+      challenge: "Share this live or follow the provider.",
+      rewardPointsLabel: "Demo reward: 50 ambassador points",
+      suggestedUseCase: "Use when follows and sharing are the goal of the live segment.",
+    },
+  },
+  {
+    name: "Review request",
+    type: "review_request",
+    description: "Ask qualified viewers to leave or request a verified review flow after the live.",
+    defaultPayload: {
+      title: "Request a verified review",
+      ctaLabel: "Open review demo",
+      suggestedUseCase: "Use near the end of a live after a purchase, booking, or service interaction.",
+    },
+  },
+] as const;
+
 async function upsertUser(input: {
   name: string;
   email: string;
@@ -126,6 +233,23 @@ async function main() {
   const providers = await prisma.providerProfile.findMany({ include: { user: true } });
   const now = new Date();
   const adminUser = await prisma.user.findUnique({ where: { email: adminEmail.toLowerCase() } });
+
+  for (const tool of presenterToolSeeds) {
+    await prisma.livePresenterTool.upsert({
+      where: { type: tool.type },
+      update: {
+        name: tool.name,
+        description: tool.description,
+        defaultPayload: tool.defaultPayload as Prisma.InputJsonValue,
+      },
+      create: {
+        name: tool.name,
+        type: tool.type,
+        description: tool.description,
+        defaultPayload: tool.defaultPayload as Prisma.InputJsonValue,
+      },
+    });
+  }
 
   for (const provider of providers) {
     if (!provider.website) {

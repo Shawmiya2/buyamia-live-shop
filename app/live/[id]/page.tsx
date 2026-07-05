@@ -1,9 +1,17 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { getCurrentUser } from "@/lib/backend/auth-context";
 import { getLiveById } from "@/lib/backend/live-service";
+import { isProviderRole } from "@/lib/backend/role-guard";
+import {
+  computeSuggestedTools,
+  listActiveToolsForLive,
+  listAvailablePresenterTools,
+} from "@/lib/backend/presenter-tool-service";
 import { LiveIntentCommercePanels } from "../intent-commerce-panels";
 import { ReplayTranscriptPanel } from "../replay-transcript-panel";
 import { LiveDetailActions } from "./live-detail-actions";
+import { PresenterToolsPanel } from "./presenter-tools-panel";
 
 export default async function LiveDetailPage({
   params,
@@ -11,13 +19,24 @@ export default async function LiveDetailPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  const live = await getLiveById(id).catch(() => null);
+  const [live, user] = await Promise.all([
+    getLiveById(id).catch(() => null),
+    getCurrentUser(),
+  ]);
 
   if (!live) {
     notFound();
   }
 
   const replayExpired = live.status === "replay" && live.replay.status === "expired";
+  const canManageTools =
+    user?.role === "main_admin" ||
+    Boolean(user && isProviderRole(user.role) && user.providerId === live.providerId);
+  const [tools, activeTools, suggestions] = await Promise.all([
+    listAvailablePresenterTools(),
+    listActiveToolsForLive(live.id),
+    computeSuggestedTools(live.id),
+  ]);
 
   return (
     <main className="min-h-dvh bg-[#f3ecdc] px-4 py-6 text-[#1e2419] sm:px-6 lg:px-8">
@@ -86,6 +105,25 @@ export default async function LiveDetailPage({
         </section>
 
         <LiveIntentCommercePanels live={live} showQuestions={live.status !== "replay"} />
+        <PresenterToolsPanel
+          liveId={live.id}
+          tools={tools.map((tool) => ({
+            id: tool.id,
+            name: tool.name,
+            type: tool.type,
+            defaultPayload: asRecord(tool.defaultPayload),
+          }))}
+          initialActive={activeTools.map((activation) => ({
+            id: activation.id,
+            toolType: activation.toolType,
+            payload: asRecord(activation.payload),
+            triggerReason: activation.triggerReason,
+            status: activation.status,
+          }))}
+          suggestions={suggestions}
+          canManage={canManageTools}
+          isViewer={user?.role === "viewer"}
+        />
         <ReplayTranscriptPanel transcript={live.transcript} status={live.status} />
 
         <section className="mt-6 rounded-3xl border border-[#d6cbb6] bg-[#fffaf0] p-5 shadow-sm">
@@ -137,4 +175,8 @@ function formatDate(value: string) {
     month: "short",
     day: "numeric",
   }).format(new Date(value));
+}
+
+function asRecord(value: unknown): Record<string, unknown> {
+  return value && typeof value === "object" && !Array.isArray(value) ? value as Record<string, unknown> : {};
 }

@@ -75,6 +75,12 @@ import {
   getPinnedPlacementOptions,
   listPinnedPlacementRequests,
 } from "../../lib/backend/pinned-placement-service";
+import {
+  listActiveToolsForLive,
+  listAvailablePresenterTools,
+  triggerPresenterTool,
+} from "../../lib/backend/presenter-tool-service";
+import { createViewerSignal } from "../../lib/backend/live-signal-service";
 
 function uniqueEmail(prefix: string) {
   return `${prefix}-${Date.now()}-${Math.random().toString(16).slice(2)}@example.test`;
@@ -1544,6 +1550,114 @@ describe("backend foundation", () => {
     expect(unknown.recognizedAction).toBeUndefined();
     expect(unknown.message).toMatch(/could not match/i);
     expect(unknown.suggestions.length).toBeGreaterThan(0);
+  });
+
+  it("seeds the live presenter tool library", async () => {
+    const tools = await listAvailablePresenterTools();
+    expect(tools.map((tool) => tool.type)).toEqual(expect.arrayContaining([
+      "product_card",
+      "limited_offer",
+      "countdown",
+      "poll",
+      "question_spotlight",
+      "applause_burst",
+      "trust_badge",
+      "concierge_prompt",
+      "ambassador_challenge",
+      "review_request",
+    ]));
+  });
+
+  it("lets provider owners trigger presenter tools for their own live and blocks viewers", async () => {
+    const owner = await provider("supplier");
+    const otherProvider = await provider("restaurant");
+    const viewer = await signupUser({
+      name: "Tool Viewer",
+      email: uniqueEmail("tool-viewer"),
+      password: "Password123!",
+      role: "viewer",
+    });
+    const live = await createScheduledStream(owner.providerId, {
+      title: "Presenter tool stream",
+      category: "Furniture",
+      scheduledAt: datePlusDays(new Date(), 2).toISOString(),
+    });
+
+    const activation = await triggerPresenterTool({
+      liveId: live.id,
+      presenter: safeUser(owner.user),
+      data: {
+        toolType: "product_card",
+        triggerReason: "manual",
+        payload: {
+          productName: "Rattan demo card",
+          shortDescription: "Local persisted product CTA.",
+          ctaLabel: "I'm interested",
+        },
+      },
+    });
+
+    expect(activation.liveId).toBe(live.id);
+    expect(activation.toolType).toBe("product_card");
+    expect((await listActiveToolsForLive(live.id)).some((item) => item.id === activation.id)).toBe(true);
+
+    await expect(triggerPresenterTool({
+      liveId: live.id,
+      presenter: safeUser(otherProvider.user),
+      data: { toolType: "poll", payload: { question: "Nope" } },
+    })).rejects.toThrow(/another provider/i);
+
+    await expect(triggerPresenterTool({
+      liveId: live.id,
+      presenter: safeUser(viewer),
+      data: { toolType: "poll", payload: { question: "Nope" } },
+    })).rejects.toThrow(/another provider|cannot access/i);
+  });
+
+  it("lets viewers send live signals but not trigger presenter tools", async () => {
+    const owner = await provider("hotel");
+    const viewer = await signupUser({
+      name: "Signal Viewer",
+      email: uniqueEmail("signal-viewer"),
+      password: "Password123!",
+      role: "viewer",
+    });
+    const live = await createScheduledStream(owner.providerId, {
+      title: "Signal stream",
+      category: "Rooms",
+      scheduledAt: datePlusDays(new Date(), 3).toISOString(),
+    });
+
+    const signal = await createViewerSignal({
+      liveId: live.id,
+      viewer: safeUser(viewer),
+      data: {
+        signalType: "purchase_intent",
+        payload: { productName: "Suite package" },
+      },
+    });
+
+    expect(signal.signalType).toBe("purchase_intent");
+    expect(signal.viewerId).toBe(viewer.id);
+    await expect(triggerPresenterTool({
+      liveId: live.id,
+      presenter: safeUser(viewer),
+      data: { toolType: "product_card", payload: {} },
+    })).rejects.toThrow();
+  });
+
+  it("renders live presenter tools UI contracts", () => {
+    const libraryPage = readFileSync("app/dashboard/live-tools/page.tsx", "utf8");
+    const libraryConsole = readFileSync("app/dashboard/live-tools/live-tools-console.tsx", "utf8");
+    const livePage = readFileSync("app/live/[id]/page.tsx", "utf8");
+    const livePanel = readFileSync("app/live/[id]/presenter-tools-panel.tsx", "utf8");
+
+    expect(libraryPage).toContain("Live Presenter Tools");
+    expect(libraryConsole).toContain("Trigger tool");
+    expect(livePage).toContain("PresenterToolsPanel");
+    expect(livePanel).toContain("I'm interested");
+    expect(livePanel).toContain("/services-dashboard");
+    expect(livePanel).toContain("/api/lives/${liveId}/signals");
   });
 
   it("renders the authenticated Remote Account Bot page contract", () => {

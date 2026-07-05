@@ -218,6 +218,43 @@ enum BotActionStatus {
   failed
 }
 
+enum LivePresenterToolType {
+  product_card
+  limited_offer
+  countdown
+  poll
+  question_spotlight
+  applause_burst
+  trust_badge
+  concierge_prompt
+  ambassador_challenge
+  review_request
+}
+
+enum LiveToolTriggerReason {
+  manual
+  viewer_question
+  purchase_intent
+  follow
+  high_engagement
+  checkout_interest
+}
+
+enum LiveToolActivationStatus {
+  active
+  dismissed
+  expired
+}
+
+enum LiveViewerSignalType {
+  question
+  follow
+  purchase_intent
+  replay_view
+  checkout_click
+  concierge_request
+}
+
 model User {
   id                   String                @id @default(cuid())
   name                 String
@@ -234,6 +271,8 @@ model User {
   analyticsEvents      AnalyticsEvent[]
   adminActivities      AdminActivity[]       @relation("AdminActivities")
   follows              Follow[]              @relation("ViewerFollows")
+  liveToolActivations  LiveToolActivation[]  @relation("PresenterToolActivations")
+  liveViewerSignals    LiveViewerSignal[]    @relation("ViewerSignals")
   rfqs                 Rfq[]                 @relation("RfqCreator")
   negotiations         Negotiation[]         @relation("NegotiationCreator")
   negotiationMessages  NegotiationMessage[]  @relation("NegotiationMessageAuthor")
@@ -379,6 +418,49 @@ model Live {
   provider        ProviderProfile  @relation(fields: [providerId], references: [id], onDelete: Cascade)
   liveRequest     LiveRequest?     @relation(fields: [liveRequestId], references: [id], onDelete: SetNull)
   analyticsEvents AnalyticsEvent[]
+  toolActivations LiveToolActivation[]
+  viewerSignals   LiveViewerSignal[]
+}
+
+model LivePresenterTool {
+  id             String                @id @default(cuid())
+  name           String
+  type           LivePresenterToolType @unique
+  description    String
+  defaultPayload Json
+  createdAt      DateTime              @default(now())
+  updatedAt      DateTime              @updatedAt
+}
+
+model LiveToolActivation {
+  id            String                   @id @default(cuid())
+  liveId        String
+  presenterId   String
+  toolType      LivePresenterToolType
+  payload       Json
+  triggerReason LiveToolTriggerReason    @default(manual)
+  status        LiveToolActivationStatus @default(active)
+  createdAt     DateTime                 @default(now())
+  expiresAt     DateTime?
+  live          Live                     @relation(fields: [liveId], references: [id], onDelete: Cascade)
+  presenter     User                     @relation("PresenterToolActivations", fields: [presenterId], references: [id], onDelete: Cascade)
+
+  @@index([liveId, status, createdAt])
+  @@index([presenterId])
+}
+
+model LiveViewerSignal {
+  id         String               @id @default(cuid())
+  liveId     String
+  viewerId   String?
+  signalType LiveViewerSignalType
+  payload    Json
+  createdAt  DateTime             @default(now())
+  live       Live                 @relation(fields: [liveId], references: [id], onDelete: Cascade)
+  viewer     User?                @relation("ViewerSignals", fields: [viewerId], references: [id], onDelete: SetNull)
+
+  @@index([liveId, signalType, createdAt])
+  @@index([viewerId])
 }
 
 model Follow {
