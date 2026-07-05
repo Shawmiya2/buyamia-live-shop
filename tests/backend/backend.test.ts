@@ -57,6 +57,8 @@ import {
   updateSellerApplicationStatus,
 } from "../../lib/backend/seller-application-service";
 import { getAssistantIntegrationStatus, runAssistantQuery } from "../../lib/backend/assistant-service";
+import { getAvailableLiveSlots, runSimulatedBotCommand } from "../../lib/backend/bot-service";
+import { getBotProviderStatus, parseDemoWebhookPayload } from "../../lib/backend/bot-provider-adapter";
 import { createAiSourcingRequest } from "../../lib/backend/ai-sourcing-service";
 import { createBookingPush, listBookingPushes } from "../../lib/backend/booking-push-service";
 import { generateReviewBrief, listReviewBriefs } from "../../lib/backend/review-brief-service";
@@ -1544,11 +1546,117 @@ describe("backend foundation", () => {
     expect(unknown.suggestions.length).toBeGreaterThan(0);
   });
 
+  it("renders the authenticated Remote Account Bot page contract", () => {
+    const page = readFileSync("app/dashboard/remote-bot/page.tsx", "utf8");
+    const consoleSource = readFileSync("app/dashboard/remote-bot/remote-bot-console.tsx", "utf8");
+
+    expect(page).toContain("Remote Account Bot");
+    expect(page).toContain("Use WhatsApp or Telegram");
+    expect(page).toContain("getCurrentUser");
+    expect(page).toContain('redirect("/login")');
+    expect(consoleSource).toContain("/api/bot/simulate-command");
+  });
+
+  it("runs account summary and available slot bot commands", async () => {
+    const user = safeUser(await signupUser({
+      name: "Bot Viewer",
+      email: uniqueEmail("bot-viewer"),
+      password: "Password123!",
+      role: "viewer",
+    }));
+
+    const summary = await runSimulatedBotCommand(user, {
+      channel: "telegram",
+      message: "account summary",
+    });
+    expect(summary.status).toBe("success");
+    expect(summary.responseText).toContain("Role: viewer");
+    expect(summary.responseText).toContain("/dashboard/viewer");
+
+    const slots = await runSimulatedBotCommand(user, {
+      channel: "whatsapp",
+      message: "available slots",
+    });
+    expect(slots.status).toBe("success");
+    expect(slots.responseText).toContain("Available demo live setup slots");
+    expect((await getAvailableLiveSlots(user)).length).toBeGreaterThan(0);
+  });
+
+  it("lets providers create a draft live request through the bot and blocks viewers", async () => {
+    const service = await provider("service_provider");
+    const providerUser = safeUser(service.user);
+    const result = await runSimulatedBotCommand(providerUser, {
+      channel: "telegram",
+      message: "create live request",
+      payload: {
+        title: "Bot-created service live",
+        slotIndex: 1,
+      },
+    });
+
+    expect(result.status).toBe("success");
+    expect(result.responseText).toContain("Created a draft live request");
+    expect((await listLiveRequests({ providerId: service.providerId })).some((item) => item.title === "Bot-created service live")).toBe(true);
+
+    const viewer = safeUser(await signupUser({
+      name: "Blocked Bot Viewer",
+      email: uniqueEmail("blocked-bot-viewer"),
+      password: "Password123!",
+      role: "viewer",
+    }));
+    const blocked = await runSimulatedBotCommand(viewer, {
+      channel: "whatsapp",
+      message: "create live request",
+    });
+    expect(blocked.status).toBe("failed");
+    expect(blocked.responseText).toMatch(/provider profile is required|Only provider/i);
+  });
+
+  it("restricts RFQ bot summary to main admins", async () => {
+    const adminUser = safeUser(await admin());
+    const adminResult = await runSimulatedBotCommand(adminUser, {
+      channel: "telegram",
+      message: "rfq summary",
+    });
+    expect(adminResult.status).toBe("success");
+    expect(adminResult.responseText).toContain("RFQ summary");
+
+    const viewer = safeUser(await signupUser({
+      name: "RFQ Bot Viewer",
+      email: uniqueEmail("rfq-bot-viewer"),
+      password: "Password123!",
+      role: "viewer",
+    }));
+    const denied = await runSimulatedBotCommand(viewer, {
+      channel: "telegram",
+      message: "rfq summary",
+    });
+    expect(denied.status).toBe("failed");
+    expect(denied.responseText).toMatch(/only available to main admin/i);
+  });
+
+  it("keeps WhatsApp and Telegram webhook placeholders secret-free", () => {
+    const whatsapp = parseDemoWebhookPayload("whatsapp", {
+      from: "+100000000",
+      message: "account summary",
+      messageId: "demo-1",
+    });
+    expect(whatsapp.text).toBe("account summary");
+
+    for (const channel of ["whatsapp", "telegram"] as const) {
+      const status = getBotProviderStatus(channel);
+      expect(status.configured).toBe(false);
+      expect(status.message).toContain("provider is not configured");
+      expect(JSON.stringify(status)).not.toMatch(/token|secret|api[_-]?key/i);
+    }
+  });
+
   it("uses explicit procurement quick action routes", () => {
     const source = readFileSync("app/dashboard-platform.tsx", "utf8");
     for (const label of ["Generate RFQ", "Rank suppliers", "Open negotiation", "Review risk"]) {
       expect(source).toContain(`"${label.toLowerCase()}": "/dashboard/main/`);
     }
+    expect(source).toContain('"remote account bot": "/dashboard/remote-bot"');
     expect(source).toContain('"view calendar": "/live/calendar"');
   });
 

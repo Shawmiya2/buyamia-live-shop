@@ -231,7 +231,7 @@ const dashboards: Dashboard[] = [
       { label: "Replay lift", value: "41%", width: 41 },
       { label: "Cancellation risk", value: "3.2%", width: 12 },
     ],
-    quickActions: ["Open live room", "Create booking push", "Schedule stream", "Generate review brief"],
+    quickActions: ["Open live room", "Create booking push", "Schedule stream", "Remote account bot", "Generate review brief"],
   },
   {
     kind: "restaurant",
@@ -391,7 +391,7 @@ const dashboards: Dashboard[] = [
       { label: "Kitchen load", value: "82%", width: 82 },
       { label: "Food cost", value: "31%", width: 31 },
     ],
-    quickActions: ["Open chef live", "Pin menu highlight", "Create tasting", "Adjust reservations"],
+    quickActions: ["Open chef live", "Pin menu highlight", "Create tasting", "Remote account bot", "Adjust reservations"],
   },
   {
     kind: "supplier",
@@ -550,7 +550,7 @@ const dashboards: Dashboard[] = [
       { label: "Capacity load", value: "71%", width: 71 },
       { label: "Buyer response", value: "17m", width: 84 },
     ],
-    quickActions: ["Live preparation center", "Generate quote", "Open sourcing stream", "Update escrow", "Launch overstock live"],
+    quickActions: ["Live preparation center", "Generate quote", "Open sourcing stream", "Remote account bot", "Update escrow", "Launch overstock live"],
   },
   {
     kind: "services",
@@ -713,6 +713,7 @@ const dashboards: Dashboard[] = [
     quickActions: [
       "Set up a live for my service",
       "Review verification",
+      "Remote account bot",
       "Extend replay availability",
       "Request pinned placement",
     ],
@@ -1030,7 +1031,7 @@ const dashboards: Dashboard[] = [
       { label: "Operational risk", value: "22%", width: 22 },
       { label: "AI automation", value: "93%", width: 93 },
     ],
-    quickActions: ["Open procurement agent dashboard", "Generate RFQ", "Rank suppliers", "Open negotiation", "Review risk", "View calendar"],
+    quickActions: ["Open procurement agent dashboard", "Generate RFQ", "Rank suppliers", "Remote account bot", "Open negotiation", "Review risk", "View calendar"],
   },
 ];
 
@@ -2514,6 +2515,7 @@ function quickActionHref(action: string, dashboardType?: DashboardType) {
       "open chef live": "/live",
       "open live room": "/live",
       "open sourcing stream": "/live",
+      "remote account bot": "/dashboard/remote-bot",
     };
 
     return roleSafeRoutes[normalized] ?? providerDashboardHref[dashboardType] ?? "/live";
@@ -2530,6 +2532,7 @@ function quickActionHref(action: string, dashboardType?: DashboardType) {
     "open supplier dashboard": "/dashboard/supplier",
     "open ai procurement": "/dashboard/main",
     "open procurement agent dashboard": "/dashboard/procurement-agent",
+    "remote account bot": "/dashboard/remote-bot",
     "compare hotels": "/dashboard/viewer",
     "update wishlist": "/dashboard/viewer",
     "check booking": "/dashboard/viewer",
