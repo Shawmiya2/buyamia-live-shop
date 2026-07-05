@@ -8,6 +8,7 @@ import {
   getAdminAmbassadorOverview,
   getProviderAmbassadorEngagement,
 } from "@/lib/backend/ambassador-service";
+import { getConciergeAdminSummary } from "@/lib/backend/concierge-service";
 import {
   canAccessDashboard,
   canSeeAdminControls,
@@ -235,7 +236,7 @@ const dashboards: Dashboard[] = [
       { label: "Replay lift", value: "41%", width: 41 },
       { label: "Cancellation risk", value: "3.2%", width: 12 },
     ],
-    quickActions: ["Open live room", "Create booking push", "Schedule stream", "Remote account bot", "Generate review brief"],
+    quickActions: ["Open live room", "Create booking push", "Schedule stream", "Remote account bot", "Hotel concierge", "Generate review brief"],
   },
   {
     kind: "restaurant",
@@ -395,7 +396,7 @@ const dashboards: Dashboard[] = [
       { label: "Kitchen load", value: "82%", width: 82 },
       { label: "Food cost", value: "31%", width: 31 },
     ],
-    quickActions: ["Open chef live", "Pin menu highlight", "Create tasting", "Remote account bot", "Adjust reservations"],
+    quickActions: ["Open chef live", "Pin menu highlight", "Create tasting", "Remote account bot", "Restaurant concierge", "Adjust reservations"],
   },
   {
     kind: "supplier",
@@ -554,7 +555,7 @@ const dashboards: Dashboard[] = [
       { label: "Capacity load", value: "71%", width: 71 },
       { label: "Buyer response", value: "17m", width: 84 },
     ],
-    quickActions: ["Live preparation center", "Generate quote", "Open sourcing stream", "Remote account bot", "Update escrow", "Launch overstock live"],
+    quickActions: ["Live preparation center", "Generate quote", "Open sourcing stream", "Remote account bot", "Supplier concierge", "Update escrow", "Launch overstock live"],
   },
   {
     kind: "services",
@@ -718,6 +719,7 @@ const dashboards: Dashboard[] = [
       "Set up a live for my service",
       "Review verification",
       "Remote account bot",
+      "Services concierge",
       "Extend replay availability",
       "Request pinned placement",
     ],
@@ -877,7 +879,7 @@ const dashboards: Dashboard[] = [
       { label: "Replay coverage", value: "74%", width: 74 },
       { label: "Booking risk", value: "8%", width: 8 },
     ],
-    quickActions: ["Ambassador rewards", "Compare hotels", "Open replay", "Update wishlist", "Check booking"],
+    quickActions: ["Buyer concierge", "Ambassador rewards", "Compare hotels", "Open replay", "Update wishlist", "Check booking"],
   },
   {
     kind: "procurement",
@@ -1035,7 +1037,7 @@ const dashboards: Dashboard[] = [
       { label: "Operational risk", value: "22%", width: 22 },
       { label: "AI automation", value: "93%", width: 93 },
     ],
-    quickActions: ["Open procurement agent dashboard", "Generate RFQ", "Rank suppliers", "Remote account bot", "Open negotiation", "Review risk", "View calendar"],
+    quickActions: ["Open concierge", "Open procurement agent dashboard", "Generate RFQ", "Rank suppliers", "Remote account bot", "Open negotiation", "Review risk", "View calendar"],
   },
 ];
 
@@ -1907,6 +1909,10 @@ async function DashboardDetail({ dashboard }: { dashboard: Dashboard }) {
     currentUser?.role === "main_admin" && dashboard.kind === "procurement"
       ? await getAdminAmbassadorOverview()
       : null;
+  const conciergeSummary =
+    currentUser?.role === "main_admin" && dashboard.kind === "procurement"
+      ? await getConciergeAdminSummary()
+      : null;
 
   return (
     <section className="px-4 py-5 sm:px-6 lg:px-8">
@@ -1925,6 +1931,7 @@ async function DashboardDetail({ dashboard }: { dashboard: Dashboard }) {
       {dashboard.kind === "traveler" && <ViewerAmbassadorCard />}
       {providerEngagement && <ProviderAmbassadorEngagement engagement={providerEngagement} />}
       {adminAmbassadorOverview && <AdminAmbassadorSummary overview={adminAmbassadorOverview} />}
+      {conciergeSummary && <AdminConciergeSummary summary={conciergeSummary} />}
       {dashboard.kind === "hotel" && <HotelAudienceSplit />}
       {dashboard.kind === "procurement" && <ProcurementAgentCTA />}
       {dashboard.kind === "supplier" && <SupplierPreparationCenterCTA />}
@@ -1983,6 +1990,48 @@ function ViewerAmbassadorCard() {
       <Link href="/dashboard/viewer/ambassador" className="mt-5 inline-flex rounded-full bg-[#1e2419] px-5 py-3 text-sm font-bold text-[#fffaf0] transition hover:bg-[#596540]">
         Open ambassador rewards
       </Link>
+    </section>
+  );
+}
+
+function AdminConciergeSummary({
+  summary,
+}: {
+  summary: {
+    openRequests: number;
+    waitingForBuyer: number;
+    waitingForProvider: number;
+    arrangedOutcomes: number;
+  };
+}) {
+  const rows = [
+    ["Open concierge requests", summary.openRequests],
+    ["Waiting for buyer", summary.waitingForBuyer],
+    ["Waiting for provider", summary.waitingForProvider],
+    ["Arranged outcomes", summary.arrangedOutcomes],
+  ] as const;
+
+  return (
+    <section className="mt-5 rounded-3xl border border-[#d6cbb6] bg-[#fffaf0] p-5 shadow-sm">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+        <div>
+          <p className="text-[11px] font-bold uppercase tracking-[.16em] text-[#6f7f4f]">
+            Last-mile concierge
+          </p>
+          <h2 className="mt-1 text-2xl font-semibold">Buyamia Concierge summary</h2>
+        </div>
+        <Link href="/dashboard/main/concierge" className="w-fit rounded-full bg-[#1e2419] px-4 py-2 text-sm font-bold text-[#fffaf0]">
+          Open concierge
+        </Link>
+      </div>
+      <div className="mt-4 grid gap-3 md:grid-cols-4">
+        {rows.map(([label, value]) => (
+          <div key={label} className="rounded-2xl bg-[#f3ecdc] p-4">
+            <p className="text-xs font-bold text-[#596540]">{label}</p>
+            <p className="mt-2 text-2xl font-semibold">{value}</p>
+          </div>
+        ))}
+      </div>
     </section>
   );
 }
@@ -2627,6 +2676,11 @@ function quickActionHref(action: string, dashboardType?: DashboardType) {
       "open live room": "/live",
       "open sourcing stream": "/live",
       "remote account bot": "/dashboard/remote-bot",
+      "buyer concierge": "/dashboard/viewer/concierge",
+      "hotel concierge": "/dashboard/hotel/concierge",
+      "restaurant concierge": "/dashboard/restaurant/concierge",
+      "supplier concierge": "/dashboard/supplier/concierge",
+      "services concierge": "/dashboard/services/concierge",
     };
 
     return roleSafeRoutes[normalized] ?? providerDashboardHref[dashboardType] ?? "/live";
@@ -2644,6 +2698,12 @@ function quickActionHref(action: string, dashboardType?: DashboardType) {
     "open ai procurement": "/dashboard/main",
     "open procurement agent dashboard": "/dashboard/procurement-agent",
     "remote account bot": "/dashboard/remote-bot",
+    "open concierge": "/dashboard/main/concierge",
+    "buyer concierge": "/dashboard/viewer/concierge",
+    "hotel concierge": "/dashboard/hotel/concierge",
+    "restaurant concierge": "/dashboard/restaurant/concierge",
+    "supplier concierge": "/dashboard/supplier/concierge",
+    "services concierge": "/dashboard/services/concierge",
     "compare hotels": "/dashboard/viewer",
     "ambassador rewards": "/dashboard/viewer/ambassador",
     "become an ambassador": "/dashboard/viewer/ambassador",

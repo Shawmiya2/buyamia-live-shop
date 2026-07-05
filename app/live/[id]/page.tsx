@@ -154,7 +154,7 @@ export default async function LiveDetailPage({
           </div>
         </section>
 
-        <LiveDetailActions liveId={live.id} providerId={live.providerId} title={live.title} />
+        <LiveDetailActions liveId={live.id} providerId={live.providerId} title={live.title} category={live.category} />
       </div>
     </main>
   );

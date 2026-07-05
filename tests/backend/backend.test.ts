@@ -88,6 +88,16 @@ import {
   getProviderAmbassadorEngagement,
   joinAmbassadorProgram,
 } from "../../lib/backend/ambassador-service";
+import {
+  createBuyerIntent,
+  getBuyerIntentForUser,
+  listBuyerIntentsForUser,
+} from "../../lib/backend/buyer-intent-service";
+import {
+  getConciergeRoadmap,
+  listConciergeRequestsForUser,
+  updateConciergeRequest,
+} from "../../lib/backend/concierge-service";
 
 function uniqueEmail(prefix: string) {
   return `${prefix}-${Date.now()}-${Math.random().toString(16).slice(2)}@example.test`;
@@ -1896,5 +1906,222 @@ describe("backend foundation", () => {
     }
     expect(readFileSync("app/dashboard/main/lives/page.tsx", "utf8")).toContain('requireRole("main_admin")');
     expect(readFileSync("app/dashboard/main/lives/[id]/page.tsx", "utf8")).toContain('requireRole("main_admin")');
+  });
+
+  it("lets a viewer create a buyer intent with address and concierge outcome", async () => {
+    const owner = await provider("supplier");
+    const viewer = safeUser(await signupUser({
+      name: "Concierge Viewer",
+      email: uniqueEmail("concierge-viewer"),
+      password: "Password123!",
+      role: "viewer",
+    }));
+    const live = await createScheduledStream(owner.providerId, {
+      title: "Concierge phone live",
+      category: "Electronics",
+      scheduledAt: datePlusDays(new Date(), 2).toISOString(),
+    });
+
+    const intent = await createBuyerIntent(viewer, {
+      liveId: live.id,
+      productOrServiceName: "Demo phone",
+      category: "Electronics",
+      intentType: "buy_product",
+      quantity: 1,
+      urgency: "today",
+      notes: "Arrange delivery and insurance options.",
+      address: {
+        label: "Villa",
+        line1: "Jalan Demo 1",
+        city: "Denpasar",
+        country: "Indonesia",
+        isDefault: true,
+      },
+    });
+
+    expect(intent.providerId).toBe(owner.providerId);
+    expect(intent.address?.line1).toBe("Jalan Demo 1");
+    expect(intent.conciergeRequests.length).toBe(1);
+    expect(intent.outcomes[0].status).toBe("pending");
+    expect(await prisma.buyerIntent.findUnique({ where: { id: intent.id } })).toBeTruthy();
+  });
+
+  it("requires buyer intent required fields", async () => {
+    const viewer = safeUser(await signupUser({
+      name: "Bad Intent Viewer",
+      email: uniqueEmail("bad-intent-viewer"),
+      password: "Password123!",
+      role: "viewer",
+    }));
+
+    await expect(createBuyerIntent(viewer, {
+      category: "",
+      intentType: "buy_product",
+    })).rejects.toMatchObject({
+      fields: {
+        productOrServiceName: "Please enter a product or service name.",
+        category: "Please enter a category.",
+      },
+    });
+  });
+
+  it("stores and reuses buyer addresses", async () => {
+    const viewer = safeUser(await signupUser({
+      name: "Address Reuse Viewer",
+      email: uniqueEmail("address-reuse-viewer"),
+      password: "Password123!",
+      role: "viewer",
+    }));
+    const first = await createBuyerIntent(viewer, {
+      productOrServiceName: "Wallet",
+      category: "Accessories",
+      intentType: "buy_product",
+      urgency: "flexible",
+      address: {
+        label: "Home",
+        line1: "Reusable Street",
+        city: "Ubud",
+        country: "Indonesia",
+        isDefault: true,
+      },
+    });
+    const savedAddress = first.address!;
+    const second = await createBuyerIntent(viewer, {
+      productOrServiceName: "Phone case",
+      category: "Accessories",
+      intentType: "buy_product",
+      urgency: "this_week",
+      addressId: savedAddress.id,
+    });
+
+    expect(second.address?.id).toBe(savedAddress.id);
+    expect(await prisma.buyerAddress.count({ where: { userId: viewer.id } })).toBe(1);
+  });
+
+  it("rejects unauthenticated buyer intent submissions with 401 envelope", async () => {
+    const response = jsonError(new ApiError("unauthenticated", "Authentication is required.", 401));
+    const payload = await response.json();
+    expect(response.status).toBe(401);
+    expect(payload.error.code).toBe("unauthenticated");
+  });
+
+  it("scopes provider buyer intents to their own provider and hides buyer addresses", async () => {
+    const owner = await provider("supplier");
+    const other = await provider("restaurant");
+    const viewer = safeUser(await signupUser({
+      name: "Provider Scoped Buyer",
+      email: uniqueEmail("provider-scoped-buyer"),
+      password: "Password123!",
+      role: "viewer",
+    }));
+    const owned = await createBuyerIntent(viewer, {
+      providerId: owner.providerId,
+      productOrServiceName: "Rattan chair",
+      category: "Furniture",
+      intentType: "request_quote",
+      urgency: "this_week",
+      address: {
+        label: "Project",
+        line1: "Private Buyer Address",
+        city: "Canggu",
+        country: "Indonesia",
+      },
+    });
+    await createBuyerIntent(viewer, {
+      providerId: other.providerId,
+      productOrServiceName: "Dinner table",
+      category: "Dining",
+      intentType: "book_service",
+      urgency: "flexible",
+    });
+
+    const visible = await listBuyerIntentsForUser(safeUser(owner.user));
+    expect(visible.map((intent) => intent.id)).toContain(owned.id);
+    expect(visible.every((intent) => intent.providerId === owner.providerId)).toBe(true);
+    expect(visible.find((intent) => intent.id === owned.id)?.address).toBeNull();
+  });
+
+  it("lets main admins view and update concierge requests", async () => {
+    const adminUser = safeUser(await admin());
+    const viewer = safeUser(await signupUser({
+      name: "Admin Concierge Buyer",
+      email: uniqueEmail("admin-concierge-buyer"),
+      password: "Password123!",
+      role: "viewer",
+    }));
+    const intent = await createBuyerIntent(viewer, {
+      productOrServiceName: "Airport pickup",
+      category: "Transport",
+      intentType: "book_service",
+      urgency: "today",
+      address: {
+        label: "Hotel",
+        line1: "Lobby address",
+        city: "Sanur",
+        country: "Indonesia",
+      },
+    });
+
+    const request = (await listConciergeRequestsForUser(adminUser)).find((item) => item.buyerIntentId === intent.id);
+    expect(request).toBeTruthy();
+    const updated = await updateConciergeRequest(request!.id, adminUser, {
+      status: "arranged",
+      outcomeStatus: "arranged",
+      outcomeSummary: "Demo arrangement confirmed by admin.",
+    });
+
+    expect(updated.status).toBe("arranged");
+    expect(updated.buyerIntent.outcomes[0].status).toBe("arranged");
+    expect(updated.buyerIntent.address?.line1).toBe("Lobby address");
+  });
+
+  it("prevents one buyer from seeing another buyer address", async () => {
+    const firstViewer = safeUser(await signupUser({
+      name: "Private Address One",
+      email: uniqueEmail("private-address-one"),
+      password: "Password123!",
+      role: "viewer",
+    }));
+    const secondViewer = safeUser(await signupUser({
+      name: "Private Address Two",
+      email: uniqueEmail("private-address-two"),
+      password: "Password123!",
+      role: "viewer",
+    }));
+    const intent = await createBuyerIntent(firstViewer, {
+      productOrServiceName: "Private wallet",
+      category: "Accessories",
+      intentType: "buy_product",
+      urgency: "flexible",
+      address: {
+        label: "Private",
+        line1: "Do Not Leak Street",
+        city: "Kuta",
+        country: "Indonesia",
+      },
+    });
+
+    await expect(getBuyerIntentForUser(intent.id, secondViewer)).rejects.toThrow(/not allowed/i);
+  });
+
+  it("renders concierge UI and roadmap source contracts", async () => {
+    const liveActions = readFileSync("app/live/[id]/live-detail-actions.tsx", "utf8");
+    const viewerConsole = readFileSync("app/dashboard/viewer/concierge/concierge-console.tsx", "utf8");
+    const adminPage = readFileSync("app/dashboard/main/concierge/page.tsx", "utf8");
+    const roadmapPage = readFileSync("app/roadmap/page.tsx", "utf8");
+    const roadmap = await getConciergeRoadmap();
+
+    expect(liveActions).toContain("Ask concierge");
+    expect(liveActions).toContain("I'm interested");
+    expect(liveActions).toContain("Arrange this for me");
+    expect(viewerConsole).toContain("Ask Buyamia Concierge");
+    expect(adminPage).toContain("Authorized address");
+    expect(roadmapPage).toContain("roadmap.ideas.map");
+    expect(roadmap.ideas.map((idea) => idea.title)).toEqual([
+      "Remote account bot",
+      "Presenter tools",
+      "Ambassador trusted layer",
+      "Last-mile concierge",
+    ]);
   });
 });

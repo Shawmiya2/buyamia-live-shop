@@ -299,6 +299,78 @@ enum CommunityShareChannel {
   email
 }
 
+enum PreferredContactMethod {
+  platform
+  whatsapp
+  telegram
+  email
+}
+
+enum BuyerIntentType {
+  buy_product
+  book_service
+  request_quote
+  arrange_delivery
+  request_concierge
+  ask_question
+}
+
+enum BuyerIntentUrgency {
+  today
+  this_week
+  flexible
+}
+
+enum BuyerIntentStatus {
+  captured
+  qualifying
+  concierge_review
+  arranged
+  completed
+  cancelled
+}
+
+enum ConciergeRequestStatus {
+  open
+  in_progress
+  waiting_for_buyer
+  waiting_for_provider
+  arranged
+  completed
+  cancelled
+}
+
+enum ConciergeActionType {
+  contact_buyer
+  contact_provider
+  arrange_delivery
+  arrange_booking
+  request_address
+  request_payment_provider
+  request_insurance_provider
+  complete_outcome
+}
+
+enum ConciergeActionStatus {
+  pending
+  completed
+  blocked
+}
+
+enum OutcomeStatus {
+  pending
+  arranged
+  fulfilled
+  failed
+}
+
+enum OutcomeType {
+  product_sale
+  service_booking
+  quote_request
+  concierge_arrangement
+}
+
 model User {
   id                   String                @id @default(cuid())
   name                 String
@@ -327,6 +399,9 @@ model User {
   botChannelConnections BotChannelConnection[]
   botCommandLogs       BotCommandLog[]
   botActionRequests    BotActionRequest[]
+  buyerProfile         BuyerProfile?
+  buyerAddresses       BuyerAddress[]
+  buyerIntents         BuyerIntent[]         @relation("BuyerIntents")
 }
 
 model BotChannelConnection {
@@ -397,6 +472,7 @@ model ProviderProfile {
   communityShares CommunityShare[]
   negotiations    Negotiation[]
   riskReviews     RiskReview[]
+  buyerIntents     BuyerIntent[]
 }
 
 model Session {
@@ -469,6 +545,106 @@ model Live {
   toolActivations LiveToolActivation[]
   viewerSignals   LiveViewerSignal[]
   communityShares CommunityShare[]
+  buyerIntents    BuyerIntent[]
+}
+
+model BuyerProfile {
+  id                     String                 @id @default(cuid())
+  userId                 String                 @unique
+  displayName            String
+  phone                  String?
+  preferredContactMethod PreferredContactMethod @default(platform)
+  createdAt              DateTime               @default(now())
+  updatedAt              DateTime               @updatedAt
+  user                   User                   @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model BuyerAddress {
+  id         String        @id @default(cuid())
+  userId     String
+  label      String
+  line1      String
+  line2      String?
+  city       String
+  region     String?
+  country    String
+  postalCode String?
+  isDefault  Boolean       @default(false)
+  createdAt  DateTime      @default(now())
+  updatedAt  DateTime      @updatedAt
+  user       User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  intents    BuyerIntent[]
+
+  @@index([userId, isDefault])
+}
+
+model BuyerIntent {
+  id                   String              @id @default(cuid())
+  buyerId              String
+  liveId               String?
+  providerId           String?
+  productOrServiceName String
+  category             String
+  intentType           BuyerIntentType
+  quantity             Int?
+  budgetLabel          String?
+  urgency              BuyerIntentUrgency  @default(flexible)
+  status               BuyerIntentStatus   @default(captured)
+  addressId            String?
+  notes                String
+  createdAt            DateTime            @default(now())
+  updatedAt            DateTime            @updatedAt
+  buyer                User                @relation("BuyerIntents", fields: [buyerId], references: [id], onDelete: Cascade)
+  live                 Live?               @relation(fields: [liveId], references: [id], onDelete: SetNull)
+  provider             ProviderProfile?    @relation(fields: [providerId], references: [id], onDelete: SetNull)
+  address              BuyerAddress?       @relation(fields: [addressId], references: [id], onDelete: SetNull)
+  conciergeRequests    ConciergeRequest[]
+  outcomes             Outcome[]
+
+  @@index([buyerId, createdAt])
+  @@index([providerId, liveId])
+  @@index([status, createdAt])
+}
+
+model ConciergeRequest {
+  id                String                  @id @default(cuid())
+  buyerIntentId     String
+  assignedAgentName String                  @default("Buyamia Concierge")
+  status            ConciergeRequestStatus  @default(open)
+  requestedServices Json
+  conciergeNote     String
+  createdAt         DateTime                @default(now())
+  updatedAt         DateTime                @updatedAt
+  buyerIntent       BuyerIntent             @relation(fields: [buyerIntentId], references: [id], onDelete: Cascade)
+  actions           ConciergeAction[]
+
+  @@index([status, createdAt])
+  @@index([buyerIntentId])
+}
+
+model ConciergeAction {
+  id                   String                 @id @default(cuid())
+  conciergeRequestId   String
+  actionType           ConciergeActionType
+  status               ConciergeActionStatus  @default(pending)
+  note                 String
+  createdAt            DateTime               @default(now())
+  conciergeRequest     ConciergeRequest       @relation(fields: [conciergeRequestId], references: [id], onDelete: Cascade)
+
+  @@index([conciergeRequestId, status])
+}
+
+model Outcome {
+  id            String         @id @default(cuid())
+  buyerIntentId String
+  status        OutcomeStatus  @default(pending)
+  outcomeType   OutcomeType
+  summary       String
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+  buyerIntent   BuyerIntent    @relation(fields: [buyerIntentId], references: [id], onDelete: Cascade)
+
+  @@index([buyerIntentId, status])
 }
 
 model AmbassadorProfile {
