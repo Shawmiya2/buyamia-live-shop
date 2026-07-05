@@ -5,6 +5,10 @@ import { DashboardApiPanels } from "./dashboard-api-panels";
 import { BuyamiaAssistant } from "./buyamia-assistant";
 import { getCurrentUser } from "@/lib/backend/auth-context";
 import {
+  getAdminAmbassadorOverview,
+  getProviderAmbassadorEngagement,
+} from "@/lib/backend/ambassador-service";
+import {
   canAccessDashboard,
   canSeeAdminControls,
   getDashboardForRole,
@@ -873,7 +877,7 @@ const dashboards: Dashboard[] = [
       { label: "Replay coverage", value: "74%", width: 74 },
       { label: "Booking risk", value: "8%", width: 8 },
     ],
-    quickActions: ["Compare hotels", "Open replay", "Update wishlist", "Check booking"],
+    quickActions: ["Ambassador rewards", "Compare hotels", "Open replay", "Update wishlist", "Check booking"],
   },
   {
     kind: "procurement",
@@ -1892,8 +1896,17 @@ function RoleSwitcher({ currentUser }: { currentUser: SafeUser | null }) {
   );
 }
 
-function DashboardDetail({ dashboard }: { dashboard: Dashboard }) {
+async function DashboardDetail({ dashboard }: { dashboard: Dashboard }) {
   const dashboardType = getDashboardApiType(dashboard.kind);
+  const currentUser = await getCurrentUser();
+  const providerEngagement =
+    currentUser && ["hotel", "restaurant", "supplier", "service_provider"].includes(currentUser.role)
+      ? await getProviderAmbassadorEngagement(currentUser).catch(() => null)
+      : null;
+  const adminAmbassadorOverview =
+    currentUser?.role === "main_admin" && dashboard.kind === "procurement"
+      ? await getAdminAmbassadorOverview()
+      : null;
 
   return (
     <section className="px-4 py-5 sm:px-6 lg:px-8">
@@ -1909,6 +1922,9 @@ function DashboardDetail({ dashboard }: { dashboard: Dashboard }) {
       <MetricGrid metrics={dashboard.metrics} />
       <DashboardApiPanels dashboardType={dashboardType} title={dashboard.name} />
 
+      {dashboard.kind === "traveler" && <ViewerAmbassadorCard />}
+      {providerEngagement && <ProviderAmbassadorEngagement engagement={providerEngagement} />}
+      {adminAmbassadorOverview && <AdminAmbassadorSummary overview={adminAmbassadorOverview} />}
       {dashboard.kind === "hotel" && <HotelAudienceSplit />}
       {dashboard.kind === "procurement" && <ProcurementAgentCTA />}
       {dashboard.kind === "supplier" && <SupplierPreparationCenterCTA />}
@@ -1947,6 +1963,99 @@ function getDashboardApiType(kind: Dashboard["kind"]): DashboardType {
   }
 
   return kind;
+}
+
+function ViewerAmbassadorCard() {
+  return (
+    <section className="mt-5 rounded-3xl border border-[#d6cbb6] bg-[#fffaf0] p-5 shadow-sm">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+        <div>
+          <p className="text-[11px] font-bold uppercase tracking-[.16em] text-[#6f7f4f]">
+            Trusted community
+          </p>
+          <h2 className="mt-1 text-2xl font-semibold">Ambassador rewards</h2>
+          <p className="mt-3 max-w-3xl text-sm leading-7 text-[#675f50]">
+            Become a trusted community ambassador, share lives, invite friends, and earn demo credits or perks for qualified engagement and order-value signals.
+          </p>
+        </div>
+        <StatusChip label="Demo credits only" tone="warm" />
+      </div>
+      <Link href="/dashboard/viewer/ambassador" className="mt-5 inline-flex rounded-full bg-[#1e2419] px-5 py-3 text-sm font-bold text-[#fffaf0] transition hover:bg-[#596540]">
+        Open ambassador rewards
+      </Link>
+    </section>
+  );
+}
+
+function ProviderAmbassadorEngagement({
+  engagement,
+}: {
+  engagement: Awaited<ReturnType<typeof getProviderAmbassadorEngagement>>;
+}) {
+  return (
+    <section className="mt-5 rounded-3xl border border-[#d6cbb6] bg-[#fffaf0] p-5 shadow-sm">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+        <div>
+          <p className="text-[11px] font-bold uppercase tracking-[.16em] text-[#6f7f4f]">
+            Ambassador engagement
+          </p>
+          <h2 className="mt-1 text-2xl font-semibold">Community activity for your provider profile</h2>
+        </div>
+        <StatusChip label="Role scoped" />
+      </div>
+      <div className="mt-4 grid gap-3 sm:grid-cols-3">
+        <DataPoint label="Shares generated" value={engagement.sharesGenerated} />
+        <DataPoint label="Linked referrals" value={engagement.referralsLinked} />
+        <DataPoint label="Follower growth" value={engagement.followerGrowth} />
+      </div>
+      <p className="mt-4 text-sm leading-6 text-[#675f50]">
+        This view is limited to shares and lives tied to your provider profile. Global ambassador totals remain main-admin only.
+      </p>
+    </section>
+  );
+}
+
+function AdminAmbassadorSummary({
+  overview,
+}: {
+  overview: Awaited<ReturnType<typeof getAdminAmbassadorOverview>>;
+}) {
+  return (
+    <section className="mt-5 rounded-3xl border border-[#d6cbb6] bg-[#fffaf0] p-5 shadow-sm">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+        <div>
+          <p className="text-[11px] font-bold uppercase tracking-[.16em] text-[#6f7f4f]">
+            Ambassador program
+          </p>
+          <h2 className="mt-1 text-2xl font-semibold">Trusted ambassador overview</h2>
+        </div>
+        <Link href="/dashboard/main/ambassadors" className="w-fit rounded-full bg-[#1e2419] px-4 py-2 text-xs font-bold text-[#fffaf0]">
+          View ambassadors
+        </Link>
+      </div>
+      <div className="mt-4 grid gap-3 sm:grid-cols-3">
+        <DataPoint label="Total ambassadors" value={overview.totalAmbassadors} />
+        <DataPoint label="Total reward points" value={overview.totalRewardPoints} />
+        <DataPoint label="Recent referrals" value={overview.recentReferrals.length} />
+      </div>
+      <div className="mt-4 flex flex-wrap gap-2">
+        {overview.tierGroups.map((tier) => (
+          <span key={tier.tier} className="rounded-full bg-[#edf2dd] px-3 py-1 text-xs font-black text-[#596540]">
+            {tier.tier.replace(/_/g, " ")}: {tier._count}
+          </span>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+function DataPoint({ label, value }: { label: string; value: string | number }) {
+  return (
+    <div className="rounded-2xl bg-[#f3ecdc] p-4">
+      <p className="text-xs font-bold uppercase tracking-[.14em] text-[#6f7f4f]">{label}</p>
+      <p className="mt-2 text-3xl font-semibold">{value}</p>
+    </div>
+  );
 }
 
 function HotelAudienceSplit() {
@@ -2500,6 +2609,8 @@ function quickActionHref(action: string, dashboardType?: DashboardType) {
       "open services dashboard": "/dashboard/services",
       "open supplier dashboard": "/dashboard/supplier",
       "compare hotels": "/dashboard/viewer",
+      "ambassador rewards": "/dashboard/viewer/ambassador",
+      "become an ambassador": "/dashboard/viewer/ambassador",
       "update wishlist": "/dashboard/viewer",
       "check booking": "/dashboard/viewer",
       "extend replay availability": "/services/replay-availability",
@@ -2534,6 +2645,8 @@ function quickActionHref(action: string, dashboardType?: DashboardType) {
     "open procurement agent dashboard": "/dashboard/procurement-agent",
     "remote account bot": "/dashboard/remote-bot",
     "compare hotels": "/dashboard/viewer",
+    "ambassador rewards": "/dashboard/viewer/ambassador",
+    "become an ambassador": "/dashboard/viewer/ambassador",
     "update wishlist": "/dashboard/viewer",
     "check booking": "/dashboard/viewer",
     "review verification": "/dashboard/main/risk",

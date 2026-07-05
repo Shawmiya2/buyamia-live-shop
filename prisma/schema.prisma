@@ -255,6 +255,50 @@ enum LiveViewerSignalType {
   concierge_request
 }
 
+enum AmbassadorStatus {
+  not_started
+  active
+  suspended
+}
+
+enum AmbassadorTier {
+  starter
+  trusted
+  community_leader
+  elite
+}
+
+enum ReferralStatus {
+  invited
+  signed_up
+  converted
+  expired
+}
+
+enum ReferralSource {
+  live_share
+  referral_link
+  direct_invite
+  community_action
+}
+
+enum RewardReason {
+  referral_signup
+  order_value
+  live_share
+  replay_share
+  provider_follow
+  community_engagement
+}
+
+enum CommunityShareChannel {
+  copy_link
+  whatsapp
+  telegram
+  linkedin
+  email
+}
+
 model User {
   id                   String                @id @default(cuid())
   name                 String
@@ -273,6 +317,9 @@ model User {
   follows              Follow[]              @relation("ViewerFollows")
   liveToolActivations  LiveToolActivation[]  @relation("PresenterToolActivations")
   liveViewerSignals    LiveViewerSignal[]    @relation("ViewerSignals")
+  ambassadorProfile    AmbassadorProfile?
+  referredByAmbassador Referral[]            @relation("ReferredUser")
+  communityShares      CommunityShare[]      @relation("CommunityShares")
   rfqs                 Rfq[]                 @relation("RfqCreator")
   negotiations         Negotiation[]         @relation("NegotiationCreator")
   negotiationMessages  NegotiationMessage[]  @relation("NegotiationMessageAuthor")
@@ -347,6 +394,7 @@ model ProviderProfile {
   pinnedPlacementRequests PinnedPlacementRequest[]
   followers       Follow[]         @relation("ProviderFollowers")
   analyticsEvents AnalyticsEvent[]
+  communityShares CommunityShare[]
   negotiations    Negotiation[]
   riskReviews     RiskReview[]
 }
@@ -420,6 +468,70 @@ model Live {
   analyticsEvents AnalyticsEvent[]
   toolActivations LiveToolActivation[]
   viewerSignals   LiveViewerSignal[]
+  communityShares CommunityShare[]
+}
+
+model AmbassadorProfile {
+  id           String             @id @default(cuid())
+  userId       String             @unique
+  status       AmbassadorStatus   @default(not_started)
+  referralCode String             @unique
+  totalPoints  Int                @default(0)
+  tier         AmbassadorTier     @default(starter)
+  createdAt    DateTime           @default(now())
+  updatedAt    DateTime           @updatedAt
+  user         User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  referrals    Referral[]
+  rewards      RewardLedger[]
+
+  @@index([status, tier])
+}
+
+model Referral {
+  id             String            @id @default(cuid())
+  ambassadorId   String
+  referredEmail  String?
+  referredUserId String?
+  status         ReferralStatus    @default(invited)
+  source         ReferralSource    @default(referral_link)
+  createdAt      DateTime          @default(now())
+  convertedAt    DateTime?
+  ambassador     AmbassadorProfile @relation(fields: [ambassadorId], references: [id], onDelete: Cascade)
+  referredUser   User?             @relation("ReferredUser", fields: [referredUserId], references: [id], onDelete: SetNull)
+
+  @@index([ambassadorId, status, createdAt])
+  @@index([referredUserId])
+}
+
+model RewardLedger {
+  id             String            @id @default(cuid())
+  ambassadorId   String
+  points         Int
+  reason         RewardReason
+  sourceAmount   Float?
+  sourceCurrency String?
+  note           String
+  createdAt      DateTime          @default(now())
+  ambassador     AmbassadorProfile @relation(fields: [ambassadorId], references: [id], onDelete: Cascade)
+
+  @@index([ambassadorId, createdAt])
+  @@index([reason])
+}
+
+model CommunityShare {
+  id         String                @id @default(cuid())
+  userId     String
+  liveId     String?
+  providerId String?
+  channel    CommunityShareChannel
+  createdAt  DateTime              @default(now())
+  user       User                  @relation("CommunityShares", fields: [userId], references: [id], onDelete: Cascade)
+  live       Live?                 @relation(fields: [liveId], references: [id], onDelete: SetNull)
+  provider   ProviderProfile?      @relation(fields: [providerId], references: [id], onDelete: SetNull)
+
+  @@index([userId, createdAt])
+  @@index([liveId, createdAt])
+  @@index([providerId, createdAt])
 }
 
 model LivePresenterTool {

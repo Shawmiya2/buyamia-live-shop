@@ -30,6 +30,11 @@ export function LiveDetailActions({ liveId, providerId, title }: Props) {
     setError("");
     try {
       await navigator.clipboard.writeText(liveUrl);
+      await fetch("/api/ambassadors/share", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ liveId, providerId, channel: "copy_link" }),
+      }).catch(() => null);
       setMessage("Live link copied.");
     } catch {
       setError("Copy failed. Select and copy the page URL from your browser.");
@@ -101,6 +106,15 @@ export function LiveDetailActions({ liveId, providerId, title }: Props) {
       </div>
       {message && <p className="mt-4 rounded-2xl bg-[#edf2dd] p-3 text-sm font-bold text-[#596540]">{message}</p>}
       {error && <p className="mt-4 rounded-2xl bg-[#fff3ed] p-3 text-sm font-bold text-[#8c3f2b]">{error}</p>}
+      <div className="mt-5 rounded-2xl bg-[#f3ecdc] p-4">
+        <p className="text-sm font-semibold text-[#1e2419]">Trusted community action</p>
+        <p className="mt-2 text-sm leading-6 text-[#675f50]">
+          Share this live, become an ambassador, and earn demo rewards for qualified referrals. No real payout is connected in this prototype.
+        </p>
+        <Link href="/dashboard/viewer/ambassador" className="mt-3 inline-flex rounded-full bg-[#596540] px-4 py-2 text-xs font-bold text-[#fffaf0]">
+          Become ambassador
+        </Link>
+      </div>
     </div>
   );
 }

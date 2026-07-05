@@ -2,6 +2,7 @@ import { prisma } from "./prisma";
 import type { Prisma, VerificationStatus } from "@prisma/client";
 import { ApiError } from "./errors";
 import { createAnalyticsEvent } from "./analytics-service";
+import { addRewardLedgerEntry, getAmbassadorForUser } from "./ambassador-service";
 import { getLives } from "./live-service";
 import { calculateSupplierTrustScore } from "./trust-score-service";
 import type { Provider } from "./types";
@@ -52,6 +53,15 @@ export async function followProvider(input: { viewerUserId: string; providerId: 
     providerId: provider.id,
     eventType: "provider_followed",
   });
+
+  const ambassador = await getAmbassadorForUser(viewer.id);
+  if (ambassador?.status === "active") {
+    await addRewardLedgerEntry({
+      ambassadorId: ambassador.id,
+      reason: "provider_follow",
+      note: `Followed ${provider.displayName} for demo ambassador credits.`,
+    });
+  }
 
   return follow;
 }

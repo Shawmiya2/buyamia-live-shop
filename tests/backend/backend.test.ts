@@ -81,6 +81,13 @@ import {
   triggerPresenterTool,
 } from "../../lib/backend/presenter-tool-service";
 import { createViewerSignal } from "../../lib/backend/live-signal-service";
+import {
+  createCommunityShare,
+  createReferral,
+  getAdminAmbassadorOverview,
+  getProviderAmbassadorEngagement,
+  joinAmbassadorProgram,
+} from "../../lib/backend/ambassador-service";
 
 function uniqueEmail(prefix: string) {
   return `${prefix}-${Date.now()}-${Math.random().toString(16).slice(2)}@example.test`;
@@ -1763,6 +1770,105 @@ describe("backend foundation", () => {
       expect(status.message).toContain("provider is not configured");
       expect(JSON.stringify(status)).not.toMatch(/token|secret|api[_-]?key/i);
     }
+  });
+
+  it("lets viewers join the ambassador program with one persistent referral code", async () => {
+    const viewer = safeUser(await signupUser({
+      name: "Ambassador Viewer",
+      email: uniqueEmail("ambassador-viewer"),
+      password: "Password123!",
+      role: "viewer",
+    }));
+
+    const first = await joinAmbassadorProgram(viewer);
+    const second = await joinAmbassadorProgram(viewer);
+
+    expect(first.status).toBe("active");
+    expect(first.referralCode).toBeTruthy();
+    expect(second.id).toBe(first.id);
+    expect(await prisma.ambassadorProfile.count({ where: { userId: viewer.id } })).toBe(1);
+  });
+
+  it("records ambassador shares, referrals, and demo reward ledger entries", async () => {
+    const owner = await provider("supplier");
+    const viewer = safeUser(await signupUser({
+      name: "Sharing Ambassador",
+      email: uniqueEmail("sharing-ambassador"),
+      password: "Password123!",
+      role: "viewer",
+    }));
+    const live = await createScheduledStream(owner.providerId, {
+      title: "Ambassador share live",
+      category: "Furniture",
+      scheduledAt: datePlusDays(new Date(), 3).toISOString(),
+    });
+    const ambassador = await joinAmbassadorProgram(viewer);
+
+    const share = await createCommunityShare({
+      user: viewer,
+      channel: "copy_link",
+      liveId: live.id,
+      providerId: owner.providerId,
+    });
+    const referral = await createReferral({
+      user: viewer,
+      referredEmail: uniqueEmail("friend"),
+      source: "direct_invite",
+    });
+
+    const rewards = await prisma.rewardLedger.findMany({ where: { ambassadorId: ambassador.id } });
+    const updated = await prisma.ambassadorProfile.findUniqueOrThrow({ where: { id: ambassador.id } });
+
+    expect(share.liveId).toBe(live.id);
+    expect(referral.status).toBe("invited");
+    expect(rewards.some((reward) => reward.reason === "live_share" && reward.points === 15)).toBe(true);
+    expect(updated.totalPoints).toBeGreaterThanOrEqual(15);
+  });
+
+  it("keeps provider ambassador engagement scoped to the provider's own lives", async () => {
+    const owner = await provider("supplier");
+    const other = await provider("restaurant");
+    const viewer = safeUser(await signupUser({
+      name: "Scoped Ambassador",
+      email: uniqueEmail("scoped-ambassador"),
+      password: "Password123!",
+      role: "viewer",
+    }));
+    await joinAmbassadorProgram(viewer);
+    const ownedLive = await createScheduledStream(owner.providerId, {
+      title: "Owned ambassador live",
+      category: "Furniture",
+      scheduledAt: datePlusDays(new Date(), 4).toISOString(),
+    });
+    const otherLive = await createScheduledStream(other.providerId, {
+      title: "Other ambassador live",
+      category: "Dining",
+      scheduledAt: datePlusDays(new Date(), 4).toISOString(),
+    });
+
+    await createCommunityShare({ user: viewer, channel: "copy_link", liveId: ownedLive.id, providerId: owner.providerId });
+    await createCommunityShare({ user: viewer, channel: "copy_link", liveId: otherLive.id, providerId: other.providerId });
+
+    const ownerEngagement = await getProviderAmbassadorEngagement(safeUser(owner.user));
+    const otherEngagement = await getProviderAmbassadorEngagement(safeUser(other.user));
+
+    expect(ownerEngagement.sharesGenerated).toBe(1);
+    expect(otherEngagement.sharesGenerated).toBe(1);
+  });
+
+  it("returns admin ambassador overview and protects ambassador admin routes in source", async () => {
+    const viewer = safeUser(await signupUser({
+      name: "Admin Overview Ambassador",
+      email: uniqueEmail("admin-overview-ambassador"),
+      password: "Password123!",
+      role: "viewer",
+    }));
+    await joinAmbassadorProgram(viewer);
+
+    const overview = await getAdminAmbassadorOverview();
+    expect(overview.totalAmbassadors).toBeGreaterThan(0);
+    expect(readFileSync("app/api/admin/ambassadors/route.ts", "utf8")).toContain('requireRole("main_admin")');
+    expect(readFileSync("app/dashboard/main/ambassadors/page.tsx", "utf8")).toContain('user.role !== "main_admin"');
   });
 
   it("uses explicit procurement quick action routes", () => {
