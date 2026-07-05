@@ -57,6 +57,8 @@ import {
   updateSellerApplicationStatus,
 } from "../../lib/backend/seller-application-service";
 import { getAssistantIntegrationStatus, runAssistantQuery } from "../../lib/backend/assistant-service";
+import { getAvailableLiveSlots, runSimulatedBotCommand } from "../../lib/backend/bot-service";
+import { getBotProviderStatus, parseDemoWebhookPayload } from "../../lib/backend/bot-provider-adapter";
 import { createAiSourcingRequest } from "../../lib/backend/ai-sourcing-service";
 import { createBookingPush, listBookingPushes } from "../../lib/backend/booking-push-service";
 import { generateReviewBrief, listReviewBriefs } from "../../lib/backend/review-brief-service";
@@ -73,6 +75,29 @@ import {
   getPinnedPlacementOptions,
   listPinnedPlacementRequests,
 } from "../../lib/backend/pinned-placement-service";
+import {
+  listActiveToolsForLive,
+  listAvailablePresenterTools,
+  triggerPresenterTool,
+} from "../../lib/backend/presenter-tool-service";
+import { createViewerSignal } from "../../lib/backend/live-signal-service";
+import {
+  createCommunityShare,
+  createReferral,
+  getAdminAmbassadorOverview,
+  getProviderAmbassadorEngagement,
+  joinAmbassadorProgram,
+} from "../../lib/backend/ambassador-service";
+import {
+  createBuyerIntent,
+  getBuyerIntentForUser,
+  listBuyerIntentsForUser,
+} from "../../lib/backend/buyer-intent-service";
+import {
+  getConciergeRoadmap,
+  listConciergeRequestsForUser,
+  updateConciergeRequest,
+} from "../../lib/backend/concierge-service";
 
 function uniqueEmail(prefix: string) {
   return `${prefix}-${Date.now()}-${Math.random().toString(16).slice(2)}@example.test`;
@@ -1544,11 +1569,324 @@ describe("backend foundation", () => {
     expect(unknown.suggestions.length).toBeGreaterThan(0);
   });
 
+  it("seeds the live presenter tool library", async () => {
+    const tools = await listAvailablePresenterTools();
+    expect(tools.map((tool) => tool.type)).toEqual(expect.arrayContaining([
+      "product_card",
+      "limited_offer",
+      "countdown",
+      "poll",
+      "question_spotlight",
+      "applause_burst",
+      "trust_badge",
+      "concierge_prompt",
+      "ambassador_challenge",
+      "review_request",
+    ]));
+  });
+
+  it("lets provider owners trigger presenter tools for their own live and blocks viewers", async () => {
+    const owner = await provider("supplier");
+    const otherProvider = await provider("restaurant");
+    const viewer = await signupUser({
+      name: "Tool Viewer",
+      email: uniqueEmail("tool-viewer"),
+      password: "Password123!",
+      role: "viewer",
+    });
+    const live = await createScheduledStream(owner.providerId, {
+      title: "Presenter tool stream",
+      category: "Furniture",
+      scheduledAt: datePlusDays(new Date(), 2).toISOString(),
+    });
+
+    const activation = await triggerPresenterTool({
+      liveId: live.id,
+      presenter: safeUser(owner.user),
+      data: {
+        toolType: "product_card",
+        triggerReason: "manual",
+        payload: {
+          productName: "Rattan demo card",
+          shortDescription: "Local persisted product CTA.",
+          ctaLabel: "I'm interested",
+        },
+      },
+    });
+
+    expect(activation.liveId).toBe(live.id);
+    expect(activation.toolType).toBe("product_card");
+    expect((await listActiveToolsForLive(live.id)).some((item) => item.id === activation.id)).toBe(true);
+
+    await expect(triggerPresenterTool({
+      liveId: live.id,
+      presenter: safeUser(otherProvider.user),
+      data: { toolType: "poll", payload: { question: "Nope" } },
+    })).rejects.toThrow(/another provider/i);
+
+    await expect(triggerPresenterTool({
+      liveId: live.id,
+      presenter: safeUser(viewer),
+      data: { toolType: "poll", payload: { question: "Nope" } },
+    })).rejects.toThrow(/another provider|cannot access/i);
+  });
+
+  it("lets viewers send live signals but not trigger presenter tools", async () => {
+    const owner = await provider("hotel");
+    const viewer = await signupUser({
+      name: "Signal Viewer",
+      email: uniqueEmail("signal-viewer"),
+      password: "Password123!",
+      role: "viewer",
+    });
+    const live = await createScheduledStream(owner.providerId, {
+      title: "Signal stream",
+      category: "Rooms",
+      scheduledAt: datePlusDays(new Date(), 3).toISOString(),
+    });
+
+    const signal = await createViewerSignal({
+      liveId: live.id,
+      viewer: safeUser(viewer),
+      data: {
+        signalType: "purchase_intent",
+        payload: { productName: "Suite package" },
+      },
+    });
+
+    expect(signal.signalType).toBe("purchase_intent");
+    expect(signal.viewerId).toBe(viewer.id);
+    await expect(triggerPresenterTool({
+      liveId: live.id,
+      presenter: safeUser(viewer),
+      data: { toolType: "product_card", payload: {} },
+    })).rejects.toThrow();
+  });
+
+  it("renders live presenter tools UI contracts", () => {
+    const libraryPage = readFileSync("app/dashboard/live-tools/page.tsx", "utf8");
+    const libraryConsole = readFileSync("app/dashboard/live-tools/live-tools-console.tsx", "utf8");
+    const livePage = readFileSync("app/live/[id]/page.tsx", "utf8");
+    const livePanel = readFileSync("app/live/[id]/presenter-tools-panel.tsx", "utf8");
+
+    expect(libraryPage).toContain("Live Presenter Tools");
+    expect(libraryConsole).toContain("Trigger tool");
+    expect(livePage).toContain("PresenterToolsPanel");
+    expect(livePanel).toContain("I'm interested");
+    expect(livePanel).toContain("/services-dashboard");
+    expect(livePanel).toContain("/api/lives/${liveId}/signals");
+  });
+
+  it("renders the authenticated Remote Account Bot page contract", () => {
+    const page = readFileSync("app/dashboard/remote-bot/page.tsx", "utf8");
+    const consoleSource = readFileSync("app/dashboard/remote-bot/remote-bot-console.tsx", "utf8");
+
+    expect(page).toContain("Remote Account Bot");
+    expect(page).toContain("Use WhatsApp or Telegram");
+    expect(page).toContain("getCurrentUser");
+    expect(page).toContain('redirect("/login")');
+    expect(consoleSource).toContain("/api/bot/simulate-command");
+  });
+
+  it("runs account summary and available slot bot commands", async () => {
+    const user = safeUser(await signupUser({
+      name: "Bot Viewer",
+      email: uniqueEmail("bot-viewer"),
+      password: "Password123!",
+      role: "viewer",
+    }));
+
+    const summary = await runSimulatedBotCommand(user, {
+      channel: "telegram",
+      message: "account summary",
+    });
+    expect(summary.status).toBe("success");
+    expect(summary.responseText).toContain("Role: viewer");
+    expect(summary.responseText).toContain("/dashboard/viewer");
+
+    const slots = await runSimulatedBotCommand(user, {
+      channel: "whatsapp",
+      message: "available slots",
+    });
+    expect(slots.status).toBe("success");
+    expect(slots.responseText).toContain("Available demo live setup slots");
+    expect((await getAvailableLiveSlots(user)).length).toBeGreaterThan(0);
+  });
+
+  it("lets providers create a draft live request through the bot and blocks viewers", async () => {
+    const service = await provider("service_provider");
+    const providerUser = safeUser(service.user);
+    const result = await runSimulatedBotCommand(providerUser, {
+      channel: "telegram",
+      message: "create live request",
+      payload: {
+        title: "Bot-created service live",
+        slotIndex: 1,
+      },
+    });
+
+    expect(result.status).toBe("success");
+    expect(result.responseText).toContain("Created a draft live request");
+    expect((await listLiveRequests({ providerId: service.providerId })).some((item) => item.title === "Bot-created service live")).toBe(true);
+
+    const viewer = safeUser(await signupUser({
+      name: "Blocked Bot Viewer",
+      email: uniqueEmail("blocked-bot-viewer"),
+      password: "Password123!",
+      role: "viewer",
+    }));
+    const blocked = await runSimulatedBotCommand(viewer, {
+      channel: "whatsapp",
+      message: "create live request",
+    });
+    expect(blocked.status).toBe("failed");
+    expect(blocked.responseText).toMatch(/provider profile is required|Only provider/i);
+  });
+
+  it("restricts RFQ bot summary to main admins", async () => {
+    const adminUser = safeUser(await admin());
+    const adminResult = await runSimulatedBotCommand(adminUser, {
+      channel: "telegram",
+      message: "rfq summary",
+    });
+    expect(adminResult.status).toBe("success");
+    expect(adminResult.responseText).toContain("RFQ summary");
+
+    const viewer = safeUser(await signupUser({
+      name: "RFQ Bot Viewer",
+      email: uniqueEmail("rfq-bot-viewer"),
+      password: "Password123!",
+      role: "viewer",
+    }));
+    const denied = await runSimulatedBotCommand(viewer, {
+      channel: "telegram",
+      message: "rfq summary",
+    });
+    expect(denied.status).toBe("failed");
+    expect(denied.responseText).toMatch(/only available to main admin/i);
+  });
+
+  it("keeps WhatsApp and Telegram webhook placeholders secret-free", () => {
+    const whatsapp = parseDemoWebhookPayload("whatsapp", {
+      from: "+100000000",
+      message: "account summary",
+      messageId: "demo-1",
+    });
+    expect(whatsapp.text).toBe("account summary");
+
+    for (const channel of ["whatsapp", "telegram"] as const) {
+      const status = getBotProviderStatus(channel);
+      expect(status.configured).toBe(false);
+      expect(status.message).toContain("provider is not configured");
+      expect(JSON.stringify(status)).not.toMatch(/token|secret|api[_-]?key/i);
+    }
+  });
+
+  it("lets viewers join the ambassador program with one persistent referral code", async () => {
+    const viewer = safeUser(await signupUser({
+      name: "Ambassador Viewer",
+      email: uniqueEmail("ambassador-viewer"),
+      password: "Password123!",
+      role: "viewer",
+    }));
+
+    const first = await joinAmbassadorProgram(viewer);
+    const second = await joinAmbassadorProgram(viewer);
+
+    expect(first.status).toBe("active");
+    expect(first.referralCode).toBeTruthy();
+    expect(second.id).toBe(first.id);
+    expect(await prisma.ambassadorProfile.count({ where: { userId: viewer.id } })).toBe(1);
+  });
+
+  it("records ambassador shares, referrals, and demo reward ledger entries", async () => {
+    const owner = await provider("supplier");
+    const viewer = safeUser(await signupUser({
+      name: "Sharing Ambassador",
+      email: uniqueEmail("sharing-ambassador"),
+      password: "Password123!",
+      role: "viewer",
+    }));
+    const live = await createScheduledStream(owner.providerId, {
+      title: "Ambassador share live",
+      category: "Furniture",
+      scheduledAt: datePlusDays(new Date(), 3).toISOString(),
+    });
+    const ambassador = await joinAmbassadorProgram(viewer);
+
+    const share = await createCommunityShare({
+      user: viewer,
+      channel: "copy_link",
+      liveId: live.id,
+      providerId: owner.providerId,
+    });
+    const referral = await createReferral({
+      user: viewer,
+      referredEmail: uniqueEmail("friend"),
+      source: "direct_invite",
+    });
+
+    const rewards = await prisma.rewardLedger.findMany({ where: { ambassadorId: ambassador.id } });
+    const updated = await prisma.ambassadorProfile.findUniqueOrThrow({ where: { id: ambassador.id } });
+
+    expect(share.liveId).toBe(live.id);
+    expect(referral.status).toBe("invited");
+    expect(rewards.some((reward) => reward.reason === "live_share" && reward.points === 15)).toBe(true);
+    expect(updated.totalPoints).toBeGreaterThanOrEqual(15);
+  });
+
+  it("keeps provider ambassador engagement scoped to the provider's own lives", async () => {
+    const owner = await provider("supplier");
+    const other = await provider("restaurant");
+    const viewer = safeUser(await signupUser({
+      name: "Scoped Ambassador",
+      email: uniqueEmail("scoped-ambassador"),
+      password: "Password123!",
+      role: "viewer",
+    }));
+    await joinAmbassadorProgram(viewer);
+    const ownedLive = await createScheduledStream(owner.providerId, {
+      title: "Owned ambassador live",
+      category: "Furniture",
+      scheduledAt: datePlusDays(new Date(), 4).toISOString(),
+    });
+    const otherLive = await createScheduledStream(other.providerId, {
+      title: "Other ambassador live",
+      category: "Dining",
+      scheduledAt: datePlusDays(new Date(), 4).toISOString(),
+    });
+
+    await createCommunityShare({ user: viewer, channel: "copy_link", liveId: ownedLive.id, providerId: owner.providerId });
+    await createCommunityShare({ user: viewer, channel: "copy_link", liveId: otherLive.id, providerId: other.providerId });
+
+    const ownerEngagement = await getProviderAmbassadorEngagement(safeUser(owner.user));
+    const otherEngagement = await getProviderAmbassadorEngagement(safeUser(other.user));
+
+    expect(ownerEngagement.sharesGenerated).toBe(1);
+    expect(otherEngagement.sharesGenerated).toBe(1);
+  });
+
+  it("returns admin ambassador overview and protects ambassador admin routes in source", async () => {
+    const viewer = safeUser(await signupUser({
+      name: "Admin Overview Ambassador",
+      email: uniqueEmail("admin-overview-ambassador"),
+      password: "Password123!",
+      role: "viewer",
+    }));
+    await joinAmbassadorProgram(viewer);
+
+    const overview = await getAdminAmbassadorOverview();
+    expect(overview.totalAmbassadors).toBeGreaterThan(0);
+    expect(readFileSync("app/api/admin/ambassadors/route.ts", "utf8")).toContain('requireRole("main_admin")');
+    expect(readFileSync("app/dashboard/main/ambassadors/page.tsx", "utf8")).toContain('user.role !== "main_admin"');
+  });
+
   it("uses explicit procurement quick action routes", () => {
     const source = readFileSync("app/dashboard-platform.tsx", "utf8");
     for (const label of ["Generate RFQ", "Rank suppliers", "Open negotiation", "Review risk"]) {
       expect(source).toContain(`"${label.toLowerCase()}": "/dashboard/main/`);
     }
+    expect(source).toContain('"remote account bot": "/dashboard/remote-bot"');
     expect(source).toContain('"view calendar": "/live/calendar"');
   });
 
@@ -1568,5 +1906,222 @@ describe("backend foundation", () => {
     }
     expect(readFileSync("app/dashboard/main/lives/page.tsx", "utf8")).toContain('requireRole("main_admin")');
     expect(readFileSync("app/dashboard/main/lives/[id]/page.tsx", "utf8")).toContain('requireRole("main_admin")');
+  });
+
+  it("lets a viewer create a buyer intent with address and concierge outcome", async () => {
+    const owner = await provider("supplier");
+    const viewer = safeUser(await signupUser({
+      name: "Concierge Viewer",
+      email: uniqueEmail("concierge-viewer"),
+      password: "Password123!",
+      role: "viewer",
+    }));
+    const live = await createScheduledStream(owner.providerId, {
+      title: "Concierge phone live",
+      category: "Electronics",
+      scheduledAt: datePlusDays(new Date(), 2).toISOString(),
+    });
+
+    const intent = await createBuyerIntent(viewer, {
+      liveId: live.id,
+      productOrServiceName: "Demo phone",
+      category: "Electronics",
+      intentType: "buy_product",
+      quantity: 1,
+      urgency: "today",
+      notes: "Arrange delivery and insurance options.",
+      address: {
+        label: "Villa",
+        line1: "Jalan Demo 1",
+        city: "Denpasar",
+        country: "Indonesia",
+        isDefault: true,
+      },
+    });
+
+    expect(intent.providerId).toBe(owner.providerId);
+    expect(intent.address?.line1).toBe("Jalan Demo 1");
+    expect(intent.conciergeRequests.length).toBe(1);
+    expect(intent.outcomes[0].status).toBe("pending");
+    expect(await prisma.buyerIntent.findUnique({ where: { id: intent.id } })).toBeTruthy();
+  });
+
+  it("requires buyer intent required fields", async () => {
+    const viewer = safeUser(await signupUser({
+      name: "Bad Intent Viewer",
+      email: uniqueEmail("bad-intent-viewer"),
+      password: "Password123!",
+      role: "viewer",
+    }));
+
+    await expect(createBuyerIntent(viewer, {
+      category: "",
+      intentType: "buy_product",
+    })).rejects.toMatchObject({
+      fields: {
+        productOrServiceName: "Please enter a product or service name.",
+        category: "Please enter a category.",
+      },
+    });
+  });
+
+  it("stores and reuses buyer addresses", async () => {
+    const viewer = safeUser(await signupUser({
+      name: "Address Reuse Viewer",
+      email: uniqueEmail("address-reuse-viewer"),
+      password: "Password123!",
+      role: "viewer",
+    }));
+    const first = await createBuyerIntent(viewer, {
+      productOrServiceName: "Wallet",
+      category: "Accessories",
+      intentType: "buy_product",
+      urgency: "flexible",
+      address: {
+        label: "Home",
+        line1: "Reusable Street",
+        city: "Ubud",
+        country: "Indonesia",
+        isDefault: true,
+      },
+    });
+    const savedAddress = first.address!;
+    const second = await createBuyerIntent(viewer, {
+      productOrServiceName: "Phone case",
+      category: "Accessories",
+      intentType: "buy_product",
+      urgency: "this_week",
+      addressId: savedAddress.id,
+    });
+
+    expect(second.address?.id).toBe(savedAddress.id);
+    expect(await prisma.buyerAddress.count({ where: { userId: viewer.id } })).toBe(1);
+  });
+
+  it("rejects unauthenticated buyer intent submissions with 401 envelope", async () => {
+    const response = jsonError(new ApiError("unauthenticated", "Authentication is required.", 401));
+    const payload = await response.json();
+    expect(response.status).toBe(401);
+    expect(payload.error.code).toBe("unauthenticated");
+  });
+
+  it("scopes provider buyer intents to their own provider and hides buyer addresses", async () => {
+    const owner = await provider("supplier");
+    const other = await provider("restaurant");
+    const viewer = safeUser(await signupUser({
+      name: "Provider Scoped Buyer",
+      email: uniqueEmail("provider-scoped-buyer"),
+      password: "Password123!",
+      role: "viewer",
+    }));
+    const owned = await createBuyerIntent(viewer, {
+      providerId: owner.providerId,
+      productOrServiceName: "Rattan chair",
+      category: "Furniture",
+      intentType: "request_quote",
+      urgency: "this_week",
+      address: {
+        label: "Project",
+        line1: "Private Buyer Address",
+        city: "Canggu",
+        country: "Indonesia",
+      },
+    });
+    await createBuyerIntent(viewer, {
+      providerId: other.providerId,
+      productOrServiceName: "Dinner table",
+      category: "Dining",
+      intentType: "book_service",
+      urgency: "flexible",
+    });
+
+    const visible = await listBuyerIntentsForUser(safeUser(owner.user));
+    expect(visible.map((intent) => intent.id)).toContain(owned.id);
+    expect(visible.every((intent) => intent.providerId === owner.providerId)).toBe(true);
+    expect(visible.find((intent) => intent.id === owned.id)?.address).toBeNull();
+  });
+
+  it("lets main admins view and update concierge requests", async () => {
+    const adminUser = safeUser(await admin());
+    const viewer = safeUser(await signupUser({
+      name: "Admin Concierge Buyer",
+      email: uniqueEmail("admin-concierge-buyer"),
+      password: "Password123!",
+      role: "viewer",
+    }));
+    const intent = await createBuyerIntent(viewer, {
+      productOrServiceName: "Airport pickup",
+      category: "Transport",
+      intentType: "book_service",
+      urgency: "today",
+      address: {
+        label: "Hotel",
+        line1: "Lobby address",
+        city: "Sanur",
+        country: "Indonesia",
+      },
+    });
+
+    const request = (await listConciergeRequestsForUser(adminUser)).find((item) => item.buyerIntentId === intent.id);
+    expect(request).toBeTruthy();
+    const updated = await updateConciergeRequest(request!.id, adminUser, {
+      status: "arranged",
+      outcomeStatus: "arranged",
+      outcomeSummary: "Demo arrangement confirmed by admin.",
+    });
+
+    expect(updated.status).toBe("arranged");
+    expect(updated.buyerIntent.outcomes[0].status).toBe("arranged");
+    expect(updated.buyerIntent.address?.line1).toBe("Lobby address");
+  });
+
+  it("prevents one buyer from seeing another buyer address", async () => {
+    const firstViewer = safeUser(await signupUser({
+      name: "Private Address One",
+      email: uniqueEmail("private-address-one"),
+      password: "Password123!",
+      role: "viewer",
+    }));
+    const secondViewer = safeUser(await signupUser({
+      name: "Private Address Two",
+      email: uniqueEmail("private-address-two"),
+      password: "Password123!",
+      role: "viewer",
+    }));
+    const intent = await createBuyerIntent(firstViewer, {
+      productOrServiceName: "Private wallet",
+      category: "Accessories",
+      intentType: "buy_product",
+      urgency: "flexible",
+      address: {
+        label: "Private",
+        line1: "Do Not Leak Street",
+        city: "Kuta",
+        country: "Indonesia",
+      },
+    });
+
+    await expect(getBuyerIntentForUser(intent.id, secondViewer)).rejects.toThrow(/not allowed/i);
+  });
+
+  it("renders concierge UI and roadmap source contracts", async () => {
+    const liveActions = readFileSync("app/live/[id]/live-detail-actions.tsx", "utf8");
+    const viewerConsole = readFileSync("app/dashboard/viewer/concierge/concierge-console.tsx", "utf8");
+    const adminPage = readFileSync("app/dashboard/main/concierge/page.tsx", "utf8");
+    const roadmapPage = readFileSync("app/roadmap/page.tsx", "utf8");
+    const roadmap = await getConciergeRoadmap();
+
+    expect(liveActions).toContain("Ask concierge");
+    expect(liveActions).toContain("I'm interested");
+    expect(liveActions).toContain("Arrange this for me");
+    expect(viewerConsole).toContain("Ask Buyamia Concierge");
+    expect(adminPage).toContain("Authorized address");
+    expect(roadmapPage).toContain("roadmap.ideas.map");
+    expect(roadmap.ideas.map((idea) => idea.title)).toEqual([
+      "Remote account bot",
+      "Presenter tools",
+      "Ambassador trusted layer",
+      "Last-mile concierge",
+    ]);
   });
 });

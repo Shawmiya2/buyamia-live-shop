@@ -182,6 +182,195 @@ enum PinnedPlacementContentType {
   replay
 }
 
+enum BotChannel {
+  whatsapp
+  telegram
+}
+
+enum BotConnectionStatus {
+  not_connected
+  connected
+  pending_verification
+  disabled
+}
+
+enum BotCommandStatus {
+  success
+  failed
+  needs_confirmation
+}
+
+enum BotActionType {
+  account_summary
+  create_account
+  schedule_live
+  check_live_availability
+  create_live_request
+  live_status
+  rfq_summary
+  help
+}
+
+enum BotActionStatus {
+  draft
+  pending_confirmation
+  completed
+  failed
+}
+
+enum LivePresenterToolType {
+  product_card
+  limited_offer
+  countdown
+  poll
+  question_spotlight
+  applause_burst
+  trust_badge
+  concierge_prompt
+  ambassador_challenge
+  review_request
+}
+
+enum LiveToolTriggerReason {
+  manual
+  viewer_question
+  purchase_intent
+  follow
+  high_engagement
+  checkout_interest
+}
+
+enum LiveToolActivationStatus {
+  active
+  dismissed
+  expired
+}
+
+enum LiveViewerSignalType {
+  question
+  follow
+  purchase_intent
+  replay_view
+  checkout_click
+  concierge_request
+}
+
+enum AmbassadorStatus {
+  not_started
+  active
+  suspended
+}
+
+enum AmbassadorTier {
+  starter
+  trusted
+  community_leader
+  elite
+}
+
+enum ReferralStatus {
+  invited
+  signed_up
+  converted
+  expired
+}
+
+enum ReferralSource {
+  live_share
+  referral_link
+  direct_invite
+  community_action
+}
+
+enum RewardReason {
+  referral_signup
+  order_value
+  live_share
+  replay_share
+  provider_follow
+  community_engagement
+}
+
+enum CommunityShareChannel {
+  copy_link
+  whatsapp
+  telegram
+  linkedin
+  email
+}
+
+enum PreferredContactMethod {
+  platform
+  whatsapp
+  telegram
+  email
+}
+
+enum BuyerIntentType {
+  buy_product
+  book_service
+  request_quote
+  arrange_delivery
+  request_concierge
+  ask_question
+}
+
+enum BuyerIntentUrgency {
+  today
+  this_week
+  flexible
+}
+
+enum BuyerIntentStatus {
+  captured
+  qualifying
+  concierge_review
+  arranged
+  completed
+  cancelled
+}
+
+enum ConciergeRequestStatus {
+  open
+  in_progress
+  waiting_for_buyer
+  waiting_for_provider
+  arranged
+  completed
+  cancelled
+}
+
+enum ConciergeActionType {
+  contact_buyer
+  contact_provider
+  arrange_delivery
+  arrange_booking
+  request_address
+  request_payment_provider
+  request_insurance_provider
+  complete_outcome
+}
+
+enum ConciergeActionStatus {
+  pending
+  completed
+  blocked
+}
+
+enum OutcomeStatus {
+  pending
+  arranged
+  fulfilled
+  failed
+}
+
+enum OutcomeType {
+  product_sale
+  service_booking
+  quote_request
+  concierge_arrangement
+}
+
 model User {
   id                   String                @id @default(cuid())
   name                 String
@@ -198,10 +387,59 @@ model User {
   analyticsEvents      AnalyticsEvent[]
   adminActivities      AdminActivity[]       @relation("AdminActivities")
   follows              Follow[]              @relation("ViewerFollows")
+  liveToolActivations  LiveToolActivation[]  @relation("PresenterToolActivations")
+  liveViewerSignals    LiveViewerSignal[]    @relation("ViewerSignals")
+  ambassadorProfile    AmbassadorProfile?
+  referredByAmbassador Referral[]            @relation("ReferredUser")
+  communityShares      CommunityShare[]      @relation("CommunityShares")
   rfqs                 Rfq[]                 @relation("RfqCreator")
   negotiations         Negotiation[]         @relation("NegotiationCreator")
   negotiationMessages  NegotiationMessage[]  @relation("NegotiationMessageAuthor")
   riskReviews          RiskReview[]          @relation("RiskReviewReviewer")
+  botChannelConnections BotChannelConnection[]
+  botCommandLogs       BotCommandLog[]
+  botActionRequests    BotActionRequest[]
+  buyerProfile         BuyerProfile?
+  buyerAddresses       BuyerAddress[]
+  buyerIntents         BuyerIntent[]         @relation("BuyerIntents")
+}
+
+model BotChannelConnection {
+  id               String              @id @default(cuid())
+  userId           String
+  channel          BotChannel
+  handle           String
+  phoneNumber      String?
+  status           BotConnectionStatus @default(not_connected)
+  providerMetadata Json?
+  createdAt        DateTime            @default(now())
+  updatedAt        DateTime            @updatedAt
+  user             User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, channel])
+}
+
+model BotCommandLog {
+  id             String           @id @default(cuid())
+  userId         String?
+  channel        BotChannel
+  rawMessage     String
+  detectedIntent BotActionType
+  status         BotCommandStatus
+  responseText   String
+  createdAt      DateTime         @default(now())
+  user           User?            @relation(fields: [userId], references: [id], onDelete: SetNull)
+}
+
+model BotActionRequest {
+  id         String          @id @default(cuid())
+  userId     String
+  actionType BotActionType
+  payload    Json?
+  status     BotActionStatus @default(draft)
+  createdAt  DateTime        @default(now())
+  updatedAt  DateTime        @updatedAt
+  user       User            @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
 model ProviderProfile {
@@ -231,8 +469,10 @@ model ProviderProfile {
   pinnedPlacementRequests PinnedPlacementRequest[]
   followers       Follow[]         @relation("ProviderFollowers")
   analyticsEvents AnalyticsEvent[]
+  communityShares CommunityShare[]
   negotiations    Negotiation[]
   riskReviews     RiskReview[]
+  buyerIntents     BuyerIntent[]
 }
 
 model Session {
@@ -302,6 +542,213 @@ model Live {
   provider        ProviderProfile  @relation(fields: [providerId], references: [id], onDelete: Cascade)
   liveRequest     LiveRequest?     @relation(fields: [liveRequestId], references: [id], onDelete: SetNull)
   analyticsEvents AnalyticsEvent[]
+  toolActivations LiveToolActivation[]
+  viewerSignals   LiveViewerSignal[]
+  communityShares CommunityShare[]
+  buyerIntents    BuyerIntent[]
+}
+
+model BuyerProfile {
+  id                     String                 @id @default(cuid())
+  userId                 String                 @unique
+  displayName            String
+  phone                  String?
+  preferredContactMethod PreferredContactMethod @default(platform)
+  createdAt              DateTime               @default(now())
+  updatedAt              DateTime               @updatedAt
+  user                   User                   @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model BuyerAddress {
+  id         String        @id @default(cuid())
+  userId     String
+  label      String
+  line1      String
+  line2      String?
+  city       String
+  region     String?
+  country    String
+  postalCode String?
+  isDefault  Boolean       @default(false)
+  createdAt  DateTime      @default(now())
+  updatedAt  DateTime      @updatedAt
+  user       User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  intents    BuyerIntent[]
+
+  @@index([userId, isDefault])
+}
+
+model BuyerIntent {
+  id                   String              @id @default(cuid())
+  buyerId              String
+  liveId               String?
+  providerId           String?
+  productOrServiceName String
+  category             String
+  intentType           BuyerIntentType
+  quantity             Int?
+  budgetLabel          String?
+  urgency              BuyerIntentUrgency  @default(flexible)
+  status               BuyerIntentStatus   @default(captured)
+  addressId            String?
+  notes                String
+  createdAt            DateTime            @default(now())
+  updatedAt            DateTime            @updatedAt
+  buyer                User                @relation("BuyerIntents", fields: [buyerId], references: [id], onDelete: Cascade)
+  live                 Live?               @relation(fields: [liveId], references: [id], onDelete: SetNull)
+  provider             ProviderProfile?    @relation(fields: [providerId], references: [id], onDelete: SetNull)
+  address              BuyerAddress?       @relation(fields: [addressId], references: [id], onDelete: SetNull)
+  conciergeRequests    ConciergeRequest[]
+  outcomes             Outcome[]
+
+  @@index([buyerId, createdAt])
+  @@index([providerId, liveId])
+  @@index([status, createdAt])
+}
+
+model ConciergeRequest {
+  id                String                  @id @default(cuid())
+  buyerIntentId     String
+  assignedAgentName String                  @default("Buyamia Concierge")
+  status            ConciergeRequestStatus  @default(open)
+  requestedServices Json
+  conciergeNote     String
+  createdAt         DateTime                @default(now())
+  updatedAt         DateTime                @updatedAt
+  buyerIntent       BuyerIntent             @relation(fields: [buyerIntentId], references: [id], onDelete: Cascade)
+  actions           ConciergeAction[]
+
+  @@index([status, createdAt])
+  @@index([buyerIntentId])
+}
+
+model ConciergeAction {
+  id                   String                 @id @default(cuid())
+  conciergeRequestId   String
+  actionType           ConciergeActionType
+  status               ConciergeActionStatus  @default(pending)
+  note                 String
+  createdAt            DateTime               @default(now())
+  conciergeRequest     ConciergeRequest       @relation(fields: [conciergeRequestId], references: [id], onDelete: Cascade)
+
+  @@index([conciergeRequestId, status])
+}
+
+model Outcome {
+  id            String         @id @default(cuid())
+  buyerIntentId String
+  status        OutcomeStatus  @default(pending)
+  outcomeType   OutcomeType
+  summary       String
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+  buyerIntent   BuyerIntent    @relation(fields: [buyerIntentId], references: [id], onDelete: Cascade)
+
+  @@index([buyerIntentId, status])
+}
+
+model AmbassadorProfile {
+  id           String             @id @default(cuid())
+  userId       String             @unique
+  status       AmbassadorStatus   @default(not_started)
+  referralCode String             @unique
+  totalPoints  Int                @default(0)
+  tier         AmbassadorTier     @default(starter)
+  createdAt    DateTime           @default(now())
+  updatedAt    DateTime           @updatedAt
+  user         User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  referrals    Referral[]
+  rewards      RewardLedger[]
+
+  @@index([status, tier])
+}
+
+model Referral {
+  id             String            @id @default(cuid())
+  ambassadorId   String
+  referredEmail  String?
+  referredUserId String?
+  status         ReferralStatus    @default(invited)
+  source         ReferralSource    @default(referral_link)
+  createdAt      DateTime          @default(now())
+  convertedAt    DateTime?
+  ambassador     AmbassadorProfile @relation(fields: [ambassadorId], references: [id], onDelete: Cascade)
+  referredUser   User?             @relation("ReferredUser", fields: [referredUserId], references: [id], onDelete: SetNull)
+
+  @@index([ambassadorId, status, createdAt])
+  @@index([referredUserId])
+}
+
+model RewardLedger {
+  id             String            @id @default(cuid())
+  ambassadorId   String
+  points         Int
+  reason         RewardReason
+  sourceAmount   Float?
+  sourceCurrency String?
+  note           String
+  createdAt      DateTime          @default(now())
+  ambassador     AmbassadorProfile @relation(fields: [ambassadorId], references: [id], onDelete: Cascade)
+
+  @@index([ambassadorId, createdAt])
+  @@index([reason])
+}
+
+model CommunityShare {
+  id         String                @id @default(cuid())
+  userId     String
+  liveId     String?
+  providerId String?
+  channel    CommunityShareChannel
+  createdAt  DateTime              @default(now())
+  user       User                  @relation("CommunityShares", fields: [userId], references: [id], onDelete: Cascade)
+  live       Live?                 @relation(fields: [liveId], references: [id], onDelete: SetNull)
+  provider   ProviderProfile?      @relation(fields: [providerId], references: [id], onDelete: SetNull)
+
+  @@index([userId, createdAt])
+  @@index([liveId, createdAt])
+  @@index([providerId, createdAt])
+}
+
+model LivePresenterTool {
+  id             String                @id @default(cuid())
+  name           String
+  type           LivePresenterToolType @unique
+  description    String
+  defaultPayload Json
+  createdAt      DateTime              @default(now())
+  updatedAt      DateTime              @updatedAt
+}
+
+model LiveToolActivation {
+  id            String                   @id @default(cuid())
+  liveId        String
+  presenterId   String
+  toolType      LivePresenterToolType
+  payload       Json
+  triggerReason LiveToolTriggerReason    @default(manual)
+  status        LiveToolActivationStatus @default(active)
+  createdAt     DateTime                 @default(now())
+  expiresAt     DateTime?
+  live          Live                     @relation(fields: [liveId], references: [id], onDelete: Cascade)
+  presenter     User                     @relation("PresenterToolActivations", fields: [presenterId], references: [id], onDelete: Cascade)
+
+  @@index([liveId, status, createdAt])
+  @@index([presenterId])
+}
+
+model LiveViewerSignal {
+  id         String               @id @default(cuid())
+  liveId     String
+  viewerId   String?
+  signalType LiveViewerSignalType
+  payload    Json
+  createdAt  DateTime             @default(now())
+  live       Live                 @relation(fields: [liveId], references: [id], onDelete: Cascade)
+  viewer     User?                @relation("ViewerSignals", fields: [viewerId], references: [id], onDelete: SetNull)
+
+  @@index([liveId, signalType, createdAt])
+  @@index([viewerId])
 }
 
 model Follow {

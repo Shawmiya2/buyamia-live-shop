@@ -5,6 +5,11 @@ import { DashboardApiPanels } from "./dashboard-api-panels";
 import { BuyamiaAssistant } from "./buyamia-assistant";
 import { getCurrentUser } from "@/lib/backend/auth-context";
 import {
+  getAdminAmbassadorOverview,
+  getProviderAmbassadorEngagement,
+} from "@/lib/backend/ambassador-service";
+import { getConciergeAdminSummary } from "@/lib/backend/concierge-service";
+import {
   canAccessDashboard,
   canSeeAdminControls,
   getDashboardForRole,
@@ -231,7 +236,7 @@ const dashboards: Dashboard[] = [
       { label: "Replay lift", value: "41%", width: 41 },
       { label: "Cancellation risk", value: "3.2%", width: 12 },
     ],
-    quickActions: ["Open live room", "Create booking push", "Schedule stream", "Generate review brief"],
+    quickActions: ["Open live room", "Create booking push", "Schedule stream", "Remote account bot", "Hotel concierge", "Generate review brief"],
   },
   {
     kind: "restaurant",
@@ -391,7 +396,7 @@ const dashboards: Dashboard[] = [
       { label: "Kitchen load", value: "82%", width: 82 },
       { label: "Food cost", value: "31%", width: 31 },
     ],
-    quickActions: ["Open chef live", "Pin menu highlight", "Create tasting", "Adjust reservations"],
+    quickActions: ["Open chef live", "Pin menu highlight", "Create tasting", "Remote account bot", "Restaurant concierge", "Adjust reservations"],
   },
   {
     kind: "supplier",
@@ -550,7 +555,7 @@ const dashboards: Dashboard[] = [
       { label: "Capacity load", value: "71%", width: 71 },
       { label: "Buyer response", value: "17m", width: 84 },
     ],
-    quickActions: ["Live preparation center", "Generate quote", "Open sourcing stream", "Update escrow", "Launch overstock live"],
+    quickActions: ["Live preparation center", "Generate quote", "Open sourcing stream", "Remote account bot", "Supplier concierge", "Update escrow", "Launch overstock live"],
   },
   {
     kind: "services",
@@ -713,6 +718,8 @@ const dashboards: Dashboard[] = [
     quickActions: [
       "Set up a live for my service",
       "Review verification",
+      "Remote account bot",
+      "Services concierge",
       "Extend replay availability",
       "Request pinned placement",
     ],
@@ -872,7 +879,7 @@ const dashboards: Dashboard[] = [
       { label: "Replay coverage", value: "74%", width: 74 },
       { label: "Booking risk", value: "8%", width: 8 },
     ],
-    quickActions: ["Compare hotels", "Open replay", "Update wishlist", "Check booking"],
+    quickActions: ["Buyer concierge", "Ambassador rewards", "Compare hotels", "Open replay", "Update wishlist", "Check booking"],
   },
   {
     kind: "procurement",
@@ -1030,7 +1037,7 @@ const dashboards: Dashboard[] = [
       { label: "Operational risk", value: "22%", width: 22 },
       { label: "AI automation", value: "93%", width: 93 },
     ],
-    quickActions: ["Open procurement agent dashboard", "Generate RFQ", "Rank suppliers", "Open negotiation", "Review risk", "View calendar"],
+    quickActions: ["Open concierge", "Open procurement agent dashboard", "Generate RFQ", "Rank suppliers", "Remote account bot", "Open negotiation", "Review risk", "View calendar"],
   },
 ];
 
@@ -1891,8 +1898,21 @@ function RoleSwitcher({ currentUser }: { currentUser: SafeUser | null }) {
   );
 }
 
-function DashboardDetail({ dashboard }: { dashboard: Dashboard }) {
+async function DashboardDetail({ dashboard }: { dashboard: Dashboard }) {
   const dashboardType = getDashboardApiType(dashboard.kind);
+  const currentUser = await getCurrentUser();
+  const providerEngagement =
+    currentUser && ["hotel", "restaurant", "supplier", "service_provider"].includes(currentUser.role)
+      ? await getProviderAmbassadorEngagement(currentUser).catch(() => null)
+      : null;
+  const adminAmbassadorOverview =
+    currentUser?.role === "main_admin" && dashboard.kind === "procurement"
+      ? await getAdminAmbassadorOverview()
+      : null;
+  const conciergeSummary =
+    currentUser?.role === "main_admin" && dashboard.kind === "procurement"
+      ? await getConciergeAdminSummary()
+      : null;
 
   return (
     <section className="px-4 py-5 sm:px-6 lg:px-8">
@@ -1908,6 +1928,10 @@ function DashboardDetail({ dashboard }: { dashboard: Dashboard }) {
       <MetricGrid metrics={dashboard.metrics} />
       <DashboardApiPanels dashboardType={dashboardType} title={dashboard.name} />
 
+      {dashboard.kind === "traveler" && <ViewerAmbassadorCard />}
+      {providerEngagement && <ProviderAmbassadorEngagement engagement={providerEngagement} />}
+      {adminAmbassadorOverview && <AdminAmbassadorSummary overview={adminAmbassadorOverview} />}
+      {conciergeSummary && <AdminConciergeSummary summary={conciergeSummary} />}
       {dashboard.kind === "hotel" && <HotelAudienceSplit />}
       {dashboard.kind === "procurement" && <ProcurementAgentCTA />}
       {dashboard.kind === "supplier" && <SupplierPreparationCenterCTA />}
@@ -1946,6 +1970,141 @@ function getDashboardApiType(kind: Dashboard["kind"]): DashboardType {
   }
 
   return kind;
+}
+
+function ViewerAmbassadorCard() {
+  return (
+    <section className="mt-5 rounded-3xl border border-[#d6cbb6] bg-[#fffaf0] p-5 shadow-sm">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+        <div>
+          <p className="text-[11px] font-bold uppercase tracking-[.16em] text-[#6f7f4f]">
+            Trusted community
+          </p>
+          <h2 className="mt-1 text-2xl font-semibold">Ambassador rewards</h2>
+          <p className="mt-3 max-w-3xl text-sm leading-7 text-[#675f50]">
+            Become a trusted community ambassador, share lives, invite friends, and earn demo credits or perks for qualified engagement and order-value signals.
+          </p>
+        </div>
+        <StatusChip label="Demo credits only" tone="warm" />
+      </div>
+      <Link href="/dashboard/viewer/ambassador" className="mt-5 inline-flex rounded-full bg-[#1e2419] px-5 py-3 text-sm font-bold text-[#fffaf0] transition hover:bg-[#596540]">
+        Open ambassador rewards
+      </Link>
+    </section>
+  );
+}
+
+function AdminConciergeSummary({
+  summary,
+}: {
+  summary: {
+    openRequests: number;
+    waitingForBuyer: number;
+    waitingForProvider: number;
+    arrangedOutcomes: number;
+  };
+}) {
+  const rows = [
+    ["Open concierge requests", summary.openRequests],
+    ["Waiting for buyer", summary.waitingForBuyer],
+    ["Waiting for provider", summary.waitingForProvider],
+    ["Arranged outcomes", summary.arrangedOutcomes],
+  ] as const;
+
+  return (
+    <section className="mt-5 rounded-3xl border border-[#d6cbb6] bg-[#fffaf0] p-5 shadow-sm">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+        <div>
+          <p className="text-[11px] font-bold uppercase tracking-[.16em] text-[#6f7f4f]">
+            Last-mile concierge
+          </p>
+          <h2 className="mt-1 text-2xl font-semibold">Buyamia Concierge summary</h2>
+        </div>
+        <Link href="/dashboard/main/concierge" className="w-fit rounded-full bg-[#1e2419] px-4 py-2 text-sm font-bold text-[#fffaf0]">
+          Open concierge
+        </Link>
+      </div>
+      <div className="mt-4 grid gap-3 md:grid-cols-4">
+        {rows.map(([label, value]) => (
+          <div key={label} className="rounded-2xl bg-[#f3ecdc] p-4">
+            <p className="text-xs font-bold text-[#596540]">{label}</p>
+            <p className="mt-2 text-2xl font-semibold">{value}</p>
+          </div>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+function ProviderAmbassadorEngagement({
+  engagement,
+}: {
+  engagement: Awaited<ReturnType<typeof getProviderAmbassadorEngagement>>;
+}) {
+  return (
+    <section className="mt-5 rounded-3xl border border-[#d6cbb6] bg-[#fffaf0] p-5 shadow-sm">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+        <div>
+          <p className="text-[11px] font-bold uppercase tracking-[.16em] text-[#6f7f4f]">
+            Ambassador engagement
+          </p>
+          <h2 className="mt-1 text-2xl font-semibold">Community activity for your provider profile</h2>
+        </div>
+        <StatusChip label="Role scoped" />
+      </div>
+      <div className="mt-4 grid gap-3 sm:grid-cols-3">
+        <DataPoint label="Shares generated" value={engagement.sharesGenerated} />
+        <DataPoint label="Linked referrals" value={engagement.referralsLinked} />
+        <DataPoint label="Follower growth" value={engagement.followerGrowth} />
+      </div>
+      <p className="mt-4 text-sm leading-6 text-[#675f50]">
+        This view is limited to shares and lives tied to your provider profile. Global ambassador totals remain main-admin only.
+      </p>
+    </section>
+  );
+}
+
+function AdminAmbassadorSummary({
+  overview,
+}: {
+  overview: Awaited<ReturnType<typeof getAdminAmbassadorOverview>>;
+}) {
+  return (
+    <section className="mt-5 rounded-3xl border border-[#d6cbb6] bg-[#fffaf0] p-5 shadow-sm">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+        <div>
+          <p className="text-[11px] font-bold uppercase tracking-[.16em] text-[#6f7f4f]">
+            Ambassador program
+          </p>
+          <h2 className="mt-1 text-2xl font-semibold">Trusted ambassador overview</h2>
+        </div>
+        <Link href="/dashboard/main/ambassadors" className="w-fit rounded-full bg-[#1e2419] px-4 py-2 text-xs font-bold text-[#fffaf0]">
+          View ambassadors
+        </Link>
+      </div>
+      <div className="mt-4 grid gap-3 sm:grid-cols-3">
+        <DataPoint label="Total ambassadors" value={overview.totalAmbassadors} />
+        <DataPoint label="Total reward points" value={overview.totalRewardPoints} />
+        <DataPoint label="Recent referrals" value={overview.recentReferrals.length} />
+      </div>
+      <div className="mt-4 flex flex-wrap gap-2">
+        {overview.tierGroups.map((tier) => (
+          <span key={tier.tier} className="rounded-full bg-[#edf2dd] px-3 py-1 text-xs font-black text-[#596540]">
+            {tier.tier.replace(/_/g, " ")}: {tier._count}
+          </span>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+function DataPoint({ label, value }: { label: string; value: string | number }) {
+  return (
+    <div className="rounded-2xl bg-[#f3ecdc] p-4">
+      <p className="text-xs font-bold uppercase tracking-[.14em] text-[#6f7f4f]">{label}</p>
+      <p className="mt-2 text-3xl font-semibold">{value}</p>
+    </div>
+  );
 }
 
 function HotelAudienceSplit() {
@@ -2499,6 +2658,8 @@ function quickActionHref(action: string, dashboardType?: DashboardType) {
       "open services dashboard": "/dashboard/services",
       "open supplier dashboard": "/dashboard/supplier",
       "compare hotels": "/dashboard/viewer",
+      "ambassador rewards": "/dashboard/viewer/ambassador",
+      "become an ambassador": "/dashboard/viewer/ambassador",
       "update wishlist": "/dashboard/viewer",
       "check booking": "/dashboard/viewer",
       "extend replay availability": "/services/replay-availability",
@@ -2514,6 +2675,12 @@ function quickActionHref(action: string, dashboardType?: DashboardType) {
       "open chef live": "/live",
       "open live room": "/live",
       "open sourcing stream": "/live",
+      "remote account bot": "/dashboard/remote-bot",
+      "buyer concierge": "/dashboard/viewer/concierge",
+      "hotel concierge": "/dashboard/hotel/concierge",
+      "restaurant concierge": "/dashboard/restaurant/concierge",
+      "supplier concierge": "/dashboard/supplier/concierge",
+      "services concierge": "/dashboard/services/concierge",
     };
 
     return roleSafeRoutes[normalized] ?? providerDashboardHref[dashboardType] ?? "/live";
@@ -2530,7 +2697,16 @@ function quickActionHref(action: string, dashboardType?: DashboardType) {
     "open supplier dashboard": "/dashboard/supplier",
     "open ai procurement": "/dashboard/main",
     "open procurement agent dashboard": "/dashboard/procurement-agent",
+    "remote account bot": "/dashboard/remote-bot",
+    "open concierge": "/dashboard/main/concierge",
+    "buyer concierge": "/dashboard/viewer/concierge",
+    "hotel concierge": "/dashboard/hotel/concierge",
+    "restaurant concierge": "/dashboard/restaurant/concierge",
+    "supplier concierge": "/dashboard/supplier/concierge",
+    "services concierge": "/dashboard/services/concierge",
     "compare hotels": "/dashboard/viewer",
+    "ambassador rewards": "/dashboard/viewer/ambassador",
+    "become an ambassador": "/dashboard/viewer/ambassador",
     "update wishlist": "/dashboard/viewer",
     "check booking": "/dashboard/viewer",
     "review verification": "/dashboard/main/risk",

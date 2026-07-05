@@ -803,22 +803,69 @@ export function toLiveEvent(live: LiveWithProvider): LiveEvent {
 }
 
 async function toLiveEventWithMetrics(live: LiveWithProvider): Promise<LiveEvent> {
-  const [viewerCount, replayViews, intentCount] = await Promise.all([
-    prisma.analyticsEvent.count({ where: { liveId: live.id, eventType: { in: ["live_viewed", "watched_live"] } } }),
-    prisma.analyticsEvent.count({ where: { liveId: live.id, eventType: "replay_viewed" } }),
-    prisma.analyticsEvent.count({ where: { liveId: live.id, eventType: { contains: "intent" } } }),
-  ]);
-  const event = toLiveEvent(live);
+  return (await toLiveEventsWithMetrics([live]))[0];
+}
 
-  return {
-    ...event,
-    viewerCount: Math.max(event.viewerCount, viewerCount),
-    replayViews: Math.max(event.replayViews, replayViews),
-    conversionIntent: Math.max(
-      event.conversionIntent,
-      viewerCount > 0 ? Math.min(100, Math.round((intentCount / viewerCount) * 100)) : 0,
-    ),
-  };
+async function toLiveEventsWithMetrics(lives: LiveWithProvider[]): Promise<LiveEvent[]> {
+  if (lives.length === 0) {
+    return [];
+  }
+
+  const metricRows = (
+    await Promise.all(
+      chunk(lives.map((live) => live.id), 400).map((liveIds) =>
+        prisma.analyticsEvent.groupBy({
+          by: ["liveId", "eventType"],
+          where: {
+            liveId: { in: liveIds },
+          },
+          _count: { _all: true },
+        }),
+      ),
+    )
+  ).flat();
+  const metricsByLiveId = new Map<string, { viewerCount: number; replayViews: number; intentCount: number }>();
+
+  for (const row of metricRows) {
+    if (!row.liveId) {
+      continue;
+    }
+    const metrics = metricsByLiveId.get(row.liveId) ?? { viewerCount: 0, replayViews: 0, intentCount: 0 };
+    if (row.eventType === "live_viewed" || row.eventType === "watched_live") {
+      metrics.viewerCount += row._count._all;
+    }
+    if (row.eventType === "replay_viewed") {
+      metrics.replayViews += row._count._all;
+    }
+    if (row.eventType.includes("intent")) {
+      metrics.intentCount += row._count._all;
+    }
+    metricsByLiveId.set(row.liveId, metrics);
+  }
+
+  return lives.map((live) => {
+    const event = toLiveEvent(live);
+    const metrics = metricsByLiveId.get(live.id) ?? { viewerCount: 0, replayViews: 0, intentCount: 0 };
+    const viewerCount = Math.max(event.viewerCount, metrics.viewerCount);
+
+    return {
+      ...event,
+      viewerCount,
+      replayViews: Math.max(event.replayViews, metrics.replayViews),
+      conversionIntent: Math.max(
+        event.conversionIntent,
+        viewerCount > 0 ? Math.min(100, Math.round((metrics.intentCount / viewerCount) * 100)) : 0,
+      ),
+    };
+  });
+}
+
+function chunk<T>(items: T[], size: number): T[][] {
+  const chunks: T[][] = [];
+  for (let index = 0; index < items.length; index += size) {
+    chunks.push(items.slice(index, index + size));
+  }
+  return chunks;
 }
 
 export function sortPinnedLives(input: LiveEvent[]) {
@@ -992,12 +1039,50 @@ export async function getPinnedLives(providerId?: string) {
 }
 
 export async function getAdminLivePreview(limit = 3) {
+  const safeLimit = Math.max(0, Math.floor(limit));
+  if (safeLimit === 0) {
+    return [];
+  }
+
+  const previewIds = await prisma.$queryRaw<{ id: string }[]>`
+    SELECT live."id"
+    FROM "Live" live
+    LEFT JOIN (
+      SELECT
+        "liveId",
+        SUM(CASE WHEN "eventType" IN ('live_viewed', 'watched_live') THEN 1 ELSE 0 END) AS "viewerMetric",
+        SUM(CASE WHEN "eventType" = 'replay_viewed' THEN 1 ELSE 0 END) AS "replayMetric"
+      FROM "AnalyticsEvent"
+      WHERE "liveId" IS NOT NULL
+      GROUP BY "liveId"
+    ) metrics ON metrics."liveId" = live."id"
+    ORDER BY
+      CASE
+        WHEN live."isPinned" THEN 0
+        WHEN live."status" = 'active' THEN 1
+        WHEN live."status" = 'completed' THEN 3
+        ELSE 2
+      END ASC,
+      live."priorityScore" DESC,
+      (
+        MAX(live."viewerCount", COALESCE(metrics."viewerMetric", 0)) +
+        MAX(live."replayViews", COALESCE(metrics."replayMetric", 0))
+      ) DESC,
+      COALESCE(live."scheduledAt", live."startedAt", live."createdAt") DESC
+    LIMIT ${safeLimit}
+  `;
+  const ids = previewIds.map((row) => row.id);
+  if (ids.length === 0) {
+    return [];
+  }
+
   const lives = await prisma.live.findMany({
+    where: { id: { in: ids } },
     include: { provider: { include: liveProviderInclude } },
   });
-  const events = await Promise.all(lives.map(toLiveEventWithMetrics));
+  const events = await toLiveEventsWithMetrics(lives);
 
-  return events.sort(compareLivePreviewPriority).slice(0, Math.max(0, limit));
+  return events.sort(compareLivePreviewPriority).slice(0, safeLimit);
 }
 
 function compareLivePreviewPriority(a: LiveEvent, b: LiveEvent) {
@@ -1032,12 +1117,8 @@ export async function getFeaturedSupplierSessions(): Promise<FeaturedSupplierSes
     take: 12,
   });
 
-  const records = await Promise.all(
-    lives.map(async (live) => ({
-      live,
-      event: await toLiveEventWithMetrics(live),
-    })),
-  );
+  const events = await toLiveEventsWithMetrics(lives);
+  const records = lives.map((live, index) => ({ live, event: events[index] }));
 
   if (records.length === 0) {
     return [];
@@ -1167,7 +1248,7 @@ export async function listLives(input: ListLivesInput = {}): Promise<LiveListRes
         include: { provider: { include: liveProviderInclude } },
       }),
     ]);
-    const ranked = (await Promise.all(lives.map(toLiveEventWithMetrics)))
+    const ranked = (await toLiveEventsWithMetrics(lives))
       .sort((a, b) => (b.viewerCount + b.replayViews) - (a.viewerCount + a.replayViews));
     const totalPages = Math.max(1, Math.ceil(totalItems / pageSize));
 
@@ -1199,7 +1280,7 @@ export async function listLives(input: ListLivesInput = {}): Promise<LiveListRes
   const totalPages = Math.max(1, Math.ceil(totalItems / pageSize));
 
   return {
-    items: await Promise.all(lives.map(toLiveEventWithMetrics)),
+    items: await toLiveEventsWithMetrics(lives),
     pagination: {
       page,
       pageSize,
@@ -1309,7 +1390,7 @@ export async function listProviderReplays(providerId: string, input: {
           ? [{ createdAt: "desc" }]
           : [{ replayExpiresAt: "asc" }, { createdAt: "desc" }],
   });
-  const events = await Promise.all(lives.map(toLiveEventWithMetrics));
+  const events = await toLiveEventsWithMetrics(lives);
   return sort === "most_viewed"
     ? events.sort((a, b) => b.replayViews - a.replayViews)
     : events;
