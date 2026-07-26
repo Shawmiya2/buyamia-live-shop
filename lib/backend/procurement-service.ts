@@ -9,7 +9,30 @@ import type { CalendarEvent, CalendarEventFilters, CalendarEventType } from "./t
 
 const supplierRoles = ["hotel", "restaurant", "supplier", "service_provider"] as const;
 const negotiationStatuses = ["open", "awaiting_response", "paused", "closed"] as const;
+const quoteCurrencies = ["USD", "EUR", "GBP", "IDR", "SGD", "AUD", "JPY", "CNY"] as const;
 const riskStatuses = ["pending", "reviewed", "escalated", "dismissed"] as const;
+
+const supplierQuoteSchema = z.object({
+  rfqId: z.string().trim().min(1, "Please select an RFQ."),
+  buyer: z.string().trim().min(1, "Please enter the buyer."),
+  currency: z.enum(quoteCurrencies, "Please select a supported currency."),
+  shipping: z.string().trim().min(1, "Please enter shipping information.").max(500),
+  estimatedDelivery: z.string().trim().min(1, "Please enter an estimated delivery time.").max(120),
+  paymentTerms: z.string().trim().min(1, "Please enter payment terms.").max(300),
+  validUntil: z.coerce.date(),
+  notes: z.string().trim().max(1000).optional(),
+  draft: z.coerce.boolean().default(false),
+  products: z.array(z.object({
+    name: z.string().trim().min(1, "Please enter a product name."),
+    quantity: z.coerce.number().int().positive("Quantity must be positive."),
+    moq: z.coerce.number().int().positive("MOQ must be positive."),
+    unitPrice: z.coerce.number().positive("Unit price must be positive."),
+  })).min(1, "Please add at least one product."),
+}).superRefine((value, context) => {
+  if (value.validUntil <= new Date()) {
+    context.addIssue({ code: "custom", path: ["validUntil"], message: "Quotation validity must be in the future." });
+  }
+});
 
 const rfqSchema = z
   .object({
@@ -90,6 +113,68 @@ export async function createRfq(adminId: string, input: unknown) {
 
 export async function listRfqs() {
   return prisma.rfq.findMany({ orderBy: { createdAt: "desc" } });
+}
+
+export async function listSupplierQuoteRfqs() {
+  return prisma.rfq.findMany({
+    where: { status: { in: ["open", "in_review"] } },
+    orderBy: { createdAt: "desc" },
+  });
+}
+
+export async function createSupplierQuote(
+  userId: string,
+  providerId: string,
+  input: unknown,
+) {
+  const parsed = parseOrThrow(supplierQuoteSchema, input);
+  const [rfq, provider] = await Promise.all([
+    prisma.rfq.findUnique({ where: { id: parsed.rfqId } }),
+    prisma.providerProfile.findUnique({ where: { id: providerId } }),
+  ]);
+  if (!rfq || !["open", "in_review"].includes(rfq.status)) {
+    throw new ValidationApiError({ rfqId: "Please select an available RFQ." });
+  }
+  if (!provider || provider.category !== "supplier") {
+    throw new ApiError("forbidden", "Only authenticated suppliers can generate quotations.", 403);
+  }
+  if (rfq.supplierType && rfq.supplierType !== "supplier") {
+    throw new ValidationApiError({ rfqId: "This RFQ is not available to supplier accounts." });
+  }
+
+  const total = parsed.products.reduce((sum, product) => sum + product.quantity * product.unitPrice, 0);
+  const snapshot = {
+    kind: "supplier_quote",
+    buyer: parsed.buyer,
+    supplier: provider.displayName,
+    currency: parsed.currency,
+    products: parsed.products,
+    total,
+    shipping: parsed.shipping,
+    estimatedDelivery: parsed.estimatedDelivery,
+    paymentTerms: parsed.paymentTerms,
+    validUntil: parsed.validUntil.toISOString(),
+    notes: parsed.notes ?? "",
+    state: parsed.draft ? "draft" : "generated",
+  };
+
+  return prisma.negotiation.create({
+    data: {
+      title: `Quote for ${rfq.title} — ${parsed.buyer}`,
+      status: parsed.draft ? "paused" : "awaiting_response",
+      providerId,
+      rfqId: rfq.id,
+      createdById: userId,
+      messages: {
+        create: {
+          authorId: userId,
+          body: JSON.stringify(snapshot),
+          message: JSON.stringify(snapshot),
+        },
+      },
+    },
+    include: negotiationInclude,
+  });
 }
 
 export async function getRfq(id: string) {
@@ -201,6 +286,14 @@ export async function listNegotiations() {
   return prisma.negotiation.findMany({ orderBy: { updatedAt: "desc" }, include: negotiationInclude });
 }
 
+export async function listProviderNegotiations(providerId: string) {
+  return prisma.negotiation.findMany({
+    where: { providerId },
+    orderBy: { updatedAt: "desc" },
+    include: negotiationInclude,
+  });
+}
+
 export async function getNegotiation(id: string) {
   const negotiation = await prisma.negotiation.findUnique({ where: { id }, include: negotiationInclude });
   if (!negotiation) {
@@ -234,6 +327,48 @@ export async function updateNegotiation(adminId: string, id: string, input: unkn
   if (parsed.message) {
     await prisma.negotiationMessage.create({
       data: { negotiationId: id, authorId: adminId, body: parsed.message, message: parsed.message },
+    });
+  }
+
+  return prisma.negotiation.update({
+    where: { id },
+    data: { status: parsed.status },
+    include: negotiationInclude,
+  });
+}
+
+const providerNegotiationTransitions: Record<string, readonly string[]> = {
+  open: ["awaiting_response", "paused"],
+  awaiting_response: ["open", "paused", "closed"],
+  paused: ["open", "awaiting_response"],
+  closed: [],
+};
+
+export async function updateProviderNegotiation(
+  userId: string,
+  providerId: string,
+  id: string,
+  input: unknown,
+) {
+  const parsed = parseOrThrow(negotiationUpdateSchema, input);
+  const current = await prisma.negotiation.findFirst({
+    where: { id, providerId },
+    include: negotiationInclude,
+  });
+  if (!current) {
+    throw new ApiError("not_found", "Protected transaction not found.", 404);
+  }
+  if (
+    parsed.status &&
+    parsed.status !== current.status &&
+    !providerNegotiationTransitions[current.status].includes(parsed.status)
+  ) {
+    throw new ValidationApiError({ status: "This escrow status transition is not permitted." });
+  }
+
+  if (parsed.message) {
+    await prisma.negotiationMessage.create({
+      data: { negotiationId: id, authorId: userId, body: parsed.message, message: parsed.message },
     });
   }
 

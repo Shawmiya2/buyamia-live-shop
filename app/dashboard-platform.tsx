@@ -3,6 +3,8 @@ import Link from "next/link";
 import { DashboardAccessGate } from "./dashboard-access-gate";
 import { DashboardApiPanels } from "./dashboard-api-panels";
 import { BuyamiaAssistant } from "./buyamia-assistant";
+import { DashboardWorkbenchTabs } from "./dashboard-workbench-tabs";
+import { FeaturedSupplierSessionTabs } from "./featured-supplier-session-tabs";
 import { getCurrentUser } from "@/lib/backend/auth-context";
 import {
   getAdminAmbassadorOverview,
@@ -1458,29 +1460,25 @@ function FeaturedSupplierSessions({
           </Link>
         </div>
 
-        <div className="mb-5 flex gap-2 overflow-x-auto pb-1">
-          {featuredSupplierCategories.map((category) => (
-            <a
-              key={category}
-              href={`#featured-${category.toLowerCase().replace(/\s+/g, "-")}`}
-              className="min-w-fit rounded-full bg-[#fffaf0] px-3.5 py-2 text-xs font-bold text-[#596540] shadow-sm transition hover:bg-white"
-            >
-              {category}
-            </a>
-          ))}
-        </div>
-
-        {sessions.length ? (
-          <div className="grid gap-4 md:grid-cols-2 2xl:grid-cols-5">
-            {sessions.map((session) => (
-              <FeaturedSupplierCard key={`${session.featureCategory}-${session.id}`} session={session} />
-            ))}
-          </div>
-        ) : (
-          <p className="rounded-2xl bg-[#fffaf0] p-4 text-sm font-semibold text-[#675f50]">
-            Supplier sessions will appear here after supplier live records are seeded.
-          </p>
-        )}
+        <FeaturedSupplierSessionTabs
+          tabs={featuredSupplierCategories.map((category) => ({
+            id: category.toLowerCase().replace(/\s+/g, "-"),
+            label: category === "New verified suppliers" ? "New Verified Suppliers" : category,
+            content: sessions.some((session) => session.featureCategory === category) ? (
+              <div className="grid gap-4 md:grid-cols-2 2xl:grid-cols-5">
+                {sessions
+                  .filter((session) => session.featureCategory === category)
+                  .map((session) => (
+                    <FeaturedSupplierCard key={`${session.featureCategory}-${session.id}`} session={session} />
+                  ))}
+              </div>
+            ) : (
+              <p className="rounded-2xl bg-[#fffaf0] p-4 text-sm font-semibold text-[#675f50]">
+                Supplier sessions will appear here after supplier live records are seeded.
+              </p>
+            ),
+          }))}
+        />
       </div>
     </section>
   );
@@ -2398,6 +2396,42 @@ function DashboardHero({ dashboard }: { dashboard: Dashboard }) {
 }
 
 function DashboardWorkbench({ dashboard }: { dashboard: Dashboard }) {
+  if (
+    dashboard.kind === "hotel" ||
+    dashboard.kind === "restaurant" ||
+    dashboard.kind === "services" ||
+    dashboard.kind === "supplier" ||
+    dashboard.kind === "traveler"
+  ) {
+    return (
+      <DashboardWorkbenchTabs
+        tabs={dashboard.tabs.map((tab) => {
+          const id = `${dashboard.kind}-${tab.label.toLowerCase().replace(/\s+/g, "-")}`;
+
+          return {
+            id,
+            label: tab.label,
+            content: (
+              <>
+                <div className="mb-3 flex items-center justify-between gap-2">
+                  <h3 className="text-sm font-bold">{tab.label}</h3>
+                  <span className="rounded-full bg-[#fffaf0] px-2.5 py-1 text-[11px] font-black text-[#596540]">
+                    {tab.items.length}
+                  </span>
+                </div>
+                <div className="grid gap-2">
+                  {tab.items.map((item) => (
+                    <MiniItem key={item.title} item={item} />
+                  ))}
+                </div>
+              </>
+            ),
+          };
+        })}
+      />
+    );
+  }
+
   return (
     <section className="rounded-3xl border border-[#d6cbb6] bg-[#fffaf0] p-5 shadow-sm">
       <div className="mb-4 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
@@ -2657,15 +2691,20 @@ function quickActionHref(action: string, dashboardType?: DashboardType) {
       "open restaurant dashboard": "/dashboard/restaurant",
       "open services dashboard": "/dashboard/services",
       "open supplier dashboard": "/dashboard/supplier",
-      "compare hotels": "/dashboard/viewer",
+      "compare hotels": "/dashboard/viewer/compare-hotels",
+      "open replay": "/live/catalogue?status=replays",
       "ambassador rewards": "/dashboard/viewer/ambassador",
       "become an ambassador": "/dashboard/viewer/ambassador",
-      "update wishlist": "/dashboard/viewer",
-      "check booking": "/dashboard/viewer",
+      "update wishlist": "/viewer/subscriptions",
+      "check booking": "/dashboard/viewer/bookings",
       "extend replay availability": "/services/replay-availability",
       "request pinned placement": "/services/pinned-placement",
       "set up a live for my service": "/live/schedule",
+      "review verification": "/services/verification",
       "live preparation center": "/dashboard/supplier/live-prep",
+      "launch overstock live": "/live/schedule",
+      "update escrow": "/supplier/escrow",
+      "generate quote": "/supplier/quotes/new",
       "create booking push": "/hotel/booking-push",
       "schedule stream": "/live/schedule",
       "generate review brief": "/hotel/review-brief",
@@ -2704,25 +2743,27 @@ function quickActionHref(action: string, dashboardType?: DashboardType) {
     "restaurant concierge": "/dashboard/restaurant/concierge",
     "supplier concierge": "/dashboard/supplier/concierge",
     "services concierge": "/dashboard/services/concierge",
-    "compare hotels": "/dashboard/viewer",
+    "compare hotels": "/dashboard/viewer/compare-hotels",
+    "open replay": "/live/catalogue?status=replays",
     "ambassador rewards": "/dashboard/viewer/ambassador",
     "become an ambassador": "/dashboard/viewer/ambassador",
-    "update wishlist": "/dashboard/viewer",
-    "check booking": "/dashboard/viewer",
-    "review verification": "/dashboard/main/risk",
+    "update wishlist": "/viewer/subscriptions",
+    "check booking": "/dashboard/viewer/bookings",
+    "review verification": "/services/verification",
     "extend replay availability": "/services/replay-availability",
     "request pinned placement": "/services/pinned-placement",
     "set up a live for my service": "/live/schedule",
     "live preparation center": "/dashboard/supplier/live-prep",
+    "launch overstock live": "/live/schedule",
+    "update escrow": "/supplier/escrow",
+    "generate quote": "/supplier/quotes/new",
     "create booking push": "/hotel/booking-push",
     "schedule stream": "/live/schedule",
     "generate review brief": "/hotel/review-brief",
     "pin menu highlight": "/restaurant/menu-highlights",
     "create tasting": "/restaurant/create-tasting",
     "adjust reservations": "/restaurant/reservations",
-    "generate quote": "/dashboard/main/rfqs/new",
     "open sourcing stream": "/dashboard/main/suppliers/rank",
-    "update escrow": "/dashboard/main/negotiations",
   };
 
   if (directRoutes[normalized]) {

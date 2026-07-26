@@ -91,6 +91,12 @@ export type Provider = {
   profileType: Exclude<ProfileType, "main_admin" | "viewer">;
   verificationStatus: VerificationStatus;
   trustScore?: number;
+  description?: string;
+  country?: string;
+  city?: string;
+  currentAvailability?: "available" | "live_now" | "replay_available" | "no_active_sessions";
+  liveStatus?: string;
+  addedAt?: string;
 };
 
 export type LiveReplay = {

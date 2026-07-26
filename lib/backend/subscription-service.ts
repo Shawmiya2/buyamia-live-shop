@@ -12,22 +12,56 @@ function toProvider(input: {
   userId: string;
   displayName: string;
   category: string;
+  description: string | null;
+  location: string | null;
   completedOrders: number;
   responseRate: number;
   responseMinutes: number;
   certifications: Prisma.JsonValue;
   bImpactScore: number;
   certifiedReviews: number;
-  lives?: { id: string }[];
+  lives?: {
+    id: string;
+    status: string;
+    scheduledAt: Date | null;
+    replayExpiresAt: Date | null;
+  }[];
   user: { verificationStatus: VerificationStatus };
-}): Provider {
+}, addedAt?: Date): Provider {
+  const now = new Date();
+  const locationParts = (input.location ?? "").split(",").map((part) => part.trim()).filter(Boolean);
+  const activeLive = input.lives?.find((live) => live.status === "active");
+  const upcomingLive = input.lives?.find(
+    (live) => live.status === "scheduled" && (!live.scheduledAt || live.scheduledAt >= now),
+  );
+  const replay = input.lives?.find(
+    (live) =>
+      (live.status === "replay" || live.status === "completed") &&
+      (!live.replayExpiresAt || live.replayExpiresAt >= now),
+  );
+
   return {
     id: input.id,
     ownerUserId: input.userId,
     name: input.displayName,
     profileType: input.category as Provider["profileType"],
     verificationStatus: input.user.verificationStatus as Provider["verificationStatus"],
-    trustScore: calculateSupplierTrustScore(input, input.lives?.length ?? 0).score,
+    trustScore: calculateSupplierTrustScore(
+      input,
+      input.lives?.filter((live) => live.status === "completed").length ?? 0,
+    ).score,
+    description: input.description ?? undefined,
+    country: locationParts.length > 1 ? locationParts.at(-1) : undefined,
+    city: locationParts.length > 1 ? locationParts.slice(0, -1).join(", ") : locationParts[0],
+    currentAvailability: activeLive
+      ? "live_now"
+      : upcomingLive
+        ? "available"
+        : replay
+          ? "replay_available"
+          : "no_active_sessions",
+    liveStatus: activeLive?.status ?? upcomingLive?.status ?? replay?.status,
+    addedAt: addedAt?.toISOString(),
   };
 }
 
@@ -84,7 +118,14 @@ export async function unfollowProvider(input: { viewerUserId: string; providerId
 
 const providerInclude = {
   user: true,
-  lives: { where: { status: "completed" }, select: { id: true } },
+  lives: {
+    select: {
+      id: true,
+      status: true,
+      scheduledAt: true,
+      replayExpiresAt: true,
+    },
+  },
 } as const;
 
 export async function getFollowedProviders(viewerUserId: string, options: { limit?: number } = {}) {
@@ -95,7 +136,7 @@ export async function getFollowedProviders(viewerUserId: string, options: { limi
     take: options.limit,
   });
 
-  return follows.map((follow) => toProvider(follow.provider));
+  return follows.map((follow) => toProvider(follow.provider, follow.createdAt));
 }
 
 export async function getProviderFollowers(providerId: string) {
@@ -128,5 +169,5 @@ export async function getAvailableProvidersForViewer(viewerUserId: string, optio
     take: options.limit,
   });
 
-  return providers.map(toProvider);
+  return providers.map((provider) => toProvider(provider));
 }
