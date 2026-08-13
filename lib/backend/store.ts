@@ -30,7 +30,10 @@ export type BackendStore = {
 
 // Local demo persistence only. This JSON file is not production storage and
 // should be replaced by real auth, database, document storage, and payments.
-const storePath = path.join(process.cwd(), "data", "backend-store.json");
+const storePath =
+  process.env.VERCEL === "1"
+    ? path.join("/tmp", "buyamia-backend-store.json")
+    : path.join(process.cwd(), "data", "backend-store.json");
 
 function clone<T>(value: T): T {
   return JSON.parse(JSON.stringify(value)) as T;
