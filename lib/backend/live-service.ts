@@ -419,10 +419,10 @@ function parseCommerceData(value: Prisma.JsonValue | null): LiveCommerceData | n
       })
     : [];
   const policies = Array.isArray(data.policies)
-    ? data.policies.filter((policy): policy is string => typeof policy === "string")
+    ? data.policies.filter((policy: unknown): policy is string => typeof policy === "string")
     : [];
   const serviceAvailability = Array.isArray(data.serviceAvailability)
-    ? data.serviceAvailability.filter((entry): entry is string => typeof entry === "string")
+    ? data.serviceAvailability.filter((entry: unknown): entry is string => typeof entry === "string")
     : [];
   const rawSchedule = data.schedule && typeof data.schedule === "object" && !Array.isArray(data.schedule)
     ? data.schedule as Record<string, unknown>

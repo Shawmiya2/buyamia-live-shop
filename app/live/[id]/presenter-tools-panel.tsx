@@ -231,7 +231,7 @@ function ToolCard({
       ) : null}
       {activation.toolType === "poll" && Array.isArray(payload.options) ? (
         <div className="mt-3 flex flex-wrap gap-2">
-          {payload.options.map((option) => (
+          {payload.options.map((option: unknown) => (
             <button key={String(option)} type="button" onClick={() => onSignal("question", { pollVote: option })} className="rounded-full border border-[#cabda4] bg-[#fffaf0] px-3 py-2 text-xs font-bold">
               {String(option)}
             </button>
