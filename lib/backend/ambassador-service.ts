@@ -18,6 +18,35 @@ export type AdminAmbassadorTierGroup = {
   _count: number;
 };
 
+export type AdminAmbassadorProfile = Prisma.AmbassadorProfileGetPayload<{
+  include: {
+    user: { select: { id: true; name: true; email: true; role: true } };
+    referrals: { orderBy: { createdAt: "desc" }; take: 5 };
+    rewards: { orderBy: { createdAt: "desc" }; take: 5 };
+    _count: { select: { referrals: true; rewards: true } };
+  };
+}>;
+
+export type AdminAmbassadorRecentReferral = Prisma.ReferralGetPayload<{
+  include: {
+    ambassador: {
+      include: { user: { select: { name: true; email: true } } };
+    };
+  };
+}>;
+
+export type AdminAmbassadorOverview = {
+  totalAmbassadors: number;
+  totalRewardPoints: number;
+  tierGroups: AdminAmbassadorTierGroup[];
+  recentReferrals: AdminAmbassadorRecentReferral[];
+  profiles: AdminAmbassadorProfile[];
+};
+
+type ProviderAmbassadorLive = Prisma.LiveGetPayload<{
+  select: { id: true };
+}>;
+
 const referralCodePrefix = "BMA";
 
 export function buildAmbassadorReferralLink(referralCode: string) {
@@ -220,7 +249,9 @@ export async function addRewardLedgerEntry(input: {
   });
 }
 
-export async function getAdminAmbassadorOverview(options: { search?: string } = {}) {
+export async function getAdminAmbassadorOverview(
+  options: { search?: string } = {},
+): Promise<AdminAmbassadorOverview> {
   const search = options.search?.trim();
   const where: Prisma.AmbassadorProfileWhereInput | undefined = search
     ? {
@@ -235,9 +266,8 @@ export async function getAdminAmbassadorOverview(options: { search?: string } = 
   const tierGroupsPromise = prisma.ambassadorProfile
     .groupBy({ by: ["tier"], _count: true })
     .then((groups): AdminAmbassadorTierGroup[] => groups);
-
-  const [profiles, totalPoints, tierGroups, recentReferrals] = await Promise.all([
-    prisma.ambassadorProfile.findMany({
+  const profilesPromise = prisma.ambassadorProfile
+    .findMany({
       where,
       orderBy: [{ totalPoints: "desc" }, { createdAt: "desc" }],
       include: {
@@ -247,10 +277,10 @@ export async function getAdminAmbassadorOverview(options: { search?: string } = 
         _count: { select: { referrals: true, rewards: true } },
       },
       take: 50,
-    }),
-    prisma.ambassadorProfile.aggregate({ _sum: { totalPoints: true }, _count: true }),
-    tierGroupsPromise,
-    prisma.referral.findMany({
+    })
+    .then((profiles): AdminAmbassadorProfile[] => profiles);
+  const recentReferralsPromise = prisma.referral
+    .findMany({
       orderBy: { createdAt: "desc" },
       take: 10,
       include: {
@@ -258,7 +288,14 @@ export async function getAdminAmbassadorOverview(options: { search?: string } = 
           include: { user: { select: { name: true, email: true } } },
         },
       },
-    }),
+    })
+    .then((referrals): AdminAmbassadorRecentReferral[] => referrals);
+
+  const [profiles, totalPoints, tierGroups, recentReferrals] = await Promise.all([
+    profilesPromise,
+    prisma.ambassadorProfile.aggregate({ _sum: { totalPoints: true }, _count: true }),
+    tierGroupsPromise,
+    recentReferralsPromise,
   ]);
 
   return {
@@ -276,10 +313,12 @@ export async function getProviderAmbassadorEngagement(user: SafeUser) {
   }
 
   const providerId = user.providerId;
-  const lives = await prisma.live.findMany({
-    where: { providerId },
-    select: { id: true },
-  });
+  const lives = await prisma.live
+    .findMany({
+      where: { providerId },
+      select: { id: true },
+    })
+    .then((providerLives): ProviderAmbassadorLive[] => providerLives);
   const liveIds = lives.map((live) => live.id);
 
   const [sharesGenerated, referralsLinked, followerGrowth] = await Promise.all([
