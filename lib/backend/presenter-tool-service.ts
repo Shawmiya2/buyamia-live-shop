@@ -1,4 +1,5 @@
 import type {
+  LivePresenterTool,
   LivePresenterToolType,
   LiveToolActivationStatus,
   LiveToolTriggerReason,
@@ -52,7 +53,13 @@ export type PresenterToolSuggestion = {
   reason: string;
 };
 
-export async function listAvailablePresenterTools() {
+export type AvailablePresenterTool = LivePresenterTool;
+
+export type PresenterToolActivationWithPresenter = Prisma.LiveToolActivationGetPayload<{
+  include: { presenter: { select: { id: true; name: true; role: true } } };
+}>;
+
+export async function listAvailablePresenterTools(): Promise<AvailablePresenterTool[]> {
   return prisma.livePresenterTool.findMany({ orderBy: { name: "asc" } });
 }
 
@@ -107,7 +114,9 @@ export async function triggerPresenterTool(input: {
   });
 }
 
-export async function listActiveToolsForLive(liveId: string) {
+export async function listActiveToolsForLive(
+  liveId: string,
+): Promise<PresenterToolActivationWithPresenter[]> {
   await expirePastActivations(liveId);
   return prisma.liveToolActivation.findMany({
     where: { liveId, status: "active" },
@@ -116,7 +125,10 @@ export async function listActiveToolsForLive(liveId: string) {
   });
 }
 
-export async function listRecentToolActivations(liveId: string, limit = 12) {
+export async function listRecentToolActivations(
+  liveId: string,
+  limit = 12,
+): Promise<PresenterToolActivationWithPresenter[]> {
   await expirePastActivations(liveId);
   return prisma.liveToolActivation.findMany({
     where: { liveId },
