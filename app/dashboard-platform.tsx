@@ -1,6 +1,5 @@
 import Image from "next/image";
 import Link from "next/link";
-import type { AmbassadorTier } from "@prisma/client";
 import { DashboardAccessGate } from "./dashboard-access-gate";
 import { DashboardApiPanels } from "./dashboard-api-panels";
 import { BuyamiaAssistant } from "./buyamia-assistant";
@@ -10,6 +9,7 @@ import { getCurrentUser } from "@/lib/backend/auth-context";
 import {
   getAdminAmbassadorOverview,
   getProviderAmbassadorEngagement,
+  type AdminAmbassadorTierGroup,
 } from "@/lib/backend/ambassador-service";
 import { getConciergeAdminSummary } from "@/lib/backend/concierge-service";
 import {
@@ -2087,7 +2087,7 @@ function AdminAmbassadorSummary({
         <DataPoint label="Recent referrals" value={overview.recentReferrals.length} />
       </div>
       <div className="mt-4 flex flex-wrap gap-2">
-        {overview.tierGroups.map((tier: { tier: AmbassadorTier; _count: number }) => (
+        {overview.tierGroups.map((tier: AdminAmbassadorTierGroup) => (
           <span key={tier.tier} className="rounded-full bg-[#edf2dd] px-3 py-1 text-xs font-black text-[#596540]">
             {tier.tier.replace(/_/g, " ")}: {tier._count}
           </span>

@@ -1,4 +1,5 @@
 import type {
+  AmbassadorTier,
   CommunityShareChannel,
   Prisma,
   ReferralSource,
@@ -11,6 +12,11 @@ import { isProviderRole } from "./role-guard";
 import { calculateAmbassadorTier, calculateRewardPoints } from "./reward-service";
 
 export type AmbassadorProfileWithActivity = Awaited<ReturnType<typeof getAmbassadorForUser>>;
+
+export type AdminAmbassadorTierGroup = {
+  tier: AmbassadorTier;
+  _count: number;
+};
 
 const referralCodePrefix = "BMA";
 
@@ -226,6 +232,10 @@ export async function getAdminAmbassadorOverview(options: { search?: string } = 
       }
     : undefined;
 
+  const tierGroupsPromise = prisma.ambassadorProfile
+    .groupBy({ by: ["tier"], _count: true })
+    .then((groups): AdminAmbassadorTierGroup[] => groups);
+
   const [profiles, totalPoints, tierGroups, recentReferrals] = await Promise.all([
     prisma.ambassadorProfile.findMany({
       where,
@@ -239,7 +249,7 @@ export async function getAdminAmbassadorOverview(options: { search?: string } = 
       take: 50,
     }),
     prisma.ambassadorProfile.aggregate({ _sum: { totalPoints: true }, _count: true }),
-    prisma.ambassadorProfile.groupBy({ by: ["tier"], _count: true }),
+    tierGroupsPromise,
     prisma.referral.findMany({
       orderBy: { createdAt: "desc" },
       take: 10,
